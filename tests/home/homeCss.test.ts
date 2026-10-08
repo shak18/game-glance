@@ -96,9 +96,35 @@ describe('homeCss', () => {
         // The old icon-only chip badge is gone; the chip row keeps its fixed height.
         expect(css).not.toMatch(/\.gh-source\s*\{[^}]*var\(--gh-r-card\)/);
     });
+    it('the status bar sits in Steam\'s top strip, right-aligned with the store pill, in the same glass pill', () => {
+        const css = homeCss();
+        const bar = css.match(/\.gh-status\s*\{[^}]*\}/)?.[0] ?? '';
+        // A fixed place: 32 from the right edge, centred 32 down (a little below the strip's middle).
+        expect(bar).toMatch(/right:\s*32px\s*!important/);
+        expect(bar).toMatch(/top:\s*16px\s*!important/);
+        expect(bar).not.toMatch(/--gh-status-right|--gh-status-cy/);
+        expect(bar).toMatch(/height:\s*32px/);
+        expect(bar).toMatch(/pointer-events:\s*none/);
+        expect(bar).toMatch(/transition:\s*opacity 150ms/);
+        expect(css).toMatch(/\.gh-status\.gh-status-away\s*\{[^}]*opacity:\s*0/);
+        const pill = css.match(/\.gh-status-pill\s*\{[^}]*\}/)?.[0] ?? '';
+        for (const decl of sourcePillLook((n) => `${n}px`).split(';').map((d) => d.trim()).filter(Boolean)) expect(pill).toContain(`${decl} !important`);
+        expect(css).toMatch(/\.gh-status-low\s*\{[^}]*color:\s*#ff8585/);
+        // The status dot: the Friends tab's green and blue, grey when invisible or offline.
+        expect(css).toMatch(/\.gh-status-dot\s*\{[^}]*width:\s*12px[^}]*border-radius:\s*50%/);
+        expect(css).toMatch(/\.gh-status-dot-online\s*\{[^}]*background:\s*#8cd61d/);
+        expect(css).toMatch(/\.gh-status-dot-away\s*\{[^}]*background:\s*#4cb4ff/);
+        expect(css).toMatch(/\.gh-status-dot-off\s*\{[^}]*background:\s*rgba\(196,201,209,\.85\)/);
+    });
     it('the recents row is display only: no pointer events, so a tap or click on a card does nothing', () => {
         const css = homeCss(CARD_SCALE_HANDHELD);
         expect(css).toMatch(/\.gh-recents\s*\{[^}]*pointer-events:\s*none\s*!important/);
+        // While the card row has focus, the selected (or Library) card gets a white ring outside it and an even accent
+        // glow (no y offset), and no bar along its bottom edge.
+        expect(css).toMatch(/\.gh-recents-focus \.gh-cap-wide, \.gh-recents-focus \.gh-cap-lib-on\s*\{[^}]*box-shadow:\s*0 0 0 2px rgba\(255,255,255,\.9\), 0 0 [\d.]+px [\d.]+px var\(--glance-accent\)/);
+        expect(css).not.toMatch(/gh-recents-focus[^{]*\.gh-cap-bar/);
+        // A game new to the library: a small light "New" pill at the card's top left.
+        expect(css).toMatch(/\.gh-cap-new\s*\{[^}]*position:\s*absolute[^}]*text-transform:\s*uppercase[^}]*background:\s*rgba\(255,255,255,\.92\)/);
         expect(css).not.toMatch(/\.gh-cap\s*\{[^}]*cursor:\s*pointer/);
     });
     it('homeCss gives ghosts no blur base and no recents-on-library variant', () => {
@@ -275,6 +301,13 @@ describe('homeCss', () => {
         expect(css).toMatch(/\.gh-card-friends \{[^}]*position: absolute !important[^}]*right: 10px[^}]*top: 10px/);
         expect(css).toMatch(/\.gh-card-friend \{[^}]*width: 24px[^}]*border-radius: 3px/);
         expect(css).toMatch(/\.gh-card-friend-more \{[^}]*width: auto/);
+    });
+    it('news art is fitted whole: contained at the top (centred on the featured card) over a blurred cover copy', () => {
+        const css = homeCss();
+        expect(css).toMatch(/\.gh-card-fit-blur \{[^}]*inset: -28px[^}]*background-size: cover[^}]*filter: blur\(24px\)/);
+        expect(css).toMatch(/\.gh-card-fit \{[^}]*inset: 0[^}]*background-size: contain[^}]*background-position: center top/);
+        expect(css).toMatch(/\.gh-card-featured \.gh-card-fit \{\s*background-position: center/);
+        expect(css).toMatch(/\.gh-card-fitted \.gh-card-title \{\s*-webkit-line-clamp: 2/);
     });
     it('friend card placeholder: blurred, darkened avatar backdrop, faint presence tint, accent gradient without an avatar', () => {
         const css = homeCss();

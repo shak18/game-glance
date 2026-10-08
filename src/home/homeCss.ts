@@ -4,9 +4,10 @@ import { SOURCE_PILL, sourcePillIcon, sourcePillLook } from '../styles/sourcePil
 import { CLOUD_COLOURS, CloudTone } from './cloud';
 import { FRIEND_COLOURS } from './friends';
 import { FEED_ROW2_HEADER } from './feedLayout';
+import { PERSONA_DOT, PERSONA_DOT_COLOURS, PersonaDot, STATUS_BAR, STATUS_FADE_MS } from './statusItems';
 import { ACCENT_MS, CAP_ART_FADE_MS, CAP_STATE_MS, FEED_ART_FADE_MS, FEED_SCROLL, HERO_FADE_MS, SHEET, SHEET_MS, SLIDE } from './motion';
 import { TIMINGS } from './openTransition';
-import { CARD_SCALE_HANDHELD, GLOW as CAP_GLOW, recentsGeometry } from './recentsLayout';
+import { CARD_SCALE_HANDHELD, GLOW as CAP_GLOW, RECENTS_BOTTOM, recentsGeometry } from './recentsLayout';
 
 /**
  * Marks every declaration `!important` (so CSS Loader themes cannot easily restyle Home, spec section 9),
@@ -116,13 +117,24 @@ export const MAX_STACK_SHIFT = 120;
 export const MIN_STACK_SHIFT = -60;
 
 /**
+ * With the bottom section hidden (no tab strip), how much further the stack moves down so the recents row ends where
+ * the tab strip ended (`tabClearance` above the legend) instead of leaving its room empty: 733.6 - 688 -> 45.
+ */
+export const FEEDLESS_DROP = Math.floor(FEED_SHEET.tabsTop + FEED_SHEET.tabHeight - RECENTS_BOTTOM);
+
+/**
  * How far the whole Home stack (title block, actions, recents, tabs, feed) moves down on a canvas `logicalHeight`
  * tall, so the tab strip ends `tabClearance` above the legend reserve instead of leaving slack under it. Every gap
  * between elements stays; the raised sheet keeps its old place (the page rises by `raise` plus the shift). Whole px,
  * never upwards, at most MAX_STACK_SHIFT. 1440 x 810.75 (1080p TV, Ally) -> 13, 1280 x 800 (Deck) -> 2.
+ * `feed` false (the bottom section hidden): FEEDLESS_DROP more, so the recents row takes the tab strip's place.
  */
-export function stackShift(logicalHeight: number, legendReserve: number = FEED_SHEET.legendReserve): number {
-    if (!Number.isFinite(logicalHeight)) return 0;
+export function stackShift(logicalHeight: number, legendReserve: number = FEED_SHEET.legendReserve, feed = true): number {
+    if (!Number.isFinite(logicalHeight)) return feed ? 0 : FEEDLESS_DROP;
+    return clampedShift(logicalHeight, legendReserve) + (feed ? 0 : FEEDLESS_DROP);
+}
+
+function clampedShift(logicalHeight: number, legendReserve: number): number {
     const f = FEED_SHEET;
     const legend = Number.isFinite(legendReserve) ? legendReserve : f.legendReserve;
     const slack = logicalHeight - legend - f.tabClearance - (f.tabsTop + f.tabHeight);
@@ -150,6 +162,9 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         `@property --glance-accent { syntax: '<color>'; inherits: true; initial-value: ${DEFAULT_ACCENT}; }`,
         `@property --gh-card-accent { syntax: '<color>'; inherits: true; initial-value: ${DEFAULT_ACCENT}; }`,
         `@keyframes gh-fade-in { from { opacity: 0; } to { opacity: 1; } }`,
+        `@keyframes gh-hero-in-left { from { opacity: 0; transform: scale(1.08) translate3d(-36px, 0, 0); } to { opacity: 1; transform: scale(1.02) translate3d(0, 0, 0); } }`,
+        `@keyframes gh-hero-in-right { from { opacity: 0; transform: scale(1.08) translate3d(36px, 0, 0); } to { opacity: 1; transform: scale(1.02) translate3d(0, 0, 0); } }`,
+        `@keyframes gh-hero-ambient { 0% { transform: scale(1.02) translate3d(0, 0, 0); } 50% { transform: scale(1.06) translate3d(14px, -6px, 0); } 100% { transform: scale(1.03) translate3d(-10px, 4px, 0); } }`,
         rule('.gh-root', `--glance-accent: ${DEFAULT_ACCENT}; --glance-accent-text: ${DEFAULT_ACCENT}; --gh-top: 52px; --gh-bottom: ${FEED_SHEET.legendReserve}px; --gh-shift: 0px; --gh-dim: .15;
             --gh-ink: #07090c; --gh-on-accent: #0b0d10; --gh-r-capsule: 8px; --gh-r-card: 12px; --gh-r-panel: 16px; --gh-r-pill: 999px;
             transition: none;
@@ -161,15 +176,23 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
 
         // Hero art: full-bleed on the real screen (not the scaled canvas). Each new art fades in over the last.
         rule('.gh-hero', 'position: absolute; inset: 0; overflow: hidden; pointer-events: none'),
-        rule('.gh-hero-layer', `position: absolute; inset: 0; will-change: opacity; animation: gh-fade-in ${HERO_FADE_MS}ms ease both`),
+        rule('.gh-hero-layer', `position: absolute; inset: 0; will-change: opacity, transform; animation: gh-fade-in ${HERO_FADE_MS}ms ease both`),
+        rule('.gh-hero-layer.gh-hero-in-left', `animation: gh-hero-in-left ${HERO_FADE_MS}ms cubic-bezier(.16, 1, .3, 1) both`),
+        rule('.gh-hero-layer.gh-hero-in-right', `animation: gh-hero-in-right ${HERO_FADE_MS}ms cubic-bezier(.16, 1, .3, 1) both`),
         // A layer whose fade a newer switch interrupted: shown at once (HeroBackground keeps at most two layers).
-        rule('.gh-hero-layer.gh-hero-settled', 'animation: none; opacity: 1'),
+        rule('.gh-hero-layer.gh-hero-settled', 'animation: none; opacity: 1; transform: none'),
         rule('.gh-hero-none', 'background: var(--gh-ink)'),
-        rule('.gh-hero-full', 'position: absolute; inset: 0; background-size: cover; background-position: center 30%; background-repeat: no-repeat'),
+        rule('.gh-hero-full', `position: absolute; inset: -30px; background-size: cover; background-position: center 30%; background-repeat: no-repeat;
+            animation: gh-hero-ambient 18s ease-in-out infinite alternate; will-change: transform`),
         rule('.gh-hero-blur', 'position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(42px) saturate(1.25) brightness(.8)'),
-        rule('.gh-hero-sharp', `position: absolute; right: 0; top: 0; height: 100%; width: 62%; background-size: cover; background-position: center 30%;
-            background-repeat: no-repeat; opacity: .92;
+        rule('.gh-hero-sharp', `position: absolute; right: 0; top: -30px; bottom: -30px; width: 62%; background-size: cover; background-position: center 30%;
+            background-repeat: no-repeat; opacity: .92; animation: gh-hero-ambient 18s ease-in-out infinite alternate; will-change: transform;
             -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 45%); mask-image: linear-gradient(90deg, transparent 0%, #000 45%)`),
+
+        // Trailer background video: crossfades from solid black over hero art after 5s idle lock
+        rule('.gh-trailer', 'position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 600ms ease; z-index: 1; overflow: hidden'),
+        rule('.gh-trailer.gh-trailer-active', 'opacity: 1'),
+        rule('.gh-trailer-video', 'position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(.9)'),
 
         // Scrims: flat dim, vertical, left.
         rule('.gh-scrim', 'position: absolute; inset: 0; pointer-events: none'),
@@ -190,7 +213,7 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-title-block', `position: absolute; left: 56px; top: calc(${t.top}px - var(--gh-top)); width: 620px; display: flex; flex-direction: column; gap: ${t.gap}px; margin: 0; padding: 0`),
         // The title's slot: always two lines tall, the title aligned to its bottom, so a one-line title leaves room above
         // it and nothing below moves (titleBlockLayout). Not clipped: the title's own bleed reaches past it.
-        rule('.gh-title-slot', `height: ${t.titleLines * t.titleSize}px; display: flex; flex-direction: column; justify-content: flex-end; margin: 0; padding: 0; overflow: visible`),
+        rule('.gh-title-slot', `height: ${t.titleLines * t.titleSize}px; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; margin: 0; padding: 0; overflow: visible`),
         // Eyebrow, between the title and the chips: always one line (ellipsis), so it never pushes the chips.
         rule('.gh-eyebrow', `margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; line-height: 1.2; height: ${t.eyebrow}px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--glance-accent-text)`),
@@ -198,7 +221,14 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         // shadow; equal negative margins keep the layout box at exactly two 58px lines.
         rule('.gh-title', `margin: -${t.titleBleed}px; padding: ${t.titleBleed}px; font-size: ${t.titleSize}px; line-height: 1; font-weight: 800; letter-spacing: -.02em; text-wrap: balance;
             text-shadow: 0 4px 30px rgba(0,0,0,.4); color: #fff; overflow-wrap: anywhere;
-            display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${t.titleLines}; overflow: hidden`),
+            display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${t.titleLines}; overflow: hidden;
+            width: 100%; text-align: left`),
+        // Game logo, when available: aligned to bottom-left with at least 70px extra height and a soft drop shadow.
+        rule('.gh-logo', `max-height: ${t.titleLines * t.titleSize + 70}px; max-width: 560px; width: auto; height: auto;
+            object-fit: contain; object-position: left bottom; margin: 0;
+            filter: drop-shadow(0 4px 20px rgba(0,0,0,.75));
+            user-select: none; pointer-events: none;
+            animation: gh-fade-in 250ms ease both`),
         // One row of fixed height, present even with no chips yet, so the actions never move.
         rule('.gh-chips', `height: ${t.chipRow}px; display: flex; gap: 10px; flex-wrap: nowrap; align-items: stretch; margin: 0; padding: 0`),
         rule('.gh-chip', `display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; min-width: 104px; border-radius: var(--gh-r-card); ${GLASS}`),
@@ -211,6 +241,22 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-source', `position: absolute; right: ${SOURCE_PILL.right}px; top: calc(${sourcePillTop()}px - var(--gh-top)); display: inline-flex; align-items: center;
             margin: 0; border-radius: 999px; border: 1px solid; color: #fff; line-height: 1; white-space: nowrap; pointer-events: none; ${sourcePillLook(px)}`),
         rule('.gh-source-icon', `flex: 0 0 auto; ${sourcePillIcon(px)}`),
+        // Status bar (clock, battery, connection) in Steam's top strip: the store pill's glass pill, then your online status
+        // dot, near the right edge (STATUS_BAR), above the page (the raised feed slides under it). It all fades out while
+        // focus is in Steam's own top bar (`.gh-status-away`, set by SpotlightHome).
+        rule('.gh-status', `position: absolute; right: ${STATUS_BAR.right}px; top: ${STATUS_BAR.centreY - SOURCE_PILL.height / 2}px;
+            height: ${SOURCE_PILL.height}px; display: flex; align-items: center; gap: ${PERSONA_DOT.gap}px; margin: 0; padding: 0;
+            pointer-events: none; z-index: 1; opacity: 1; transition: opacity ${STATUS_FADE_MS}ms ease`),
+        rule('.gh-status-dot', `flex: 0 0 auto; width: ${PERSONA_DOT.size}px; height: ${PERSONA_DOT.size}px; margin: 0; padding: 0; border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(12,16,22,.55), 0 1px 4px rgba(0,0,0,.4); transition: background ${ACCENT_MS}ms`),
+        ...(Object.keys(PERSONA_DOT_COLOURS) as PersonaDot[]).map((dot) => rule(`.gh-status-dot-${dot}`, `background: ${PERSONA_DOT_COLOURS[dot]}`)),
+        rule('.gh-status.gh-status-away', 'opacity: 0'),
+        rule('.gh-status-pill', `display: inline-flex; align-items: center; gap: 14px; margin: 0; border-radius: 999px; border: 1px solid; color: rgba(255,255,255,.9);
+            line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; ${sourcePillLook(px)} font-weight: 600`),
+        rule('.gh-status-item', 'display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0'),
+        rule('.gh-status-item svg', 'flex: 0 0 auto; height: 18px; width: auto; display: block'),
+        rule('.gh-status-low', `color: ${CLOUD_COLOURS.bad}`),
+        rule('.gh-status-offline svg', 'opacity: .6'),
         // Actions: Play pill 250x54 and three 54px circles, gap 12, margin-top 8.
         rule('.gh-actions', `display: flex; gap: 12px; align-items: center; margin: ${t.actionsMargin}px 0 0 0; padding: 0`),
         rule('.gh-btn', `height: ${t.button}px; min-width: 0; margin: 0; padding: 0; border-radius: var(--gh-r-pill); display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -239,8 +285,8 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
 
         // Recents row (handoff: left 44, 140 tall; times the card scale, its bottom stays at 688 and it grows upwards
         // from geo.top). Overflow stays visible: earlier capsules scroll off to the left edge.
-        // Every size here derives from recentsGeometry; left, width, dim and ghost opacity are inline. Display only
-        // (bumper navigation): no pointer events, so a tap or click on a card does nothing.
+        // Every size here derives from recentsGeometry; left, width, dim and ghost opacity are inline. The row is one
+        // gamepad focusable (RecentsRow); no pointer events, so a tap or click on a card does nothing.
         rule('.gh-recents', `position: absolute; left: 44px; right: 0; top: calc(${geo.top}px - var(--gh-top)); height: ${geo.capsuleH}px; margin: 0; padding: 0; pointer-events: none`),
         rule('.gh-recents-track', `position: absolute; inset: 0; transition: transform ${SLIDE}`),
         rule('.gh-cap', `position: absolute; top: 0; height: ${geo.capsuleH}px; margin: 0; padding: 0; border-radius: ${k(8)}px; overflow: hidden; background: #111;
@@ -259,6 +305,14 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-cap-cover', `position: absolute; right: 0; top: 0; width: ${geo.capsuleW}px; height: 100%; background-size: cover; background-position: center; background-repeat: no-repeat; opacity: 1`),
         rule('.gh-cap-bar', `position: absolute; left: 0; right: 0; bottom: 0; height: ${k(3)}px; background: var(--glance-accent); opacity: 0; transition: opacity 250ms, background ${ACCENT_MS}ms`),
         rule('.gh-cap.gh-cap-focus .gh-cap-bar', 'opacity: 1'),
+        // "New" badge on a game new to the library: a small light pill at the top left, over the art.
+        rule('.gh-cap-new', `position: absolute; left: ${k(8)}px; top: ${k(8)}px; margin: 0; padding: ${k(3)}px ${k(7)}px; border-radius: 999px;
+            font-size: ${k(8.5)}px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; line-height: 1.2; white-space: nowrap;
+            color: #0b0d10; background: rgba(255,255,255,.92); box-shadow: 0 ${k(2)}px ${k(8)}px rgba(0,0,0,.35); pointer-events: none`),
+        // While the card row has focus the selected card (or the Library card) is the focused one: a 2px white ring just
+        // outside it and an accent glow even on every side (no downward offset, no bar along its bottom edge: on the Ally
+        // those read as the card being cut at the bottom). Unfocused it keeps its resting look.
+        rule('.gh-recents-focus .gh-cap-wide, .gh-recents-focus .gh-cap-lib-on', `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 ${k(28)}px ${k(2)}px var(--glance-accent); --gh-edge: rgba(255,255,255,.35)`),
         // "View more in your Library" card.
         rule('.gh-cap-lib', '--gh-edge: rgba(255,255,255,.14)'),
         rule('.gh-cap-lib.gh-cap-lib-on', '--gh-edge: rgba(255,255,255,.35)'),
@@ -323,6 +377,16 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-card-tint-online', `background: ${hexAlpha(FRIEND_COLOURS.online, 0.12)}`),
         rule('.gh-card-tint-away', `background: ${hexAlpha(FRIEND_COLOURS.away, 0.12)}`),
         rule('.gh-card-art', `position: absolute; inset: 0; background-size: cover; background-position: center 30%; background-repeat: no-repeat; animation: gh-fade-in ${FEED_ART_FADE_MS}ms ease both`),
+        // News art shown whole (feedLayout `fit`): any aspect fits inside the card, at the top of a news card so the text
+        // sits under it on the blurred fill, centred on the wide featured card. The fill is the same image scaled to cover
+        // and blurred once (one filter per card, as the friend backdrop), so the bands around the art carry its colours.
+        rule('.gh-card-fit-blur', `position: absolute; inset: -28px; margin: 0; padding: 0; background-size: cover; background-position: center; background-repeat: no-repeat;
+            filter: blur(24px) saturate(.8) brightness(.55); animation: gh-fade-in ${FEED_ART_FADE_MS}ms ease both`),
+        rule('.gh-card-fit', `position: absolute; inset: 0; margin: 0; padding: 0; background-size: contain; background-position: center top; background-repeat: no-repeat;
+            animation: gh-fade-in ${FEED_ART_FADE_MS}ms ease both`),
+        rule('.gh-card-featured .gh-card-fit', 'background-position: center'),
+        // Under fitted art the text has the fill below the image: two title lines keep it there.
+        rule('.gh-card-fitted .gh-card-title', '-webkit-line-clamp: 2'),
         // 1px past the art at the top and bottom, so no un-shaded sliver can show at a fractional edge.
         rule('.gh-card-shade', `position: absolute; inset: -1px 0; background: linear-gradient(180deg, rgba(${SCRIM},0) 30%, rgba(${SCRIM},.88) 100%)`),
         rule('.gh-card-text', 'position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 7px'),

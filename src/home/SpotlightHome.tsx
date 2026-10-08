@@ -1,10 +1,15 @@
+import type { GamepadEvent } from '@decky/ui';
 import { CSSProperties, RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActionRow, LibraryActionRow } from './ActionRow';
+import { ActionRow, LibraryActionRow, openGameActions } from './ActionRow';
 import { FeedSheet } from './FeedSheet';
 import { FEED_VIEWPORT_INSET, feedSpace } from './feedLayout';
-import { focusElement, focusElementSettled } from './homeNav';
-import type { Zone } from './focusZones';
+import { focusElement, focusElementSettled, gameOpenArt, openGame, openLibrary } from './homeNav';
+import { LOG_PREFIX } from '../constants';
+import { useSettings } from '../data/settings';
+import { recentsButton, repeatStep, RepeatState, selectionForButton, type Zone } from './focusZones';
 import { HeroBackground } from './HeroBackground';
+import { getGameTrailer, type GameTrailer } from './trailers';
+import { playNavSound } from './navSound';
 import { neighbourIds } from './heroLayers';
 import { HERO_PRELOAD_RADIUS } from './motion';
 import { legibleAccent } from './accent';
@@ -14,6 +19,7 @@ import { FEED_SHEET, homeCss, stackShift } from './homeCss';
 import { noteHome, recentIndexFor, recentRefFor, takeRestore } from './homeMemory';
 import { eyebrowText, showEmptyMessage, usableSize } from './homeView';
 import { SourcePill } from '../components/SourcePill';
+import { StatusBar } from './StatusBar';
 import { RecentsRow } from './RecentsRow';
 import { CARD_SCALE_HANDHELD, cardScaleFor, clampFocus, isLibraryFocus, recentsGeometry } from './recentsLayout';
 import { homeCanvas } from './scale';
@@ -107,20 +113,35 @@ function useBoxSize(ref: RefObject<HTMLDivElement | null>): Size | null {
 
 export function SpotlightHome() {
     // The selected recents item: 0..games.length, where games.length is the Library card (the hero then stays on the
-    // last game). L1/R1 on the action row changes it (bumper navigation); the recents row only displays it.
+    // last game). Left/Right on the game cards and L1/R1 (from the cards or the action row) change it.
     const [recentIndex, setRecentIndex] = useState(0);
+    const prevIndexRef = useRef(0);
+    const navDirectionRef = useRef<'left' | 'right' | 'none'>('none');
+    if (recentIndex !== prevIndexRef.current) {
+        navDirectionRef.current = recentIndex < prevIndexRef.current ? 'left' : 'right';
+        prevIndexRef.current = recentIndex;
+    }
     // Where Home was when the user left it for a game, news or store page (homeMemory), taken once per mount; null on
     // a cold start. It is applied as soon as the recents are known and before the content mounts, so Home never shows
     // the first game and then jumps. `restoring` also keeps the Play pill from claiming focus while it runs.
     const [restore] = useState(takeRestore);
+    // The bottom section (What's new, Friends, Recommended tabs); off: Home is the selected game only, and a remembered
+    // tab or feed zone restores to the game cards instead.
+    const { homeFeed: feed, homeStatusBar, preferLogos } = useSettings();
     const [resolved, setResolved] = useState(restore === null);
     const [restoring, setRestoring] = useState(restore !== null);
     const data = useHomeData(recentIndex);
     const focusIndex = clampFocus(data.games.length, recentIndex);
     const onLibrary = isLibraryFocus(data.games.length, focusIndex);
     // The zone holding gamepad focus, as reported by each zone's focus events; tabs/feed raise the sheet.
-    const [zone, setZone] = useState<Zone>('actions');
-    const sheetUp = zone === 'tabs' || zone === 'feed';
+    const [zone, setZone] = useState<Zone>('recents');
+    const [trailer, setTrailer] = useState<GameTrailer | null>(null);
+    const [showTrailer, setShowTrailer] = useState(false);
+    const dismissTrailer = () => setShowTrailer(false);
+    // Set once Home has had focus in this mount: until then the game cards claim Steam's preferred focus (Home opens on
+    // them), afterwards the Play pill does, so Up from the cards lands on Play (the action row enters at its preferred child).
+    const [focusedOnce, setFocusedOnce] = useState(false);
+    const sheetUp = feed && (zone === 'tabs' || zone === 'feed');
     const gameIds = useMemo(() => data.games.map((g) => g.appId), [data.games]);
     // The games either side of the selection, whose hero art is pre-loaded so L1/R1 crossfade at once.
     const heroNeighbours = useMemo(() => neighbourIds(gameIds, focusIndex, HERO_PRELOAD_RADIUS), [gameIds, focusIndex]);
@@ -128,7 +149,7 @@ export function SpotlightHome() {
         if (resolved || !restore || (gameIds.length === 0 && !data.recentsSettled)) return;
         if (gameIds.length > 0) {
             setRecentIndex(recentIndexFor(restore.recent, gameIds));
-            setZone(restore.zone);
+            setZone(feed || (restore.zone !== 'tabs' && restore.zone !== 'feed') ? restore.zone : 'recents');
         } else {
             setRestoring(false);
         }
@@ -149,21 +170,99 @@ export function SpotlightHome() {
     });
     const actionsRef = useRef<HTMLElement>(null);
     const actionButtons = () => [...(rootRef.current?.querySelectorAll<HTMLElement>('.gh-actions .gh-btn') ?? [])];
-    // B from the tabs returns to the Play pill; from the actions Home leaves B to Steam (stock).
-    const backToActions = () => focusElement(actionButtons()[0], 'the Play pill');
+    // The game card row (one focusable, RecentsRow). B from the tabs and from the action row returns to it; on the cards
+    // Home leaves B to Steam (focusZones.onBack).
+    const recentsRef = useRef<HTMLDivElement | null>(null);
+    const focusGames = () => focusElement(recentsRef.current, 'the game cards');
     // L1/R1: a new selection. Moving onto the Library card drops the circles, so a focused circle hands focus to the
     // pill first (the pill element itself stays, it only turns into the Library pill).
     const select = (next: number) => {
+        dismissTrailer();
         if (isLibraryFocus(data.games.length, next)) {
             const [pill] = actionButtons();
             if (pill && !pill.contains(pill.ownerDocument.activeElement)) focusElement(pill, 'the Play pill');
         }
         setRecentIndex(next);
+        playNavSound();
     };
     const bumpers = useBumperSelect(actionsRef, focusIndex, data.games.length, select);
+    // The game cards (focusZones.recentsButton): Left/Right select the previous / next game and focus stays on the
+    // cards; L1/R1 move focus to the Play pill first, then select as on the action row (its held-bumper repeat goes on
+    // there); View/Menu open the selected game's menu at its card.
+    // A held Left/Right steps at a held bumper's pace (focusZones.repeatStep), not at Steam's own faster repeat.
+    const heldDirection = useRef<RepeatState | null>(null);
+    const onRecentsButtonDown = (evt: GamepadEvent) => {
+        dismissTrailer();
+        try {
+            const isRepeat = Boolean(evt?.detail?.is_repeat);
+            const what = recentsButton(Number(evt?.detail?.button), focusIndex, data.games.length, isRepeat);
+            if (what === null) return;
+            if (what === 'bumper') {
+                focusElement(actionButtons()[0], 'the Play pill');
+                bumpers.onButtonDown(evt);
+                return;
+            }
+            evt.preventDefault?.();
+            evt.stopPropagation?.();
+            if (what === 'menu') {
+                if (!evt?.detail?.is_repeat && !onLibrary && data.focused) openGameActions(data.focused.appId, selectedCard());
+                return;
+            }
+            const paced = repeatStep(Date.now(), heldDirection.current, isRepeat);
+            heldDirection.current = paced.next;
+            if (paced.step) {
+                setRecentIndex(what.select);
+                playNavSound();
+            }
+        } catch (error) {
+            console.warn(`${LOG_PREFIX} Home: game card navigation failed`, error);
+        }
+    };
+    // The expanded (selected) card: the open transition's source and the menu's anchor; the row itself if not found.
+    const selectedCard = () => (recentsRef.current?.querySelector<HTMLElement>('.gh-cap-wide') ?? recentsRef.current);
+    // A on the cards: the selected game's page (expanding from its card), or the Library on the Library card. One
+    // action per press (A and a touch can both arrive).
+    const lastOpen = useRef(0);
+    const onRecentsActivate = () => {
+        const now = Date.now();
+        if (now - lastOpen.current < 1000) return;
+        lastOpen.current = now;
+        try {
+            if (onLibrary || !data.focused) return openLibrary();
+            openGame(data.focused.appId, selectedCard(), gameOpenArt(data.focused.appId));
+        } catch (error) {
+            console.warn(`${LOG_PREFIX} Home: opening the selected game failed`, error);
+        }
+    };
+    // The action row's buttons: L1/R1 always put focus on the Play pill (from any circle), then select as before.
+    const actionRowButtons = {
+        onButtonDown: (evt: GamepadEvent) => {
+            dismissTrailer();
+            try {
+                if (selectionForButton(focusIndex, Number(evt?.detail?.button), data.games.length) !== null) focusElement(actionButtons()[0], 'the Play pill');
+            } catch (error) {
+                console.warn(`${LOG_PREFIX} Home: focusing Play for L1/R1 failed`, error);
+            }
+            bumpers.onButtonDown(evt);
+        },
+        onButtonUp: bumpers.onButtonUp,
+    };
+    const recentsNav = {
+        preferred: !restoring && !focusedOnce,
+        setRef: (el: HTMLDivElement | null) => {
+            recentsRef.current = el;
+        },
+        onFocus: () => {
+            setZone('recents');
+            setFocusedOnce(true);
+        },
+        onButtonDown: onRecentsButtonDown,
+        onActivate: onRecentsActivate,
+    };
     // Which action button holds focus (its index among the row's buttons), remembered for the way back.
     const onActionsFocus = (event: { target: EventTarget }) => {
         setZone('actions');
+        setFocusedOnce(true);
         try {
             const buttons = actionButtons();
             const at = buttons.findIndex((b) => b.contains(event.target as Node));
@@ -183,16 +282,65 @@ export function SpotlightHome() {
             bumpers.stop();
         }
     };
+    // The bottom section turned off while focus was in it (Quick Access): focus goes back to the game cards.
+    useEffect(() => {
+        if (feed || (zone !== 'tabs' && zone !== 'feed')) return;
+        setZone('recents');
+        focusGames();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [feed]);
     // Remember the selection and focus for the way back (homeMemory); not before the restore has been applied.
     useEffect(() => {
         if (!resolved) return;
         const recent = recentRefFor(focusIndex, gameIds);
         noteHome(recent ? { zone, recent } : { zone });
     }, [resolved, zone, focusIndex, gameIds]);
+
+    // Preserved for future Steam client support; disabled completely for now
+    const ENABLE_TRAILER_BACKGROUND = false;
+
+    // 5-second idle lock on a game: plays the game trailer in the background in place of the hero art (disabled)
+    useEffect(() => {
+        setShowTrailer(false);
+        if (!ENABLE_TRAILER_BACKGROUND || onLibrary || !data.focused) {
+            setTrailer(null);
+            return undefined;
+        }
+
+        let active = true;
+        const focusedGame = data.focused;
+        getGameTrailer(focusedGame.appId, focusedGame.name).then((res) => {
+            if (active) setTrailer(res);
+        });
+
+        const timer = setTimeout(() => {
+            if (active) setShowTrailer(true);
+        }, 5000);
+
+        return () => {
+            active = false;
+            clearTimeout(timer);
+        };
+    }, [focusIndex, onLibrary, data.focused?.appId]);
+
+    // Focus in Steam's own top bar (Up from the action row): the status bar fades out so the two never overlap, and fades
+    // back in when focus returns to Home. Only a focus move to a known element outside Home counts as leaving: a blur
+    // with no new target (Quick Access, another window) keeps it.
+    const [focusAway, setFocusAway] = useState(false);
+    const onRootFocus = () => setFocusAway(false);
+    const onRootBlur = (event: { relatedTarget: EventTarget | null }) => {
+        try {
+            const next = event.relatedTarget as Node | null;
+            if (next && !rootRef.current?.contains(next)) setFocusAway(true);
+        } catch {
+            // keep it as it is
+        }
+    };
     const size = useBoxSize(rootRef);
     const canvas = homeCanvas(size?.width ?? 0, size?.height ?? 0);
     // Width is the authored one; height follows the real screen so the reserved bars sit on Steam's bars, and the
-    // whole stack moves down into the slack under the tab strip (homeCss.stackShift).
+    // whole stack moves down into the slack under the tab strip (homeCss.stackShift), or with the bottom section hidden
+    // into the tab strip's place too.
     const logicalHeight = size ? size.height / canvas.scale : canvas.logicalHeight;
     // Bigger cards docked to a TV: the shared TV check (screenScale: a 1080p-class TV only, the Deck is not docked), from Home's own
     // measured box (the Big Picture window's CSS px: 828x466 handheld, 1500x844 on a 1080p TV). Null until measured:
@@ -207,12 +355,19 @@ export function SpotlightHome() {
     const css = useMemo(() => homeCss(scale), [scale]);
     const game = data.focused;
     const contentUp = measuredScale !== null && resolved;
-    // Once the content is up: focus what was focused. The actions here; the tabs and the feed are the feed sheet's
-    // (their cards may still be loading), which says when it is done.
-    const restoreZone = restore?.zone === 'tabs' || restore?.zone === 'feed' ? restore.zone : 'actions';
+    // Once the content is up: focus what was focused. The game cards or the actions here; the tabs and the feed are
+    // the feed sheet's (their cards may still be loading), which says when it is done. Without a restore (a cold start
+    // or a fresh visit) Home opens on the first game card, as Steam's own Home does.
+    const restoreZone: Zone = restore?.zone === 'tabs' || restore?.zone === 'feed' ? (feed ? restore.zone : 'recents') : restore?.zone ?? 'recents';
+    useEffect(() => {
+        if (contentUp && !restore) focusElementSettled(recentsRef.current, 'the game cards');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [contentUp]);
     useEffect(() => {
         if (!contentUp || !restoring) return;
-        if (restoreZone === 'actions') {
+        if (restoreZone === 'recents') {
+            focusElementSettled(recentsRef.current, 'the game cards');
+        } else if (restoreZone === 'actions') {
             const buttons = actionButtons();
             focusElementSettled(buttons[Math.min(Math.max(0, restore?.action ?? 0), Math.max(0, buttons.length - 1))], 'the action');
         } else if (game) {
@@ -223,9 +378,16 @@ export function SpotlightHome() {
     }, [contentUp, restoring]);
 
     return (
-        <div ref={rootRef} className="gh-root" style={{ '--glance-accent': data.accent, '--glance-accent-text': legibleAccent(data.accent), '--gh-dim': sheetUp ? DIM_SHEET : DIM_REST, '--gh-bottom': `${legend}px`, '--gh-shift': `${stackShift(logicalHeight, legend)}px`, '--gh-raise': `${FEED_SHEET.raise + raiseDelta}px` } as CSSProperties}>
+        <div ref={rootRef} className="gh-root" onFocus={onRootFocus} onBlur={onRootBlur} style={{ '--glance-accent': data.accent, '--glance-accent-text': legibleAccent(data.accent), '--gh-dim': sheetUp ? DIM_SHEET : DIM_REST, '--gh-bottom': `${legend}px`, '--gh-shift': `${stackShift(logicalHeight, legend, feed)}px`, '--gh-raise': `${FEED_SHEET.raise + raiseDelta}px` } as CSSProperties}>
             <style>{css}</style>
-            <HeroBackground appId={game?.appId ?? null} detailsVersion={data.detailsVersion} neighbours={heroNeighbours} />
+            <HeroBackground
+                appId={game?.appId ?? null}
+                detailsVersion={data.detailsVersion}
+                neighbours={heroNeighbours}
+                direction={navDirectionRef.current}
+                trailer={trailer}
+                showTrailer={showTrailer}
+            />
             <div className="gh-scrim gh-scrim-dim" />
             <div className="gh-scrim gh-scrim-v" />
             <div className="gh-scrim gh-scrim-l" />
@@ -239,6 +401,8 @@ export function SpotlightHome() {
                     visibility: size ? 'visible' : 'hidden',
                 }}
             >
+                {/* In Steam's top strip, above the safe area: clock, battery, connection and your online status. */}
+                {homeStatusBar && contentUp && <StatusBar away={focusAway} />}
                 {/* Between Steam's top bar (52) and button legend (46); Home draws neither. */}
                 <div className="gh-safe">
                     {/* The page container: moved down by the stack shift (homeCss.stackShift); raised while focus is in the tabs or feed. */}
@@ -249,31 +413,34 @@ export function SpotlightHome() {
                                     {onLibrary ? (
                                         <TitleBlock eyebrow={eyebrowText(null, true)} title="View more in your Library" chips={data.libraryChips} />
                                     ) : (
-                                        <TitleBlock eyebrow={eyebrowText(data.lastPlayedLabel)} title={game.name} chips={data.chips} />
+                                        <TitleBlock eyebrow={eyebrowText(data.lastPlayedLabel, false, data.focusedIsNew)} title={game.name} chips={data.chips} logoUrls={data.logoUrls} preferLogos={preferLogos} />
                                     )}
                                     <ActionRow
                                         game={onLibrary ? null : game}
                                         running={data.focusedRunning}
                                         download={data.download}
                                         status={data.pillStatus}
-                                        preferred={!restoring}
-                                        buttons={bumpers}
+                                        preferred={!restoring && focusedOnce}
+                                        buttons={actionRowButtons}
                                         cloud={onLibrary ? null : cloud}
+                                        onBack={focusGames}
                                     />
                                 </section>
                                 {/* The selected game's store, as the game page's pill; not on the Library card. */}
                                 {!onLibrary && data.source && <SourcePill label={data.source} className="gh-source" iconClassName="gh-source-icon" />}
-                                <RecentsRow games={data.games} selected={focusIndex} geometry={geometry} />
-                                <FeedSheet
-                                    data={data}
-                                    raised={sheetUp}
-                                    viewport={canvas.logicalWidth - FEED_VIEWPORT_INSET}
-                                    space={feedSpace(logicalHeight, legend, raiseDelta)}
-                                    onZone={setZone}
-                                    onBackToActions={backToActions}
-                                    restore={restore}
-                                    onRestored={() => setRestoring(false)}
-                                />
+                                <RecentsRow games={data.games} selected={focusIndex} geometry={geometry} nav={recentsNav} isFocused={zone === 'recents'} />
+                                {feed && (
+                                    <FeedSheet
+                                        data={data}
+                                        raised={sheetUp}
+                                        viewport={canvas.logicalWidth - FEED_VIEWPORT_INSET}
+                                        space={feedSpace(logicalHeight, legend, raiseDelta)}
+                                        onZone={setZone}
+                                        onBackToGames={focusGames}
+                                        restore={restore}
+                                        onRestored={() => setRestoring(false)}
+                                    />
+                                )}
                             </>
                         ) : showEmptyMessage(data.games.length, data.recentsSettled) ? (
                             // No recents once the boot-time retries are over: the Library action, so Home is never
