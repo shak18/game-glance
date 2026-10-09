@@ -6,6 +6,7 @@ import {
     heroUrls as getHeroUrls,
     landscapeUrls as getLandscapeUrls,
     logoUrls as getLogoUrls,
+    soundtrackCoverUrls as getSoundtrackCoverUrls,
 } from '../home/artwork';
 import { Chip, gameChips } from '../home/chips';
 import { formatHours, minutesToHours, steamLanguageToLocale } from '../logic/format';
@@ -30,6 +31,7 @@ function InspectorFanCover({ game, className }: { game?: LibraryGameItem; classN
     const candidates = React.useMemo(() => {
         if (!game) return [];
         if (game.capsuleUrl) return [game.capsuleUrl];
+        if (game.isSoundtrack) return getSoundtrackCoverUrls(game.appId, browserStores);
         return getCapsuleUrls(game.appId, browserStores);
     }, [game]);
 
@@ -71,11 +73,14 @@ function InspectorFanCover({ game, className }: { game?: LibraryGameItem; classN
 }
 
 function InspectorGameCover({ game }: { game: LibraryGameItem }) {
-    // 1. Primary: Vertical capsule art (2:3 or 1:1)
+    // 1. Primary: Square cover for soundtracks (1:1), Vertical capsule art for games (2:3)
     const posterCandidates = React.useMemo(() => {
         if (game.capsuleUrl) return [game.capsuleUrl];
+        if (game.isSoundtrack) {
+            return getSoundtrackCoverUrls(game.appId, browserStores);
+        }
         return getCapsuleUrls(game.appId, browserStores);
-    }, [game.appId, game.capsuleUrl]);
+    }, [game.appId, game.capsuleUrl, game.isSoundtrack]);
 
     const [posterSrc, setPosterSrc] = useState<string>(posterCandidates[0] ?? '');
     const [posterIdx, setPosterIdx] = useState(0);

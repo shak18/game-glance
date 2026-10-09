@@ -6,6 +6,7 @@ import {
     heroUrls as getHeroUrls,
     landscapeUrls as getLandscapeUrls,
     logoUrls as getLogoUrls,
+    soundtrackCoverUrls as getSoundtrackCoverUrls,
 } from '../home/artwork';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
 
@@ -53,8 +54,17 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
 
     const candidates = React.useMemo(() => {
         if (game.landscapeUrl) return [game.landscapeUrl];
-        return getLandscapeUrls(game.appId, browserStores);
-    }, [game.appId, game.landscapeUrl]);
+        if (game.isSoundtrack) {
+            return [
+                ...getSoundtrackCoverUrls(game.appId, browserStores),
+                ...getLandscapeUrls(game.appId, browserStores),
+            ];
+        }
+        return [
+            ...getLandscapeUrls(game.appId, browserStores),
+            ...getCapsuleUrls(game.appId, browserStores),
+        ];
+    }, [game.appId, game.landscapeUrl, game.isSoundtrack]);
 
     const [src, setSrc] = React.useState<string>(candidates[0] ?? '');
     const [candidateIdx, setCandidateIdx] = React.useState(0);
@@ -217,6 +227,7 @@ function MiniCover({ game, className }: { game?: LibraryGameItem; className: str
     const candidates = React.useMemo(() => {
         if (!game) return [];
         if (game.capsuleUrl) return [game.capsuleUrl];
+        if (game.isSoundtrack) return getSoundtrackCoverUrls(game.appId, browserStores);
         return getCapsuleUrls(game.appId, browserStores);
     }, [game]);
 

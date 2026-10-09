@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { browserStores, capsuleUrls, guessedHeroUrls, heroUrls, landscapeUrls, SteamStores } from '../../src/home/artwork';
+import { browserStores, capsuleUrls, guessedHeroUrls, heroUrls, landscapeUrls, soundtrackCoverUrls, SteamStores } from '../../src/home/artwork';
 import { noteDetails, resetDetailsMemo } from '../../src/home/detailsMemo';
 
 const stores: SteamStores = {
@@ -183,3 +183,83 @@ describe('storeHeaderUrl', () => {
         expect(storeHeaderUrl(1.5)).toBeNull();
     });
 });
+
+describe('soundtrackCoverUrls', () => {
+    const host = 'https://steamloopback.host';
+    it('prefers official square strCoverImage from libraryAssets over everything else', () => {
+        const ostStores: SteamStores = {
+            details: () => ({ libraryAssets: { strCoverImage: 'album_cover_hash.jpg' } }),
+            overview: () => ({ cover_filename: 'cov.jpg', header_filename: 'hdr.jpg', app_type: 8 }),
+        };
+        const urls = soundtrackCoverUrls(42, ostStores);
+        expect(urls[0]).toBe(`${host}/assets/42/album_cover_hash.jpg`);
+        expect(urls).toContain(`${host}/assets/42/cov.jpg`);
+        expect(urls).toContain('https://shared.steamstatic.com/store_item_assets/steam/apps/42/capsule_616x353.jpg');
+        expect(urls[urls.length - 1]).toBe(`${host}/assets/42/hdr.jpg`);
+    });
+
+    it('falls back to cover_filename or album_cover_filename from overview when details has no assets', () => {
+        const ostStores: SteamStores = {
+            details: () => undefined,
+            overview: () => ({ album_cover_filename: 'my_album.jpg', header_filename: 'hdr.jpg', app_type: 8 }),
+        };
+        const urls = soundtrackCoverUrls(42, ostStores);
+        expect(urls[0]).toBe(`${host}/assets/42/my_album.jpg`);
+    });
+
+    it('includes local guesses and CDN patterns before header_filename', () => {
+        const ostStores: SteamStores = {
+            details: () => undefined,
+            overview: () => ({ header_filename: 'hdr.jpg', app_type: 8 }),
+        };
+        const urls = soundtrackCoverUrls(42, ostStores);
+        expect(urls).toContain(`${host}/assets/42/cover.jpg`);
+        expect(urls).toContain('https://shared.steamstatic.com/store_item_assets/steam/apps/42/capsule_616x353.jpg');
+        expect(urls[urls.length - 1]).toBe(`${host}/assets/42/hdr.jpg`);
+    });
+});
+
+describe('browserStores custom artwork resolution for shortcuts', () => {
+    const g = globalThis as unknown as { appStore?: unknown; appDetailsStore?: unknown };
+    afterEach(() => {
+        delete g.appStore;
+        delete g.appDetailsStore;
+    });
+
+    it('resolves direct /customimages/ paths for shortcut id, signed, unsigned and m_gameid', () => {
+        const shortcutId = 2194827101; // > 0x7fffffff
+        const signedId = shortcutId | 0;
+        const gameIdStr = '14392819482910492812';
+        g.appStore = {
+            GetAppOverviewByAppID: (id: number) => {
+                if (id === shortcutId || id === signedId) {
+                    return { appid: shortcutId, m_gameid: gameIdStr, app_type: 1073741824 };
+                }
+                return undefined;
+            },
+        };
+
+        const capsules = browserStores.customCapsule?.(shortcutId);
+        expect(capsules).toBeDefined();
+        expect(capsules).toContain(`/customimages/${shortcutId}p.jpg`);
+        expect(capsules).toContain(`/customimages/${shortcutId}p.png`);
+        expect(capsules).toContain(`/customimages/${signedId}p.jpg`);
+        expect(capsules).toContain(`/customimages/${gameIdStr}p.jpg`);
+
+        const landscapes = browserStores.landscape?.(shortcutId);
+        expect(landscapes).toBeDefined();
+        expect(landscapes).toContain(`/customimages/${shortcutId}.jpg`);
+        expect(landscapes).toContain(`/customimages/${gameIdStr}.jpg`);
+
+        const heroes = browserStores.customHero?.(shortcutId);
+        expect(heroes).toBeDefined();
+        expect(heroes).toContain(`/customimages/${shortcutId}_hero.jpg`);
+        expect(heroes).toContain(`/customimages/${gameIdStr}_hero.jpg`);
+
+        const logos = browserStores.customLogo?.(shortcutId);
+        expect(logos).toBeDefined();
+        expect(logos).toContain(`/customimages/${shortcutId}_logo.png`);
+        expect(logos).toContain(`/customimages/${gameIdStr}_logo.png`);
+    });
+});
+

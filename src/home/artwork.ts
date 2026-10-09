@@ -1,8 +1,33 @@
 import { memoDetails } from './detailsMemo';
 
 export interface SteamStores {
-    details(appId: number): { libraryAssets?: { strHeroImage?: string; strHeaderImage?: string; strLogoImage?: string } } | undefined;
-    overview(appId: number): { header_filename?: string; library_capsule_filename?: string; app_type?: number } | undefined;
+    details(appId: number): {
+        libraryAssets?: {
+            strHeroImage?: string;
+            strHeaderImage?: string;
+            strLogoImage?: string;
+            strCoverImage?: string;
+            strCapsuleImage?: string;
+        };
+    } | undefined;
+    overview(appId: number): {
+        header_filename?: string;
+        library_capsule_filename?: string;
+        cover_filename?: string;
+        album_cover_filename?: string;
+        strCoverImage?: string;
+        strCapsuleFilename?: string;
+        m_strCustomCapsulePath?: string;
+        strCustomCapsulePath?: string;
+        m_strCustomHeroPath?: string;
+        strCustomHeroPath?: string;
+        m_strCustomLogoPath?: string;
+        strCustomLogoPath?: string;
+        m_strCustomHeaderPath?: string;
+        strCustomHeaderPath?: string;
+        m_gameid?: string;
+        app_type?: number;
+    } | undefined;
     /** Steam's own landscape (header) art list for the app, custom art first; root-relative or absolute urls. */
     landscape?(appId: number): string[] | undefined;
     /** Custom (SteamGridDB) hero art, jpg then png; root-relative urls; [] without custom art. */
@@ -11,6 +36,8 @@ export interface SteamStores {
     customCapsule?(appId: number): string[] | undefined;
     /** Custom (SteamGridDB) logo art; root-relative urls; [] without custom art. */
     customLogo?(appId: number): string[] | undefined;
+    /** Soundtracks square cover art list; root-relative or absolute urls. */
+    soundtrackCover?(appId: number): string[] | undefined;
 }
 
 const HOST = 'https://steamloopback.host';
@@ -82,6 +109,58 @@ export function logoUrls(appId: number, stores: SteamStores): string[] {
     return [...new Set([...custom, ...toUrls(appId, [logo]), ...remote])];
 }
 
+/**
+ * Resolves artwork candidates for a Soundtrack/Music app:
+ * In Steam, soundtracks use a square format cover.
+ * Prioritizes:
+ * 1. Custom cover art (if user set custom art in Steam or SteamGridDB)
+ * 2. Official square cover (details.libraryAssets.strCoverImage or overview.strCoverImage)
+ * 3. Hashed cover files (overview.cover_filename or overview.album_cover_filename)
+ * 4. Local asset guesses (/assets/<id>/cover.jpg, album_cover.jpg)
+ * 5. Steam's high-resolution store/CDN assets (capsule_616x353.jpg, header.jpg, library_capsule.jpg, album_cover.jpg)
+ * 6. Overview header_filename fallback
+ */
+export function soundtrackCoverUrls(appId: number, stores: SteamStores): string[] {
+    const custom = listed(() => stores.soundtrackCover?.(appId) ?? stores.customCapsule?.(appId));
+    const overview = guarded(() => stores.overview(appId));
+    const details = guarded(() => stores.details(appId));
+
+    const coverImage = details?.libraryAssets?.strCoverImage ?? overview?.strCoverImage;
+    const coverFiles = [
+        coverImage,
+        overview?.cover_filename,
+        overview?.album_cover_filename,
+        overview?.library_capsule_filename,
+    ];
+
+    const localGuesses = [
+        `${ASSETS}/${appId}/cover.jpg`,
+        `${ASSETS}/${appId}/album_cover.jpg`,
+        `${ASSETS}/${appId}/album_cover.png`,
+        `${ASSETS}/${appId}/cover.png`,
+    ];
+
+    const remoteCdn =
+        Number.isInteger(appId) && appId > 0
+            ? [
+                  `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/capsule_616x353.jpg`,
+                  `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`,
+                  `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/library_capsule.jpg`,
+                  `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/album_cover.jpg`,
+              ]
+            : [];
+
+    return [
+        ...new Set([
+            ...custom,
+            ...toUrls(appId, coverFiles),
+            ...localGuesses,
+            ...remoteCdn,
+            ...toUrls(appId, [overview?.header_filename]),
+        ]),
+    ];
+}
+
 /** Custom portrait art first (`appStore.GetCustomVerticalCapsuleURLs`: `/customimages/<id>p.jpg|.png`), then the assets. */
 export function capsuleUrls(appId: number, stores: SteamStores): string[] {
     const custom = listed(() => stores.customCapsule?.(appId));
@@ -114,42 +193,164 @@ interface StoreGlobals {
     };
     appStore?: {
         GetAppOverviewByAppID?(appId: number): ReturnType<SteamStores['overview']>;
+        GetAppOverviewByGameID?(gameId: string | number | bigint): ReturnType<SteamStores['overview']>;
         GetCustomHeroImageURLs?(overview: unknown): string[] | undefined;
         GetCustomVerticalCapsuleURLs?(overview: unknown): string[] | undefined;
+        GetCustomCapsuleURLs?(overview: unknown): string[] | undefined;
         GetCustomLogoImageURLs?(overview: unknown): string[] | undefined;
+        GetCustomBoxartURL?(overview: unknown): string | undefined;
     };
 }
 
 const globals = (): StoreGlobals => ((globalThis as unknown as StoreGlobals | undefined) ?? {});
 
+function getOverviewWithFallback(id: number): ReturnType<SteamStores['overview']> {
+    const store = globals().appStore;
+    if (!store) return undefined;
+    let ov = store.GetAppOverviewByAppID?.(id);
+    if (!ov && (id < 0 || id > 0x7fffffff)) {
+        ov = store.GetAppOverviewByAppID?.(id < 0 ? (id >>> 0) : (id | 0));
+    }
+    return ov ?? undefined;
+}
+
 export const browserStores: SteamStores = {
     // Steam's store when it has the game's assets; else what its details callback sent (detailsMemo).
     details: (id) => {
-        const details = globals().appDetailsStore?.GetAppDetails?.(id);
+        const store = globals().appDetailsStore;
+        let details = store?.GetAppDetails?.(id);
+        if (!details && (id < 0 || id > 0x7fffffff)) {
+            details = store?.GetAppDetails?.(id < 0 ? (id >>> 0) : (id | 0));
+        }
         if (details?.libraryAssets) return details;
         const remembered = memoDetails(id);
         return remembered ? { ...details, libraryAssets: remembered } : details;
     },
-    overview: (id) => globals().appStore?.GetAppOverviewByAppID?.(id),
+    overview: (id) => getOverviewWithFallback(id),
     landscape: (id) => {
         const g = globals();
-        const overview = g.appStore?.GetAppOverviewByAppID?.(id);
-        return overview ? g.appDetailsStore?.GetHeaderImages?.(overview, false) : undefined;
+        const overview = getOverviewWithFallback(id);
+        const steamUrls: string[] = [];
+        if (overview) {
+            const headers = g.appDetailsStore?.GetHeaderImages?.(overview, false);
+            if (Array.isArray(headers)) steamUrls.push(...headers);
+            const customPath = (overview as Record<string, unknown>).strCustomHeaderPath ?? (overview as Record<string, unknown>).m_strCustomHeaderPath;
+            if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
+        }
+
+        // Direct custom horizontal images from Steam's config/grid folder (served at /customimages/)
+        // Windows Steam and SteamGridDB save custom artwork directly here
+        if (g.appStore || g.appDetailsStore) {
+            steamUrls.push(`/customimages/${id}.jpg`, `/customimages/${id}.png`, `/customimages/${id}.webp`);
+            if (id < 0) {
+                const unsigned = id >>> 0;
+                steamUrls.push(`/customimages/${unsigned}.jpg`, `/customimages/${unsigned}.png`, `/customimages/${unsigned}.webp`);
+            } else if (id > 0x7fffffff) {
+                const signed = id | 0;
+                steamUrls.push(`/customimages/${signed}.jpg`, `/customimages/${signed}.png`, `/customimages/${signed}.webp`);
+            }
+            const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
+            if (gid && String(gid) !== String(id)) {
+                steamUrls.push(`/customimages/${gid}.jpg`, `/customimages/${gid}.png`, `/customimages/${gid}.webp`);
+            }
+            // Portrait fallback for shortcuts in landscape view
+            steamUrls.push(`/customimages/${id}p.jpg`, `/customimages/${id}p.png`, `/customimages/${id}p.webp`);
+            if (gid && String(gid) !== String(id)) {
+                steamUrls.push(`/customimages/${gid}p.jpg`, `/customimages/${gid}p.png`, `/customimages/${gid}p.webp`);
+            }
+        }
+
+        return steamUrls.length > 0 ? steamUrls : undefined;
     },
     customHero: (id) => {
         const store = globals().appStore;
-        const overview = store?.GetAppOverviewByAppID?.(id);
-        return overview ? store?.GetCustomHeroImageURLs?.(overview) : undefined;
+        const overview = getOverviewWithFallback(id);
+        const steamUrls: string[] = [];
+        if (overview) {
+            const hUrls = store?.GetCustomHeroImageURLs?.(overview);
+            if (Array.isArray(hUrls)) steamUrls.push(...hUrls);
+            const customPath = (overview as Record<string, unknown>).strCustomHeroPath ?? (overview as Record<string, unknown>).m_strCustomHeroPath;
+            if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
+        }
+        if (store) {
+            steamUrls.push(`/customimages/${id}_hero.jpg`, `/customimages/${id}_hero.png`, `/customimages/${id}_hero.webp`);
+            const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
+            if (gid && String(gid) !== String(id)) {
+                steamUrls.push(`/customimages/${gid}_hero.jpg`, `/customimages/${gid}_hero.png`, `/customimages/${gid}_hero.webp`);
+            }
+        }
+        return steamUrls.length > 0 ? steamUrls : undefined;
     },
     customCapsule: (id) => {
         const store = globals().appStore;
-        const overview = store?.GetAppOverviewByAppID?.(id);
-        return overview ? store?.GetCustomVerticalCapsuleURLs?.(overview) : undefined;
+        const overview = getOverviewWithFallback(id);
+        const steamUrls: string[] = [];
+        if (overview) {
+            const vUrls = store?.GetCustomVerticalCapsuleURLs?.(overview);
+            if (Array.isArray(vUrls)) steamUrls.push(...vUrls);
+            const cUrls = store?.GetCustomCapsuleURLs?.(overview);
+            if (Array.isArray(cUrls)) steamUrls.push(...cUrls);
+            const boxUrl = store?.GetCustomBoxartURL?.(overview);
+            if (typeof boxUrl === 'string' && boxUrl) steamUrls.push(boxUrl);
+            const customPath = (overview as Record<string, unknown>).strCustomCapsulePath ?? (overview as Record<string, unknown>).m_strCustomCapsulePath;
+            if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
+        }
+
+        // Direct custom portrait images in config/grid (served at /customimages/)
+        // Windows Steam and SteamGridDB save custom artwork directly here
+        if (store) {
+            steamUrls.push(`/customimages/${id}p.jpg`, `/customimages/${id}p.png`, `/customimages/${id}p.webp`);
+            if (id < 0) {
+                const unsigned = id >>> 0;
+                steamUrls.push(`/customimages/${unsigned}p.jpg`, `/customimages/${unsigned}p.png`, `/customimages/${unsigned}p.webp`);
+            } else if (id > 0x7fffffff) {
+                const signed = id | 0;
+                steamUrls.push(`/customimages/${signed}p.jpg`, `/customimages/${signed}p.png`, `/customimages/${signed}p.webp`);
+            }
+            const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
+            if (gid && String(gid) !== String(id)) {
+                steamUrls.push(`/customimages/${gid}p.jpg`, `/customimages/${gid}p.png`, `/customimages/${gid}p.webp`);
+            }
+            // Also add horizontal custom images as fallback for non-Steam games
+            steamUrls.push(`/customimages/${id}.jpg`, `/customimages/${id}.png`, `/customimages/${id}.webp`);
+            if (gid && String(gid) !== String(id)) {
+                steamUrls.push(`/customimages/${gid}.jpg`, `/customimages/${gid}.png`, `/customimages/${gid}.webp`);
+            }
+        }
+
+        return steamUrls.length > 0 ? steamUrls : undefined;
     },
     customLogo: (id) => {
         const store = globals().appStore;
-        const overview = store?.GetAppOverviewByAppID?.(id);
-        return overview ? store?.GetCustomLogoImageURLs?.(overview) : undefined;
+        const overview = getOverviewWithFallback(id);
+        const steamUrls: string[] = [];
+        if (overview) {
+            const lUrls = store?.GetCustomLogoImageURLs?.(overview);
+            if (Array.isArray(lUrls)) steamUrls.push(...lUrls);
+            const customPath = (overview as Record<string, unknown>).strCustomLogoPath ?? (overview as Record<string, unknown>).m_strCustomLogoPath;
+            if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
+        }
+        if (store) {
+            steamUrls.push(`/customimages/${id}_logo.png`);
+            const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
+            if (gid && String(gid) !== String(id)) {
+                steamUrls.push(`/customimages/${gid}_logo.png`);
+            }
+        }
+        return steamUrls.length > 0 ? steamUrls : undefined;
+    },
+    soundtrackCover: (id) => {
+        const store = globals().appStore;
+        const overview = getOverviewWithFallback(id);
+        const steamUrls: string[] = [];
+        if (overview) {
+            const customPath = (overview as Record<string, unknown>).strCustomCapsulePath ?? (overview as Record<string, unknown>).m_strCustomCapsulePath;
+            if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
+        }
+        if (store) {
+            steamUrls.push(`/customimages/${id}p.jpg`, `/customimages/${id}p.png`, `/customimages/${id}.jpg`, `/customimages/${id}.png`);
+        }
+        return steamUrls.length > 0 ? steamUrls : undefined;
     },
 };
 
@@ -161,3 +362,4 @@ export const browserStores: SteamStores = {
 export function storeHeaderUrl(appId: number): string | null {
     return Number.isInteger(appId) && appId > 0 ? `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg` : null;
 }
+

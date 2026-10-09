@@ -32,7 +32,7 @@ export function SpotlightLibraryPreview({ deviceMode = 'handheld', customAccent 
             description: g.description,
         }));
 
-        // Sample Soundtrack for testing soundtrack layout and tab (Steam App ID 1433140)
+        // Sample Soundtracks for testing soundtrack layout and tab
         list.push({
             appId: 1433140,
             name: 'Cyberpunk 2077: Original Soundtrack',
@@ -47,10 +47,52 @@ export function SpotlightLibraryPreview({ deviceMode = 'handheld', customAccent 
             accent: '#00e5ff',
             lastPlayed: Date.now() - 3600000 * 5,
             sizeOnDisk: 1200000000,
-            capsuleUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg',
-            landscapeUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg',
+            capsuleUrl: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1433140/capsule_616x353.jpg',
+            landscapeUrl: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1433140/header.jpg',
             heroUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/library_hero.jpg',
             description: 'The official Cyberpunk 2077 soundtrack featuring original music composed by Marcin Przybyłowicz, P.T. Adamczyk and Paul Leonard-Morgan.',
+        });
+
+        list.push({
+            appId: 598640,
+            name: 'Hollow Knight: Gods & Nightmares',
+            isShortcut: false,
+            isSoundtrack: true,
+            installed: true,
+            running: false,
+            playedMinutes: 280,
+            achievements: null,
+            heroic: null,
+            source: 'Soundtrack',
+            accent: '#7f8c8d',
+            lastPlayed: Date.now() - 86400000 * 3,
+            sizeOnDisk: 950000000,
+            capsuleUrl: 'https://shared.steamstatic.com/store_item_assets/steam/apps/598640/capsule_616x353.jpg',
+            landscapeUrl: 'https://shared.steamstatic.com/store_item_assets/steam/apps/598640/header.jpg',
+            heroUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/367520/library_hero.jpg',
+            description: 'Composed by Christopher Larkin, this album features all of the new tracks composed for the expansive Hollow Knight content packs.',
+        });
+
+        // Sample Non-Steam shortcut with custom artwork
+        list.push({
+            appId: 2194827101,
+            name: 'EmulationStation-DE',
+            isShortcut: true,
+            isSoundtrack: false,
+            gameId: '14392819482910492812',
+            installed: true,
+            running: false,
+            playedMinutes: 840,
+            achievements: null,
+            heroic: null,
+            source: 'Non-Steam',
+            accent: '#f39c12',
+            lastPlayed: Date.now() - 86400000 * 1,
+            sizeOnDisk: 500000000,
+            capsuleUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1145360/library_600x900.jpg',
+            landscapeUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1145360/header.jpg',
+            heroUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1145360/library_hero.jpg',
+            description: 'Frontend for browsing and launching games from your multi-platform game collection.',
         });
 
         return list;

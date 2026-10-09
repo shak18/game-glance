@@ -559,8 +559,16 @@ export function readRawApps(): {
 
 export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?: Set<number>): LibraryGameItem {
     const s = steam();
-    const overview = s.appStore?.GetAppOverviewByAppID?.(app.appid) ?? app;
-    const details = s.appDetailsStore?.GetAppDetails?.(app.appid);
+    let overview = s.appStore?.GetAppOverviewByAppID?.(app.appid) ?? app;
+    if ((!overview || overview === app) && (app.appid < 0 || app.appid > 0x7fffffff)) {
+        const alt = s.appStore?.GetAppOverviewByAppID?.(app.appid < 0 ? (app.appid >>> 0) : (app.appid | 0));
+        if (alt) overview = alt;
+    }
+    const details =
+        s.appDetailsStore?.GetAppDetails?.(app.appid) ??
+        ((app.appid < 0 || app.appid > 0x7fffffff)
+            ? s.appDetailsStore?.GetAppDetails?.(app.appid < 0 ? (app.appid >>> 0) : (app.appid | 0))
+            : undefined);
     const info = readGameInfo(overview, details);
     const isSoundtrack =
         soundtrackAppIds?.has(app.appid) === true ||
@@ -577,13 +585,14 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
             ? 'Steam'
             : heroicStoreLabel(info.heroic) ?? 'Non-Steam';
     const size = typeof app.size_on_disk === 'number' ? app.size_on_disk : Number(app.size_on_disk) || undefined;
+    const gameId = app.m_gameid ?? ((overview as Record<string, unknown> | undefined)?.m_gameid as string | undefined);
 
     return {
         appId: app.appid,
         name: info.name || app.display_name || `App ${app.appid}`,
         isShortcut: info.isShortcut,
         isSoundtrack,
-        gameId: app.m_gameid,
+        gameId,
         installed: app.installed ?? true,
         running: isRunning,
         playedMinutes: info.playedMinutes,
