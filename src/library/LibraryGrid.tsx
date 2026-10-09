@@ -1,6 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { FaFolder } from 'react-icons/fa';
-import { browserStores, capsuleUrls as getCapsuleUrls, landscapeUrls as getLandscapeUrls } from '../home/artwork';
+import {
+    browserStores,
+    capsuleUrls as getCapsuleUrls,
+    heroUrls as getHeroUrls,
+    landscapeUrls as getLandscapeUrls,
+    logoUrls as getLogoUrls,
+} from '../home/artwork';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
 
 interface LibraryGridProps {
@@ -13,6 +19,7 @@ interface LibraryGridProps {
     onSelectGame: (index: number) => void;
     onLaunchGame?: (game: LibraryGameItem) => void;
     onOpenCollection?: (collection: LibraryCollectionItem) => void;
+    onContextMenu?: (game: LibraryGameItem, index: number, target: HTMLElement) => void;
     isGridFocused?: boolean;
 }
 
@@ -22,9 +29,10 @@ interface BannerCardProps {
     accent: string;
     onClick: () => void;
     onDoubleClick: () => void;
+    onContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-function BannerCard({ game, isFocused, accent, onClick, onDoubleClick }: BannerCardProps) {
+function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContextMenu }: BannerCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
 
     // Ensure focused card scrolls into view vertically within the grid panel (never scrolls parent layout)
@@ -68,6 +76,64 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick }: BannerC
         }
     };
 
+    const isBannerAvailable = Boolean(src && !hasError);
+
+    // Fallback: Hero background image
+    const heroCandidates = React.useMemo(() => {
+        if (isBannerAvailable) return [];
+        if (game.heroUrl) return [game.heroUrl];
+        return getHeroUrls(game.appId, browserStores);
+    }, [isBannerAvailable, game.appId, game.heroUrl]);
+
+    const [heroSrc, setHeroSrc] = React.useState<string>(heroCandidates[0] ?? '');
+    const [heroIdx, setHeroIdx] = React.useState(0);
+    const [hasHeroError, setHasHeroError] = React.useState(false);
+
+    useEffect(() => {
+        setHeroIdx(0);
+        setHasHeroError(false);
+        setHeroSrc(heroCandidates[0] ?? '');
+    }, [heroCandidates]);
+
+    const handleHeroError = () => {
+        const next = heroIdx + 1;
+        if (next < heroCandidates.length) {
+            setHeroIdx(next);
+            setHeroSrc(heroCandidates[next]);
+        } else {
+            setHasHeroError(true);
+        }
+    };
+
+    // Fallback: Centered game logo
+    const logoCandidates = React.useMemo(() => {
+        if (isBannerAvailable) return [];
+        if (game.logoUrl) return [game.logoUrl];
+        return getLogoUrls(game.appId, browserStores);
+    }, [isBannerAvailable, game.appId, game.logoUrl]);
+
+    const [logoSrc, setLogoSrc] = React.useState<string>(logoCandidates[0] ?? '');
+    const [logoIdx, setLogoIdx] = React.useState(0);
+    const [hasLogoError, setHasLogoError] = React.useState(false);
+
+    useEffect(() => {
+        setLogoIdx(0);
+        setHasLogoError(false);
+        setLogoSrc(logoCandidates[0] ?? '');
+    }, [logoCandidates]);
+
+    const handleLogoError = () => {
+        const next = logoIdx + 1;
+        if (next < logoCandidates.length) {
+            setLogoIdx(next);
+            setLogoSrc(logoCandidates[next]);
+        } else {
+            setHasLogoError(true);
+        }
+    };
+
+    const isLogoAvailable = Boolean(logoSrc && !hasLogoError);
+
     return (
         <div
             ref={cardRef}
@@ -79,10 +145,27 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick }: BannerC
                 '--accent': accent,
                 '--accent-glow': `${accent}55`,
             } as React.CSSProperties}
-            onClick={onClick}
-            onDoubleClick={onDoubleClick}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isFocused) {
+                    onDoubleClick();
+                } else {
+                    onClick();
+                }
+            }}
+            onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDoubleClick();
+            }}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onContextMenu?.(e);
+            }}
         >
-            {src && !hasError ? (
+            {isBannerAvailable ? (
                 <img
                     key={src}
                     src={src}
@@ -93,7 +176,28 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick }: BannerC
                 />
             ) : (
                 <div className="sgl-card-fallback">
-                    <span className="sgl-card-title">{game.name}</span>
+                    {heroSrc && !hasHeroError && (
+                        <img
+                            key={heroSrc}
+                            src={heroSrc}
+                            alt=""
+                            className="sgl-card-fallback-bg"
+                            onError={handleHeroError}
+                            loading="lazy"
+                        />
+                    )}
+                    <div className="sgl-card-fallback-overlay" />
+                    {isLogoAvailable ? (
+                        <img
+                            key={logoSrc}
+                            src={logoSrc}
+                            alt={game.name}
+                            className="sgl-card-fallback-logo"
+                            onError={handleLogoError}
+                        />
+                    ) : (
+                        <span className="sgl-card-fallback-title">{game.name}</span>
+                    )}
                 </div>
             )}
 
@@ -197,8 +301,20 @@ function CollectionCard({ collection, isFocused, accent, onClick, onDoubleClick 
                 '--accent': accent,
                 '--accent-glow': `${accent}55`,
             } as React.CSSProperties}
-            onClick={onClick}
-            onDoubleClick={onDoubleClick}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isFocused) {
+                    onDoubleClick();
+                } else {
+                    onClick();
+                }
+            }}
+            onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDoubleClick();
+            }}
         >
             <div className="sgl-col-fan-area">
                 {games.length >= 5 ? (
@@ -257,6 +373,7 @@ export function LibraryGrid({
     onSelectGame,
     onLaunchGame,
     onOpenCollection,
+    onContextMenu,
     isGridFocused = true,
 }: LibraryGridProps) {
     if (isCollectionsView) {
@@ -310,6 +427,7 @@ export function LibraryGrid({
                         accent={accent}
                         onClick={() => onSelectGame(idx)}
                         onDoubleClick={() => onLaunchGame?.(game)}
+                        onContextMenu={(e) => onContextMenu?.(game, idx, e.currentTarget)}
                     />
                 ))}
             </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCategories, rawAppToItem } from '../../src/library/libraryData';
+import { buildCategories, isGameOrShortcutApp, isToolOrServerName, rawAppToItem } from '../../src/library/libraryData';
 
 describe('libraryData: buildCategories', () => {
     it('creates standard categories for mock games', () => {
@@ -104,5 +104,77 @@ describe('libraryData: buildCategories', () => {
         expect(soundtrackCat).toBeDefined();
         expect(soundtrackCat?.count).toBe(1);
         expect(soundtrackCat?.games[0].name).toBe('Soundtrack 1');
+    });
+
+    it('identifies tools, SDKs, and dedicated servers with isToolOrServerName', () => {
+        expect(isToolOrServerName('Age of Chivalry Dedicated Server')).toBe(true);
+        expect(isToolOrServerName('Alien Swarm SDK')).toBe(true);
+        expect(isToolOrServerName('Aliens vs. Predator Dedicated Server')).toBe(true);
+        expect(isToolOrServerName('Team Fortress 2 Authoring Tools')).toBe(true);
+        expect(isToolOrServerName('Skyrim Creation Kit')).toBe(true);
+        expect(isToolOrServerName('Steamworks Common Redists')).toBe(true);
+        expect(isToolOrServerName('Left 4 Dead 2 Dedicated Server')).toBe(true);
+        expect(isToolOrServerName('Servidor dedicado de Counter-Strike')).toBe(true);
+        expect(isToolOrServerName('Half-Life 2')).toBe(false);
+        expect(isToolOrServerName('Cyberpunk 2077')).toBe(false);
+        expect(isToolOrServerName('Hades')).toBe(false);
+    });
+
+    it('identifies game vs non-game apps with isGameOrShortcutApp', () => {
+        expect(isGameOrShortcutApp({ appid: 1, app_type: 4, display_name: 'Tool' })).toBe(false);
+        expect(isGameOrShortcutApp({ appid: 2, app_type: 8, display_name: 'OST' })).toBe(false);
+        expect(isGameOrShortcutApp({ appid: 3, app_type: 1, display_name: 'Game' })).toBe(true);
+        expect(isGameOrShortcutApp({ appid: 4, app_type: 1073741824, display_name: 'Shortcut' })).toBe(true);
+        expect(isGameOrShortcutApp({ appid: 5, app_type: 64, display_name: 'Demo' })).toBe(true);
+        expect(isGameOrShortcutApp({ appid: 6, display_name: 'Alien Swarm SDK' })).toBe(false);
+    });
+
+    it('filters out dedicated servers and SDKs from all regular categories in mock games', () => {
+        const mock = [
+            {
+                appId: 10,
+                name: 'Portal 2',
+                isShortcut: false,
+                isSoundtrack: false,
+                installed: true,
+                running: false,
+                playedMinutes: 500,
+                achievements: null,
+                heroic: null,
+                source: 'Steam',
+            },
+            {
+                appId: 20,
+                name: 'Age of Chivalry Dedicated Server',
+                isShortcut: false,
+                isSoundtrack: false,
+                installed: true,
+                running: false,
+                playedMinutes: 0,
+                achievements: null,
+                heroic: null,
+                source: 'Steam',
+            },
+            {
+                appId: 30,
+                name: 'Alien Swarm SDK',
+                isShortcut: false,
+                isSoundtrack: false,
+                installed: true,
+                running: false,
+                playedMinutes: 0,
+                achievements: null,
+                heroic: null,
+                source: 'Steam',
+            },
+        ];
+        const categories = buildCategories(mock);
+        const allCat = categories.find((c) => c.id === 'all');
+        expect(allCat?.count).toBe(1);
+        expect(allCat?.games.map((g) => g.name)).toEqual(['Portal 2']);
+
+        const installedCat = categories.find((c) => c.id === 'installed');
+        expect(installedCat?.count).toBe(1);
+        expect(installedCat?.games.map((g) => g.name)).toEqual(['Portal 2']);
     });
 });

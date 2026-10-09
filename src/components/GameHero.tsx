@@ -73,21 +73,63 @@ function GameTitleBlock({
     const [logoLoaded, setLogoLoaded] = useState(false);
     const [allFailed, setAllFailed] = useState(false);
     const [showFallbackText, setShowFallbackText] = useState(urls.length === 0);
+    const imgRef = useRef<HTMLImageElement | null>(null);
+
+    const prevTitleRef = useRef(title);
+    const prevUrlRef = useRef<string | null>(null);
+    const currentUrl = urls.length > 0 && logoIdx < urls.length ? urls[logoIdx] : null;
 
     useEffect(() => {
-        setLogoIdx(0);
-        setLogoLoaded(false);
-        setAllFailed(false);
-        if (urls.length === 0) {
-            setShowFallbackText(true);
-            return;
+        const titleChanged = prevTitleRef.current !== title;
+        if (titleChanged) {
+            prevTitleRef.current = title;
+            prevUrlRef.current = currentUrl;
+            setLogoIdx(0);
+            setAllFailed(false);
+            if (!currentUrl) {
+                setLogoLoaded(false);
+                setShowFallbackText(true);
+                return undefined;
+            }
+            if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+                setLogoLoaded(true);
+                setShowFallbackText(false);
+                return undefined;
+            }
+            setLogoLoaded(false);
+            setShowFallbackText(false);
+            const timer = setTimeout(() => {
+                setShowFallbackText(true);
+            }, 2000);
+            return () => clearTimeout(timer);
         }
-        setShowFallbackText(false);
-        const timer = setTimeout(() => {
-            setShowFallbackText(true);
-        }, 2000);
-        return () => clearTimeout(timer);
-    }, [title, urls]);
+
+        if (prevUrlRef.current !== currentUrl) {
+            prevUrlRef.current = currentUrl;
+            if (!currentUrl) {
+                setLogoLoaded(false);
+                setShowFallbackText(true);
+                return undefined;
+            }
+            if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+                setLogoLoaded(true);
+                setShowFallbackText(false);
+                return undefined;
+            }
+            setLogoLoaded(false);
+            setShowFallbackText(false);
+            const timer = setTimeout(() => {
+                setShowFallbackText(true);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+
+        if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+            setLogoLoaded(true);
+            setShowFallbackText(false);
+        }
+        return undefined;
+    }, [title, currentUrl]);
 
     const handleError = () => {
         if (logoIdx + 1 < urls.length) {
@@ -111,10 +153,11 @@ function GameTitleBlock({
         <div className="gg-titleblock">
             {eyebrow && <div className="gg-eyebrow">{eyebrow}</div>}
             <div className="gg-titleslot">
-                {shouldTryLogo && (
+                {shouldTryLogo && currentUrl && (
                     <img
-                        key={urls[logoIdx]}
-                        src={urls[logoIdx]}
+                        ref={imgRef}
+                        key={currentUrl}
+                        src={currentUrl}
                         alt={title}
                         className="gg-logo"
                         onLoad={handleLoad}

@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { FaPlay, FaInfoCircle, FaMusic, FaFolderOpen } from 'react-icons/fa';
-import { browserStores, capsuleUrls as getCapsuleUrls } from '../home/artwork';
+import {
+    browserStores,
+    capsuleUrls as getCapsuleUrls,
+    heroUrls as getHeroUrls,
+    landscapeUrls as getLandscapeUrls,
+    logoUrls as getLogoUrls,
+} from '../home/artwork';
 import { Chip, gameChips } from '../home/chips';
 import { formatHours, minutesToHours, steamLanguageToLocale } from '../logic/format';
 import { formatLastPlayed } from '../home/recents';
@@ -60,6 +66,166 @@ function InspectorFanCover({ game, className }: { game?: LibraryGameItem; classN
     return (
         <div className={`sgl-insp-col-card ${className}`}>
             <img src={src} alt={game.name} onError={handleError} />
+        </div>
+    );
+}
+
+function InspectorGameCover({ game }: { game: LibraryGameItem }) {
+    // 1. Primary: Vertical capsule art (2:3 or 1:1)
+    const posterCandidates = React.useMemo(() => {
+        if (game.capsuleUrl) return [game.capsuleUrl];
+        return getCapsuleUrls(game.appId, browserStores);
+    }, [game.appId, game.capsuleUrl]);
+
+    const [posterSrc, setPosterSrc] = useState<string>(posterCandidates[0] ?? '');
+    const [posterIdx, setPosterIdx] = useState(0);
+    const [hasPosterError, setHasPosterError] = useState(false);
+
+    useEffect(() => {
+        setPosterIdx(0);
+        setHasPosterError(false);
+        setPosterSrc(posterCandidates[0] ?? '');
+    }, [posterCandidates]);
+
+    const handlePosterError = () => {
+        const next = posterIdx + 1;
+        if (next < posterCandidates.length) {
+            setPosterIdx(next);
+            setPosterSrc(posterCandidates[next]);
+        } else {
+            setHasPosterError(true);
+        }
+    };
+
+    const isPosterAvailable = Boolean(posterSrc && !hasPosterError);
+
+    // 2. Fallback backdrop: Blurred hero art (with landscape banner as fallback)
+    const bgCandidates = React.useMemo(() => {
+        if (isPosterAvailable) return [];
+        const heroes = game.heroUrl ? [game.heroUrl] : getHeroUrls(game.appId, browserStores);
+        const landscapes = game.landscapeUrl ? [game.landscapeUrl] : getLandscapeUrls(game.appId, browserStores);
+        return [...new Set([...heroes, ...landscapes])];
+    }, [isPosterAvailable, game.appId, game.heroUrl, game.landscapeUrl]);
+
+    const [bgSrc, setBgSrc] = useState<string>(bgCandidates[0] ?? '');
+    const [bgIdx, setBgIdx] = useState(0);
+
+    useEffect(() => {
+        setBgIdx(0);
+        setBgSrc(bgCandidates[0] ?? '');
+    }, [bgCandidates]);
+
+    const handleBgError = () => {
+        const next = bgIdx + 1;
+        if (next < bgCandidates.length) {
+            setBgIdx(next);
+            setBgSrc(bgCandidates[next]);
+        }
+    };
+
+    // 3. Fallback center: Preferred logo
+    const logoCandidates = React.useMemo(() => {
+        if (isPosterAvailable) return [];
+        if (game.logoUrl) return [game.logoUrl];
+        return getLogoUrls(game.appId, browserStores);
+    }, [isPosterAvailable, game.appId, game.logoUrl]);
+
+    const [logoSrc, setLogoSrc] = useState<string>(logoCandidates[0] ?? '');
+    const [logoIdx, setLogoIdx] = useState(0);
+    const [hasLogoError, setHasLogoError] = useState(false);
+
+    useEffect(() => {
+        setLogoIdx(0);
+        setHasLogoError(false);
+        setLogoSrc(logoCandidates[0] ?? '');
+    }, [logoCandidates]);
+
+    const handleLogoError = () => {
+        const next = logoIdx + 1;
+        if (next < logoCandidates.length) {
+            setLogoIdx(next);
+            setLogoSrc(logoCandidates[next]);
+        } else {
+            setHasLogoError(true);
+        }
+    };
+
+    const isLogoAvailable = Boolean(logoSrc && !hasLogoError);
+
+    // 4. Fallback center banner (if NO logo available): Clean horizontal banner
+    const bannerCandidates = React.useMemo(() => {
+        if (isPosterAvailable || isLogoAvailable) return [];
+        if (game.landscapeUrl) return [game.landscapeUrl];
+        return getLandscapeUrls(game.appId, browserStores);
+    }, [isPosterAvailable, isLogoAvailable, game.appId, game.landscapeUrl]);
+
+    const [bannerSrc, setBannerSrc] = useState<string>(bannerCandidates[0] ?? '');
+    const [bannerIdx, setBannerIdx] = useState(0);
+    const [hasBannerError, setHasBannerError] = useState(false);
+
+    useEffect(() => {
+        setBannerIdx(0);
+        setHasBannerError(false);
+        setBannerSrc(bannerCandidates[0] ?? '');
+    }, [bannerCandidates]);
+
+    const handleBannerError = () => {
+        const next = bannerIdx + 1;
+        if (next < bannerCandidates.length) {
+            setBannerIdx(next);
+            setBannerSrc(bannerCandidates[next]);
+        } else {
+            setHasBannerError(true);
+        }
+    };
+
+    const isBannerAvailable = Boolean(bannerSrc && !hasBannerError);
+
+    return (
+        <div className={`sgl-poster-wrapper${game.isSoundtrack ? ' sgl-poster-square' : ''}`}>
+            {isPosterAvailable ? (
+                <img
+                    key={posterSrc}
+                    src={posterSrc}
+                    alt={game.name}
+                    className="sgl-poster-img"
+                    onError={handlePosterError}
+                />
+            ) : (
+                <div className="sgl-poster-fallback">
+                    {bgSrc && (
+                        <img
+                            key={bgSrc}
+                            src={bgSrc}
+                            alt=""
+                            className="sgl-poster-fallback-bg"
+                            onError={handleBgError}
+                        />
+                    )}
+                    <div className="sgl-poster-fallback-overlay" />
+                    <div className="sgl-poster-fallback-content">
+                        {isLogoAvailable ? (
+                            <img
+                                key={logoSrc}
+                                src={logoSrc}
+                                alt={game.name}
+                                className="sgl-poster-fallback-logo"
+                                onError={handleLogoError}
+                            />
+                        ) : isBannerAvailable ? (
+                            <img
+                                key={bannerSrc}
+                                src={bannerSrc}
+                                alt={game.name}
+                                className="sgl-poster-fallback-banner"
+                                onError={handleBannerError}
+                            />
+                        ) : (
+                            <div className="sgl-poster-fallback-title">{game.name}</div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -154,7 +320,15 @@ export function LibraryInspector({
                 </div>
 
                 <div className="sgl-actions">
-                    <button className="sgl-btn-details" onClick={onOpenCollection} style={{ width: '100%' }}>
+                    <button
+                        className="sgl-btn-details"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onOpenCollection?.();
+                        }}
+                        style={{ width: '100%' }}
+                    >
                         <FaFolderOpen size={13} />
                         <span>Open Collection</span>
                         <span className="sgl-btn-badge">A</span>
@@ -176,27 +350,7 @@ export function LibraryInspector({
 
     const locale = steamLanguageToLocale(peekSteamLanguage() ?? 'english');
 
-    // Poster artwork candidates
-    const posterCandidates = React.useMemo(() => {
-        if (game.capsuleUrl) return [game.capsuleUrl];
-        return getCapsuleUrls(game.appId, browserStores);
-    }, [game.appId, game.capsuleUrl]);
 
-    const [posterSrc, setPosterSrc] = useState<string>(posterCandidates[0] ?? '');
-    const [posterCandidateIdx, setPosterCandidateIdx] = useState(0);
-
-    useEffect(() => {
-        setPosterCandidateIdx(0);
-        setPosterSrc(posterCandidates[0] ?? '');
-    }, [posterCandidates]);
-
-    const handlePosterError = () => {
-        const nextIdx = posterCandidateIdx + 1;
-        if (nextIdx < posterCandidates.length) {
-            setPosterCandidateIdx(nextIdx);
-            setPosterSrc(posterCandidates[nextIdx]);
-        }
-    };
 
     // Compute chips: customized for soundtracks vs regular games
     const chips: Chip[] = React.useMemo(() => {
@@ -233,35 +387,8 @@ export function LibraryInspector({
 
     return (
         <aside className="sgl-inspector" style={{ '--accent': accent } as React.CSSProperties}>
-            {/* Poster Art: vertical 2:3 for games, square 1:1 for soundtracks */}
-            <div className={`sgl-poster-wrapper${game.isSoundtrack ? ' sgl-poster-square' : ''}`}>
-                {posterSrc ? (
-                    <img
-                        key={posterSrc}
-                        src={posterSrc}
-                        alt={game.name}
-                        className="sgl-poster-img"
-                        onError={handlePosterError}
-                    />
-                ) : (
-                    <div
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: '#161b24',
-                            color: '#8b949e',
-                            fontSize: 12,
-                            padding: 12,
-                            textAlign: 'center',
-                        }}
-                    >
-                        {game.name}
-                    </div>
-                )}
-            </div>
+            {/* Poster Art: vertical 2:3 for games, square 1:1 for soundtracks, or blurred hero + logo fallback */}
+            <InspectorGameCover game={game} />
 
             {/* Game Title: Clean typography, no cluttered secondary logo */}
             <div className="sgl-title-box">
@@ -308,7 +435,15 @@ export function LibraryInspector({
             {/* Action Buttons: Single button for soundtracks, Details (A) and Play (Y) for games */}
             {game.isSoundtrack ? (
                 <div className="sgl-actions">
-                    <button className="sgl-btn-details" onClick={onDetails} style={{ width: '100%' }}>
+                    <button
+                        className="sgl-btn-details"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDetails?.();
+                        }}
+                        style={{ width: '100%' }}
+                    >
                         <FaMusic size={12} />
                         <span>Open Soundtrack</span>
                         <span className="sgl-btn-badge">A</span>
@@ -316,12 +451,26 @@ export function LibraryInspector({
                 </div>
             ) : (
                 <div className="sgl-actions">
-                    <button className="sgl-btn-details" onClick={onDetails}>
+                    <button
+                        className="sgl-btn-details"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDetails?.();
+                        }}
+                    >
                         <FaInfoCircle size={13} />
                         <span>Details</span>
                         <span className="sgl-btn-badge">A</span>
                     </button>
-                    <button className="sgl-btn-play" onClick={onPlay}>
+                    <button
+                        className="sgl-btn-play"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onPlay?.();
+                        }}
+                    >
                         <FaPlay size={11} />
                         <span>{playLabel}</span>
                         <span className="sgl-btn-badge">Y</span>

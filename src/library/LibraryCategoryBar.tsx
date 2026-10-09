@@ -52,7 +52,14 @@ export function LibraryCategoryBar({
             {/* Center: Breadcrumb (if inside sub-collection) OR Category Tabs with Bumper Prompts */}
             {activeSubCollectionName ? (
                 <div className="sgl-breadcrumb">
-                    <button className="sgl-btn-back-col" onClick={onBackToCollections}>
+                    <button
+                        className="sgl-btn-back-col"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onBackToCollections?.();
+                        }}
+                    >
                         <span>‹ COLLECTIONS</span>
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -78,7 +85,11 @@ export function LibraryCategoryBar({
                                     role="tab"
                                     aria-selected={isActive}
                                     className={`sgl-tab${isActive ? ' active' : ''}${isFocused ? ' focused' : ''}`}
-                                    onClick={() => onSelectCategory(cat.id)}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onSelectCategory(cat.id);
+                                    }}
                                 >
                                     <span className="sgl-tab-label">{cat.name}</span>
                                     <span className="sgl-tab-count">{cat.count}</span>
