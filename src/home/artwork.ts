@@ -241,22 +241,17 @@ export const browserStores: SteamStores = {
         // Direct custom horizontal images from Steam's config/grid folder (served at /customimages/)
         // Windows Steam and SteamGridDB save custom artwork directly here
         if (g.appStore || g.appDetailsStore) {
-            steamUrls.push(`/customimages/${id}.jpg`, `/customimages/${id}.png`, `/customimages/${id}.webp`);
+            steamUrls.push(`/customimages/${id}.png`, `/customimages/${id}.jpg`);
             if (id < 0) {
                 const unsigned = id >>> 0;
-                steamUrls.push(`/customimages/${unsigned}.jpg`, `/customimages/${unsigned}.png`, `/customimages/${unsigned}.webp`);
+                steamUrls.push(`/customimages/${unsigned}.png`, `/customimages/${unsigned}.jpg`);
             } else if (id > 0x7fffffff) {
                 const signed = id | 0;
-                steamUrls.push(`/customimages/${signed}.jpg`, `/customimages/${signed}.png`, `/customimages/${signed}.webp`);
+                steamUrls.push(`/customimages/${signed}.png`, `/customimages/${signed}.jpg`);
             }
             const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
             if (gid && String(gid) !== String(id)) {
-                steamUrls.push(`/customimages/${gid}.jpg`, `/customimages/${gid}.png`, `/customimages/${gid}.webp`);
-            }
-            // Portrait fallback for shortcuts in landscape view
-            steamUrls.push(`/customimages/${id}p.jpg`, `/customimages/${id}p.png`, `/customimages/${id}p.webp`);
-            if (gid && String(gid) !== String(id)) {
-                steamUrls.push(`/customimages/${gid}p.jpg`, `/customimages/${gid}p.png`, `/customimages/${gid}p.webp`);
+                steamUrls.push(`/customimages/${gid}.png`, `/customimages/${gid}.jpg`);
             }
         }
 
@@ -273,10 +268,10 @@ export const browserStores: SteamStores = {
             if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
         }
         if (store) {
-            steamUrls.push(`/customimages/${id}_hero.jpg`, `/customimages/${id}_hero.png`, `/customimages/${id}_hero.webp`);
+            steamUrls.push(`/customimages/${id}_hero.jpg`, `/customimages/${id}_hero.png`);
             const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
             if (gid && String(gid) !== String(id)) {
-                steamUrls.push(`/customimages/${gid}_hero.jpg`, `/customimages/${gid}_hero.png`, `/customimages/${gid}_hero.webp`);
+                steamUrls.push(`/customimages/${gid}_hero.jpg`, `/customimages/${gid}_hero.png`);
             }
         }
         return steamUrls.length > 0 ? steamUrls : undefined;
@@ -286,35 +281,30 @@ export const browserStores: SteamStores = {
         const overview = getOverviewWithFallback(id);
         const steamUrls: string[] = [];
         if (overview) {
+            const customPath = (overview as Record<string, unknown>).strCustomCapsulePath ?? (overview as Record<string, unknown>).m_strCustomCapsulePath;
+            if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
             const vUrls = store?.GetCustomVerticalCapsuleURLs?.(overview);
             if (Array.isArray(vUrls)) steamUrls.push(...vUrls);
             const cUrls = store?.GetCustomCapsuleURLs?.(overview);
             if (Array.isArray(cUrls)) steamUrls.push(...cUrls);
             const boxUrl = store?.GetCustomBoxartURL?.(overview);
             if (typeof boxUrl === 'string' && boxUrl) steamUrls.push(boxUrl);
-            const customPath = (overview as Record<string, unknown>).strCustomCapsulePath ?? (overview as Record<string, unknown>).m_strCustomCapsulePath;
-            if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
         }
 
         // Direct custom portrait images in config/grid (served at /customimages/)
         // Windows Steam and SteamGridDB save custom artwork directly here
         if (store) {
-            steamUrls.push(`/customimages/${id}p.jpg`, `/customimages/${id}p.png`, `/customimages/${id}p.webp`);
+            steamUrls.push(`/customimages/${id}p.png`, `/customimages/${id}p.jpg`);
             if (id < 0) {
                 const unsigned = id >>> 0;
-                steamUrls.push(`/customimages/${unsigned}p.jpg`, `/customimages/${unsigned}p.png`, `/customimages/${unsigned}p.webp`);
+                steamUrls.push(`/customimages/${unsigned}p.png`, `/customimages/${unsigned}p.jpg`);
             } else if (id > 0x7fffffff) {
                 const signed = id | 0;
-                steamUrls.push(`/customimages/${signed}p.jpg`, `/customimages/${signed}p.png`, `/customimages/${signed}p.webp`);
+                steamUrls.push(`/customimages/${signed}p.png`, `/customimages/${signed}p.jpg`);
             }
             const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
             if (gid && String(gid) !== String(id)) {
-                steamUrls.push(`/customimages/${gid}p.jpg`, `/customimages/${gid}p.png`, `/customimages/${gid}p.webp`);
-            }
-            // Also add horizontal custom images as fallback for non-Steam games
-            steamUrls.push(`/customimages/${id}.jpg`, `/customimages/${id}.png`, `/customimages/${id}.webp`);
-            if (gid && String(gid) !== String(id)) {
-                steamUrls.push(`/customimages/${gid}.jpg`, `/customimages/${gid}.png`, `/customimages/${gid}.webp`);
+                steamUrls.push(`/customimages/${gid}p.png`, `/customimages/${gid}p.jpg`);
             }
         }
 
@@ -362,4 +352,25 @@ export const browserStores: SteamStores = {
 export function storeHeaderUrl(appId: number): string | null {
     return Number.isInteger(appId) && appId > 0 ? `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg` : null;
 }
+
+/** In-memory cache of verified working artwork URLs to prevent flickering and redundant 404 retries */
+const workingGridUrlCache = new Map<number, string>();
+const workingCoverUrlCache = new Map<number, string>();
+
+export function getCachedGridUrl(appId: number): string | undefined {
+    return workingGridUrlCache.get(appId);
+}
+
+export function setCachedGridUrl(appId: number, url: string): void {
+    workingGridUrlCache.set(appId, url);
+}
+
+export function getCachedCoverUrl(appId: number): string | undefined {
+    return workingCoverUrlCache.get(appId);
+}
+
+export function setCachedCoverUrl(appId: number, url: string): void {
+    workingCoverUrlCache.set(appId, url);
+}
+
 

@@ -3,9 +3,11 @@ import { FaFolder } from 'react-icons/fa';
 import {
     browserStores,
     capsuleUrls as getCapsuleUrls,
+    getCachedGridUrl,
     heroUrls as getHeroUrls,
     landscapeUrls as getLandscapeUrls,
     logoUrls as getLogoUrls,
+    setCachedGridUrl,
     soundtrackCoverUrls as getSoundtrackCoverUrls,
 } from '../home/artwork';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
@@ -54,27 +56,48 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
 
     const candidates = React.useMemo(() => {
         if (game.landscapeUrl) return [game.landscapeUrl];
+        const cached = getCachedGridUrl(game.appId);
+        if (cached !== undefined) return cached ? [cached] : [];
+
         if (game.isSoundtrack) {
             return [
                 ...getSoundtrackCoverUrls(game.appId, browserStores),
                 ...getLandscapeUrls(game.appId, browserStores),
             ];
         }
+
+        if (game.isShortcut) {
+            // For shortcuts / non-Steam games:
+            // Custom art set via Steam is virtually always the vertical capsule (`p.png`/`p.jpg`).
+            // Check portrait capsule FIRST to avoid cascading 404 errors on missing horizontal files!
+            return [
+                ...getCapsuleUrls(game.appId, browserStores),
+                ...getLandscapeUrls(game.appId, browserStores),
+            ];
+        }
+
         return [
             ...getLandscapeUrls(game.appId, browserStores),
             ...getCapsuleUrls(game.appId, browserStores),
         ];
-    }, [game.appId, game.landscapeUrl, game.isSoundtrack]);
+    }, [game.appId, game.landscapeUrl, game.isSoundtrack, game.isShortcut]);
 
     const [src, setSrc] = React.useState<string>(candidates[0] ?? '');
     const [candidateIdx, setCandidateIdx] = React.useState(0);
-    const [hasError, setHasError] = React.useState(false);
+    const [hasError, setHasError] = React.useState(candidates.length === 0);
+    const [isImgLoaded, setIsImgLoaded] = React.useState(Boolean(getCachedGridUrl(game.appId)));
 
     useEffect(() => {
         setCandidateIdx(0);
-        setHasError(false);
+        setHasError(candidates.length === 0);
+        setIsImgLoaded(Boolean(getCachedGridUrl(game.appId)));
         setSrc(candidates[0] ?? '');
-    }, [candidates]);
+    }, [candidates, game.appId]);
+
+    const handleLoad = () => {
+        setIsImgLoaded(true);
+        if (src) setCachedGridUrl(game.appId, src);
+    };
 
     const handleError = () => {
         const next = candidateIdx + 1;
@@ -83,6 +106,7 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
             setSrc(candidates[next]);
         } else {
             setHasError(true);
+            setCachedGridUrl(game.appId, '');
         }
     };
 
@@ -177,12 +201,15 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
         >
             {isBannerAvailable ? (
                 <img
-                    key={src}
                     src={src}
                     alt={game.name}
                     className="sgl-card-img"
+                    onLoad={handleLoad}
                     onError={handleError}
-                    loading="lazy"
+                    style={{
+                        opacity: isImgLoaded ? 1 : 0,
+                        transition: 'opacity 0.15s ease',
+                    }}
                 />
             ) : (
                 <div className="sgl-card-fallback">

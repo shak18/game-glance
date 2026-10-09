@@ -3,9 +3,11 @@ import { FaPlay, FaInfoCircle, FaMusic, FaFolderOpen } from 'react-icons/fa';
 import {
     browserStores,
     capsuleUrls as getCapsuleUrls,
+    getCachedCoverUrl,
     heroUrls as getHeroUrls,
     landscapeUrls as getLandscapeUrls,
     logoUrls as getLogoUrls,
+    setCachedCoverUrl,
     soundtrackCoverUrls as getSoundtrackCoverUrls,
 } from '../home/artwork';
 import { Chip, gameChips } from '../home/chips';
@@ -76,6 +78,8 @@ function InspectorGameCover({ game }: { game: LibraryGameItem }) {
     // 1. Primary: Square cover for soundtracks (1:1), Vertical capsule art for games (2:3)
     const posterCandidates = React.useMemo(() => {
         if (game.capsuleUrl) return [game.capsuleUrl];
+        const cached = getCachedCoverUrl(game.appId);
+        if (cached !== undefined) return cached ? [cached] : [];
         if (game.isSoundtrack) {
             return getSoundtrackCoverUrls(game.appId, browserStores);
         }
@@ -84,13 +88,20 @@ function InspectorGameCover({ game }: { game: LibraryGameItem }) {
 
     const [posterSrc, setPosterSrc] = useState<string>(posterCandidates[0] ?? '');
     const [posterIdx, setPosterIdx] = useState(0);
-    const [hasPosterError, setHasPosterError] = useState(false);
+    const [hasPosterError, setHasPosterError] = useState(posterCandidates.length === 0);
+    const [isPosterLoaded, setIsPosterLoaded] = useState(Boolean(getCachedCoverUrl(game.appId)));
 
     useEffect(() => {
         setPosterIdx(0);
-        setHasPosterError(false);
+        setHasPosterError(posterCandidates.length === 0);
+        setIsPosterLoaded(Boolean(getCachedCoverUrl(game.appId)));
         setPosterSrc(posterCandidates[0] ?? '');
-    }, [posterCandidates]);
+    }, [posterCandidates, game.appId]);
+
+    const handlePosterLoad = () => {
+        setIsPosterLoaded(true);
+        if (posterSrc) setCachedCoverUrl(game.appId, posterSrc);
+    };
 
     const handlePosterError = () => {
         const next = posterIdx + 1;
@@ -99,6 +110,7 @@ function InspectorGameCover({ game }: { game: LibraryGameItem }) {
             setPosterSrc(posterCandidates[next]);
         } else {
             setHasPosterError(true);
+            setCachedCoverUrl(game.appId, '');
         }
     };
 
@@ -190,11 +202,15 @@ function InspectorGameCover({ game }: { game: LibraryGameItem }) {
         <div className={`sgl-poster-wrapper${game.isSoundtrack ? ' sgl-poster-square' : ''}`}>
             {isPosterAvailable ? (
                 <img
-                    key={posterSrc}
                     src={posterSrc}
                     alt={game.name}
                     className="sgl-poster-img"
+                    onLoad={handlePosterLoad}
                     onError={handlePosterError}
+                    style={{
+                        opacity: isPosterLoaded ? 1 : 0,
+                        transition: 'opacity 0.15s ease',
+                    }}
                 />
             ) : (
                 <div className="sgl-poster-fallback">
