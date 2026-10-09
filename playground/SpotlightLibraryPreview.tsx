@@ -58,7 +58,7 @@ export function SpotlightLibraryPreview({ deviceMode = 'handheld', customAccent 
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', '--sgl-top-inset': '0px', '--sgl-bottom-inset': '0px' } as React.CSSProperties}>
-            <SpotlightLibrary mockGames={mockLibraryGames} />
+            <SpotlightLibrary mockGames={mockLibraryGames} compact={deviceMode === 'handheld'} />
         </div>
     );
 

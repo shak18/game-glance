@@ -941,5 +941,393 @@ export const LIBRARY_CSS = `
     font-weight: 600;
     gap: 8px;
 }
+
+/* ==========================================================================
+   Responsive / Handheld Rules (Steam Deck 1280x800, ROG Ally 720p/800p, etc.)
+   ========================================================================== */
+@media (max-width: 1366px), (max-height: 850px) {
+    /* Header ribbon: compact 48px to save vertical space for library items */
+    .sgl-header {
+        height: 48px;
+        padding: 0 18px;
+    }
+
+    .sgl-brand {
+        font-size: 13.5px;
+        gap: 8px;
+    }
+
+    .sgl-tabs-container {
+        gap: 8px;
+    }
+
+    .sgl-tabs {
+        gap: 16px;
+        padding: 2px 4px;
+    }
+
+    .sgl-tab {
+        font-size: 12px;
+        padding: 6px 2px 8px;
+        gap: 6px;
+    }
+
+    .sgl-tab-count {
+        font-size: 10px;
+        padding: 1px 5px;
+    }
+
+    .sgl-header-info {
+        font-size: 11px;
+    }
+
+    /* Left Panel: Inspector resized to 300px width with 200px poster */
+    .sgl-inspector {
+        width: 300px;
+        padding: 14px 18px;
+        gap: 8px;
+        transform: translateZ(0);
+        will-change: transform;
+    }
+
+    .sgl-poster-wrapper {
+        max-width: 200px;
+        border-radius: 10px;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.75);
+    }
+
+    .sgl-poster-wrapper.sgl-poster-square {
+        max-width: 180px;
+    }
+
+    .sgl-title-box {
+        min-height: 38px;
+    }
+
+    .sgl-title-text {
+        font-size: 17.5px;
+        line-height: 1.22;
+    }
+
+    .sgl-meta-row {
+        gap: 6px;
+    }
+
+    .sgl-source-pill,
+    .sgl-status-pill {
+        font-size: 10px;
+        padding: 2px 7px;
+    }
+
+    .sgl-stats-grid {
+        gap: 6px;
+    }
+
+    .sgl-stat-card {
+        padding: 5px 8px;
+        gap: 2px;
+        border-radius: 6px;
+    }
+
+    .sgl-stat-label {
+        font-size: 9.5px;
+    }
+
+    .sgl-stat-value {
+        font-size: 12px;
+    }
+
+    .sgl-stat-bar {
+        height: 2.5px;
+        margin-top: 3px;
+    }
+
+    .sgl-description {
+        font-size: 11px;
+        line-height: 1.35;
+        -webkit-line-clamp: 2;
+    }
+
+    .sgl-actions {
+        gap: 8px;
+        padding-top: 4px;
+    }
+
+    .sgl-btn-details {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .sgl-btn-play {
+        padding: 8px 10px;
+        font-size: 11.5px;
+    }
+
+    .sgl-btn-badge {
+        font-size: 9px;
+        padding: 1px 5px;
+    }
+
+    /* Inspector Collection Fan */
+    .sgl-inspector-col-fan {
+        max-width: 240px;
+        height: 135px;
+        margin-bottom: 4px;
+    }
+
+    .sgl-insp-col-card {
+        width: 62px;
+        height: 93px;
+        border-radius: 6px;
+    }
+
+    .sgl-insp-col-card-far-left {
+        transform: translateX(-60px) translateY(10px) rotate(-16deg) scale(0.82);
+    }
+
+    .sgl-insp-col-card-left {
+        transform: translateX(-30px) translateY(4px) rotate(-8deg) scale(0.91);
+    }
+
+    .sgl-insp-col-card-right {
+        transform: translateX(30px) translateY(4px) rotate(8deg) scale(0.91);
+    }
+
+    .sgl-insp-col-card-far-right {
+        transform: translateX(60px) translateY(10px) rotate(16deg) scale(0.82);
+    }
+
+    /* Right Panel: Game Grid */
+    .sgl-grid-panel {
+        padding: 14px 18px 20px 16px;
+    }
+
+    .sgl-grid {
+        gap: 10px;
+        padding-bottom: 16px;
+    }
+
+    /* Collections Cards in Grid */
+    .sgl-card-collection {
+        height: 135px;
+    }
+
+    .sgl-col-fan-stage {
+        height: 90px;
+    }
+
+    .sgl-col-fan-card {
+        width: 54px;
+        height: 81px;
+    }
+
+    .sgl-col-card-far-left {
+        transform: translateX(-44px) translateY(6px) rotate(-14deg) scale(0.82);
+    }
+
+    .sgl-col-card-left {
+        transform: translateX(-22px) translateY(2px) rotate(-7deg) scale(0.91);
+    }
+
+    .sgl-col-card-right {
+        transform: translateX(22px) translateY(2px) rotate(7deg) scale(0.91);
+    }
+
+    .sgl-col-card-far-right {
+        transform: translateX(44px) translateY(6px) rotate(14deg) scale(0.82);
+    }
+
+    .sgl-col-footer {
+        padding: 6px 10px;
+    }
+
+    .sgl-col-footer-title {
+        font-size: 12px;
+    }
+
+    .sgl-col-footer-badge {
+        font-size: 9.5px;
+        padding: 1.5px 6px;
+    }
+}
+
+/* Explicit compact modifier (e.g. Playground Handheld mode toggle) */
+.sgl-root.sgl-compact .sgl-header {
+    height: 48px;
+    padding: 0 18px;
+}
+.sgl-root.sgl-compact .sgl-brand {
+    font-size: 13.5px;
+    gap: 8px;
+}
+.sgl-root.sgl-compact .sgl-tabs-container {
+    gap: 8px;
+}
+.sgl-root.sgl-compact .sgl-tabs {
+    gap: 16px;
+    padding: 2px 4px;
+}
+.sgl-root.sgl-compact .sgl-tab {
+    font-size: 12px;
+    padding: 6px 2px 8px;
+    gap: 6px;
+}
+.sgl-root.sgl-compact .sgl-tab-count {
+    font-size: 10px;
+    padding: 1px 5px;
+}
+.sgl-root.sgl-compact .sgl-header-info {
+    font-size: 11px;
+}
+.sgl-root.sgl-compact .sgl-inspector {
+    width: 300px;
+    padding: 14px 18px;
+    gap: 8px;
+    transform: translateZ(0);
+    will-change: transform;
+}
+.sgl-root.sgl-compact .sgl-poster-wrapper {
+    max-width: 200px;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.75);
+}
+.sgl-root.sgl-compact .sgl-poster-wrapper.sgl-poster-square {
+    max-width: 180px;
+}
+.sgl-root.sgl-compact .sgl-title-box {
+    min-height: 38px;
+}
+.sgl-root.sgl-compact .sgl-title-text {
+    font-size: 17.5px;
+    line-height: 1.22;
+}
+.sgl-root.sgl-compact .sgl-meta-row {
+    gap: 6px;
+}
+.sgl-root.sgl-compact .sgl-source-pill,
+.sgl-root.sgl-compact .sgl-status-pill {
+    font-size: 10px;
+    padding: 2px 7px;
+}
+.sgl-root.sgl-compact .sgl-stats-grid {
+    gap: 6px;
+}
+.sgl-root.sgl-compact .sgl-stat-card {
+    padding: 5px 8px;
+    gap: 2px;
+    border-radius: 6px;
+}
+.sgl-root.sgl-compact .sgl-stat-label {
+    font-size: 9.5px;
+}
+.sgl-root.sgl-compact .sgl-stat-value {
+    font-size: 12px;
+}
+.sgl-root.sgl-compact .sgl-stat-bar {
+    height: 2.5px;
+    margin-top: 3px;
+}
+.sgl-root.sgl-compact .sgl-description {
+    font-size: 11px;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
+}
+.sgl-root.sgl-compact .sgl-actions {
+    gap: 8px;
+    padding-top: 4px;
+}
+.sgl-root.sgl-compact .sgl-btn-details {
+    padding: 8px 12px;
+    font-size: 12px;
+}
+.sgl-root.sgl-compact .sgl-btn-play {
+    padding: 8px 10px;
+    font-size: 11.5px;
+}
+.sgl-root.sgl-compact .sgl-btn-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+}
+.sgl-root.sgl-compact .sgl-inspector-col-fan {
+    max-width: 240px;
+    height: 135px;
+    margin-bottom: 4px;
+}
+.sgl-root.sgl-compact .sgl-insp-col-card {
+    width: 62px;
+    height: 93px;
+    border-radius: 6px;
+}
+.sgl-root.sgl-compact .sgl-insp-col-card-far-left {
+    transform: translateX(-60px) translateY(10px) rotate(-16deg) scale(0.82);
+}
+.sgl-root.sgl-compact .sgl-insp-col-card-left {
+    transform: translateX(-30px) translateY(4px) rotate(-8deg) scale(0.91);
+}
+.sgl-root.sgl-compact .sgl-insp-col-card-right {
+    transform: translateX(30px) translateY(4px) rotate(8deg) scale(0.91);
+}
+.sgl-root.sgl-compact .sgl-insp-col-card-far-right {
+    transform: translateX(60px) translateY(10px) rotate(16deg) scale(0.82);
+}
+.sgl-root.sgl-compact .sgl-grid-panel {
+    padding: 14px 18px 20px 16px;
+}
+.sgl-root.sgl-compact .sgl-grid {
+    gap: 10px;
+    padding-bottom: 16px;
+}
+.sgl-root.sgl-compact .sgl-card-collection {
+    height: 135px;
+}
+.sgl-root.sgl-compact .sgl-col-fan-stage {
+    height: 90px;
+}
+.sgl-root.sgl-compact .sgl-col-fan-card {
+    width: 54px;
+    height: 81px;
+}
+.sgl-root.sgl-compact .sgl-col-card-far-left {
+    transform: translateX(-44px) translateY(6px) rotate(-14deg) scale(0.82);
+}
+.sgl-root.sgl-compact .sgl-col-card-left {
+    transform: translateX(-22px) translateY(2px) rotate(-7deg) scale(0.91);
+}
+.sgl-root.sgl-compact .sgl-col-card-right {
+    transform: translateX(22px) translateY(2px) rotate(7deg) scale(0.91);
+}
+.sgl-root.sgl-compact .sgl-col-card-far-right {
+    transform: translateX(44px) translateY(6px) rotate(14deg) scale(0.82);
+}
+.sgl-root.sgl-compact .sgl-col-footer {
+    padding: 6px 10px;
+}
+.sgl-root.sgl-compact .sgl-col-footer-title {
+    font-size: 12px;
+}
+.sgl-root.sgl-compact .sgl-col-footer-badge {
+    font-size: 9.5px;
+    padding: 1.5px 6px;
+}
+
+/* Ultra-compact / 720p height optimization (e.g. 1280x720 or on-screen keyboard open) */
+@media (max-height: 720px) {
+    .sgl-poster-wrapper {
+        max-width: 180px;
+    }
+    .sgl-poster-wrapper.sgl-poster-square {
+        max-width: 160px;
+    }
+    .sgl-inspector {
+        gap: 6px;
+        padding: 10px 14px;
+    }
+    .sgl-stats-grid {
+        gap: 4px;
+    }
+    .sgl-stat-card {
+        padding: 4px 6px;
+    }
+}
 `;
 

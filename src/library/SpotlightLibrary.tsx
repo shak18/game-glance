@@ -20,6 +20,7 @@ import { markLeavingLibrary, noteLibrary, resetLibraryMemory, takeLibraryRestore
 
 interface SpotlightLibraryProps {
     mockGames?: LibraryGameItem[];
+    compact?: boolean;
 }
 
 /** Launch source 100 is Steam's Big Picture library launch source */
@@ -29,7 +30,7 @@ function runGameId(appId: number, shortcutGameId: string | undefined): string {
     return typeof shortcutGameId === 'string' && shortcutGameId.length > 0 ? shortcutGameId : String(appId);
 }
 
-export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
+export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) {
     const currentSettings = useSettings();
     const columns = Math.min(7, Math.max(3, currentSettings.libraryGridColumns ?? 3));
     const categories: LibraryCategory[] = useMemo(() => buildCategories(mockGames), [mockGames]);
@@ -621,7 +622,7 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
 
     return (
         <Focusable
-            className="sgl-root"
+            className={`sgl-root${compact ? ' sgl-compact' : ''}`}
             preferredFocus={true}
             noFocusRing
             tabIndex={0}
