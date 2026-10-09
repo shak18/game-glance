@@ -13,6 +13,7 @@ interface LibraryGridProps {
     onSelectGame: (index: number) => void;
     onLaunchGame?: (game: LibraryGameItem) => void;
     onOpenCollection?: (collection: LibraryCollectionItem) => void;
+    onContextMenu?: (game: LibraryGameItem, index: number, target: HTMLElement) => void;
     isGridFocused?: boolean;
 }
 
@@ -22,9 +23,10 @@ interface BannerCardProps {
     accent: string;
     onClick: () => void;
     onDoubleClick: () => void;
+    onContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-function BannerCard({ game, isFocused, accent, onClick, onDoubleClick }: BannerCardProps) {
+function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContextMenu }: BannerCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
 
     // Ensure focused card scrolls into view vertically within the grid panel (never scrolls parent layout)
@@ -92,6 +94,11 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick }: BannerC
                 e.preventDefault();
                 e.stopPropagation();
                 onDoubleClick();
+            }}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onContextMenu?.(e);
             }}
         >
             {src && !hasError ? (
@@ -281,6 +288,7 @@ export function LibraryGrid({
     onSelectGame,
     onLaunchGame,
     onOpenCollection,
+    onContextMenu,
     isGridFocused = true,
 }: LibraryGridProps) {
     if (isCollectionsView) {
@@ -334,6 +342,7 @@ export function LibraryGrid({
                         accent={accent}
                         onClick={() => onSelectGame(idx)}
                         onDoubleClick={() => onLaunchGame?.(game)}
+                        onContextMenu={(e) => onContextMenu?.(game, idx, e.currentTarget)}
                     />
                 ))}
             </div>

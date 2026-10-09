@@ -291,6 +291,15 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
         playNavSound();
     }, []);
 
+    // Context menu on right-click (matching Controller START button behavior)
+    const handleContextMenu = useCallback((game: LibraryGameItem, index: number, anchorEl: HTMLElement) => {
+        setSelectedGameIdx(index);
+        setFocusZone('grid');
+        playNavSound();
+        markLeavingLibrary();
+        openGameActions(game.appId, anchorEl);
+    }, []);
+
     // Activation debounce and mount guard
     const mountTimeRef = useRef(Date.now());
     const lastActivateRef = useRef(0);
@@ -617,6 +626,7 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
                     onSelectGame={handleSelectGame}
                     onLaunchGame={handleDetails}
                     onOpenCollection={handleOpenCollection}
+                    onContextMenu={handleContextMenu}
                 />
             </div>
         </Focusable>
