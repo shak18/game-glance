@@ -61,7 +61,7 @@ export function TitleBlock({
         setShowFallbackText(false);
         const timer = setTimeout(() => {
             setShowFallbackText(true);
-        }, 350);
+        }, 1500);
         return () => clearTimeout(timer);
     }, [urlsKey, urls.length]);
 

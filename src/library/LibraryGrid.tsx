@@ -79,8 +79,20 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick }: BannerC
                 '--accent': accent,
                 '--accent-glow': `${accent}55`,
             } as React.CSSProperties}
-            onClick={onClick}
-            onDoubleClick={onDoubleClick}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isFocused) {
+                    onDoubleClick();
+                } else {
+                    onClick();
+                }
+            }}
+            onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDoubleClick();
+            }}
         >
             {src && !hasError ? (
                 <img
@@ -197,8 +209,20 @@ function CollectionCard({ collection, isFocused, accent, onClick, onDoubleClick 
                 '--accent': accent,
                 '--accent-glow': `${accent}55`,
             } as React.CSSProperties}
-            onClick={onClick}
-            onDoubleClick={onDoubleClick}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isFocused) {
+                    onDoubleClick();
+                } else {
+                    onClick();
+                }
+            }}
+            onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDoubleClick();
+            }}
         >
             <div className="sgl-col-fan-area">
                 {games.length >= 5 ? (

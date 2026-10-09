@@ -33,7 +33,7 @@ import { pageHidden } from './pageVisible';
 import { memoRawDetails, noteDetails } from './detailsMemo';
 import { neighbourIds } from './heroLayers';
 import { HERO_PRELOAD_RADIUS } from './motion';
-import { browserStores, logoUrls as getLogoUrls } from './artwork';
+import { getGameLogoUrls } from './artwork';
 
 export interface HomeGame extends RecentGame {
     installed: boolean;
@@ -601,7 +601,10 @@ export function useHomeData(focusIndex = 0): HomeData {
 
     const logoUrls = useMemo(() => {
         if (appId === null) return [];
-        return guarded('logo urls', () => getLogoUrls(appId, browserStores), []);
+        return guarded('logo urls', () => {
+            const rawDetails = steam.appDetailsStore?.GetAppDetails?.(appId) ?? memoRawDetails(appId);
+            return getGameLogoUrls(appId, overview(appId), rawDetails);
+        }, []);
     }, [appId, detailsVersion]);
 
     return { games, recentsSettled, focused: focusedLive, focusedRunning, download, pillStatus, detailsVersion, locale, lastPlayedLabel, focusedIsNew, chips, source, libraryChips: library, accent, news, updated, friends, friendsOnline, trending, recommended, deals, logoUrls };

@@ -154,7 +154,15 @@ export function LibraryInspector({
                 </div>
 
                 <div className="sgl-actions">
-                    <button className="sgl-btn-details" onClick={onOpenCollection} style={{ width: '100%' }}>
+                    <button
+                        className="sgl-btn-details"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onOpenCollection?.();
+                        }}
+                        style={{ width: '100%' }}
+                    >
                         <FaFolderOpen size={13} />
                         <span>Open Collection</span>
                         <span className="sgl-btn-badge">A</span>
@@ -308,7 +316,15 @@ export function LibraryInspector({
             {/* Action Buttons: Single button for soundtracks, Details (A) and Play (Y) for games */}
             {game.isSoundtrack ? (
                 <div className="sgl-actions">
-                    <button className="sgl-btn-details" onClick={onDetails} style={{ width: '100%' }}>
+                    <button
+                        className="sgl-btn-details"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDetails?.();
+                        }}
+                        style={{ width: '100%' }}
+                    >
                         <FaMusic size={12} />
                         <span>Open Soundtrack</span>
                         <span className="sgl-btn-badge">A</span>
@@ -316,12 +332,26 @@ export function LibraryInspector({
                 </div>
             ) : (
                 <div className="sgl-actions">
-                    <button className="sgl-btn-details" onClick={onDetails}>
+                    <button
+                        className="sgl-btn-details"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDetails?.();
+                        }}
+                    >
                         <FaInfoCircle size={13} />
                         <span>Details</span>
                         <span className="sgl-btn-badge">A</span>
                     </button>
-                    <button className="sgl-btn-play" onClick={onPlay}>
+                    <button
+                        className="sgl-btn-play"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onPlay?.();
+                        }}
+                    >
                         <FaPlay size={11} />
                         <span>{playLabel}</span>
                         <span className="sgl-btn-badge">Y</span>

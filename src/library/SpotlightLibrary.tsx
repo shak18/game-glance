@@ -287,6 +287,7 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
     // Selection with sound feedback
     const handleSelectGame = useCallback((index: number) => {
         setSelectedGameIdx(index);
+        setFocusZone('grid');
         playNavSound();
     }, []);
 
@@ -572,7 +573,6 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
                 setFocusZone('tabs');
             }}
             onButtonDown={onGamepadButtonDown}
-            onActivate={onActivate}
             onCancel={onCancel}
         >
             <style>{LIBRARY_CSS}</style>
