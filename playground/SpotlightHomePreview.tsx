@@ -95,7 +95,7 @@ export function SpotlightHomePreview({ deviceMode, customAccent }: Props) {
 
     useEffect(() => {
         setLogoLoaded(false);
-        if (!currentSettings.preferLogos || forceTextTitle || !currentGame.logoUrl) {
+        if (!currentSettings.gameLogo || forceTextTitle || !currentGame.logoUrl) {
             setShowFallbackText(true);
             return;
         }
@@ -104,7 +104,7 @@ export function SpotlightHomePreview({ deviceMode, customAccent }: Props) {
             setShowFallbackText(true);
         }, 350);
         return () => clearTimeout(timer);
-    }, [selectedIndex, forceTextTitle, currentSettings.preferLogos, currentGame.logoUrl]);
+    }, [selectedIndex, forceTextTitle, currentSettings.gameLogo, currentGame.logoUrl]);
     const accentColor = customAccent ?? currentGame.accent;
     const cardScale = deviceMode === 'tv' ? CARD_SCALE_DOCKED : CARD_SCALE_HANDHELD;
     const css = homeCss(cardScale);
@@ -308,7 +308,7 @@ export function SpotlightHomePreview({ deviceMode, customAccent }: Props) {
 
                     {/* Game Title Slot: Logo when available and loaded, otherwise H1 text */}
                     {(() => {
-                        const canTryLogo = currentSettings.preferLogos && !forceTextTitle && Boolean(currentGame.logoUrl) && !logoFailed;
+                        const canTryLogo = currentSettings.gameLogo && !forceTextTitle && Boolean(currentGame.logoUrl) && !logoFailed;
                         const shouldShowText = !logoLoaded && (!canTryLogo || showFallbackText);
 
                         return (

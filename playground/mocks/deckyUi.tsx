@@ -137,6 +137,51 @@ export const ButtonItem: React.FC<any> = ({ children, onClick, disabled }) => (
     </button>
 );
 
+export const DropdownItem: React.FC<any> = ({
+    label,
+    description,
+    rgOptions = [],
+    selectedOption,
+    onChange,
+    disabled,
+}) => {
+    const selectedVal = selectedOption?.data !== undefined ? selectedOption.data : selectedOption;
+    return (
+        <div style={{ opacity: disabled ? 0.5 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <div>
+                    {label && <div style={{ fontWeight: 500, fontSize: 14 }}>{label}</div>}
+                    {description && <div style={{ fontSize: 12, color: '#8f98a0', marginTop: 2 }}>{description}</div>}
+                </div>
+            </div>
+            <select
+                disabled={disabled}
+                value={String(selectedVal)}
+                onChange={(e) => {
+                    const opt = rgOptions.find((o: any) => String(o.data) === e.target.value);
+                    if (opt) onChange?.(opt);
+                }}
+                style={{
+                    width: '100%',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: 6,
+                    color: 'white',
+                    padding: '8px 10px',
+                    fontSize: 13,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                }}
+            >
+                {rgOptions.map((opt: any) => (
+                    <option key={String(opt.data)} value={String(opt.data)} style={{ background: '#1e232d', color: 'white' }}>
+                        {opt.label}
+                    </option>
+                ))}
+            </select>
+        </div>
+    );
+};
+
 export const TextField: React.FC<any> = ({ label, value, onChange, placeholder, disabled }) => (
     <div>
         {label && <div style={{ fontSize: 12, color: '#8f98a0', marginBottom: 4 }}>{label}</div>}

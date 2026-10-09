@@ -28,7 +28,7 @@ export function App() {
 
     React.useEffect(() => {
         setDetailsLogoLoaded(false);
-        if (!currentSettings.preferLogos || !game.logoUrl) {
+        if (!currentSettings.gameLogo || !game.logoUrl) {
             setShowDetailsFallbackText(true);
             return;
         }
@@ -37,7 +37,7 @@ export function App() {
             setShowDetailsFallbackText(true);
         }, 350);
         return () => clearTimeout(timer);
-    }, [selectedGameIdx, currentSettings.preferLogos, game.logoUrl]);
+    }, [selectedGameIdx, currentSettings.gameLogo, game.logoUrl]);
 
     // Scale unit for device mode
     const scaleUnit = deviceMode === 'tv' ? '1.5px' : '1px';
@@ -336,7 +336,7 @@ export function App() {
                         >
                             {/* Game Logo or Title Block */}
                             {(() => {
-                                const canTryLogo = currentSettings.preferLogos && Boolean(game.logoUrl);
+                                const canTryLogo = currentSettings.gameLogo && Boolean(game.logoUrl);
                                 const shouldShowText = !detailsLogoLoaded && (!canTryLogo || showDetailsFallbackText);
 
                                 return (
