@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { navSoundParts, shoulderSound } from '../../src/home/navSound';
+import { navSoundParts, playNavSound, shoulderSound } from '../../src/home/navSound';
 
 describe('navSoundParts', () => {
     // The shape probed on the Ally: one module exports the sound names (an enum) and the player (minified names change).
@@ -23,5 +23,13 @@ describe('shoulderSound', () => {
         expect(shoulderSound(0, 1)).toBe('ChangeTabs');
         expect(shoulderSound(2, 2)).toBe('FailedNav');
         expect(shoulderSound(1, null)).toBeNull();
+    });
+});
+
+describe('playNavSound', () => {
+    it('does not throw when Steam audio module is absent', () => {
+        expect(() => playNavSound()).not.toThrow();
+        expect(() => playNavSound('BasicNav')).not.toThrow();
+        expect(() => playNavSound('ChangeTabs')).not.toThrow();
     });
 });

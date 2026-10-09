@@ -1,8 +1,8 @@
 import { findModule } from '@decky/ui';
 import { memoLookup } from './moduleLookup';
 
-/** Steam's navigation sound names used here (its enum, probed on the Ally: ChangeTabs for L1/R1 tabs, FailedNav at an end). */
-export type NavSoundName = 'ChangeTabs' | 'FailedNav';
+/** Steam's navigation sound names used here (its enum, probed on the Ally: ChangeTabs for L1/R1 tabs, FailedNav at an end, BasicNav for stepping). */
+export type NavSoundName = 'ChangeTabs' | 'FailedNav' | 'BasicNav';
 
 interface NavSoundParts {
     player: { PlayNavSound(sound: number): void };
@@ -40,7 +40,7 @@ export function shoulderSound(tab: number, next: number | null): NavSoundName | 
 const parts = memoLookup<NavSoundParts>('navigation sounds', () => navSoundParts(findModule((m: unknown) => navSoundParts(m) !== null)));
 
 /** Plays one of Steam's navigation sounds; nothing (and no error) when Steam's player cannot be found. */
-export function playNavSound(name: NavSoundName) {
+export function playNavSound(name: NavSoundName = 'BasicNav') {
     try {
         const found = parts();
         const sound = found?.names[name];

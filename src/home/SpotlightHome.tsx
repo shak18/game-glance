@@ -30,6 +30,7 @@ import { useCloud } from './useCloud';
 import { useHomeData } from './useHomeData';
 import { collectionEyebrow } from './collections';
 import { preloadLogos } from './logoArt';
+import { playNavSound } from './navSound';
 import { tr } from '../i18n/steamText';
 
 /** Hero dim (handoff heroDim): .15 at rest, +.30 while the feed sheet is up. */
@@ -184,6 +185,7 @@ export function SpotlightHome() {
             if (pill && !pill.contains(pill.ownerDocument.activeElement)) focusElement(pill, 'the Play pill');
         }
         setRecentIndex(next);
+        playNavSound();
     };
     const bumpers = useBumperSelect(actionsRef, focusIndex, data.games.length, select);
     // The game cards (focusZones.recentsButton): Left/Right select the previous / next game and focus stays on the
@@ -209,7 +211,10 @@ export function SpotlightHome() {
             }
             const paced = repeatStep(Date.now(), heldDirection.current, isRepeat);
             heldDirection.current = paced.next;
-            if (paced.step) setRecentIndex(what.select);
+            if (paced.step) {
+                setRecentIndex(what.select);
+                playNavSound();
+            }
         } catch (error) {
             console.warn(`${LOG_PREFIX} Home: game card navigation failed`, error);
         }
