@@ -101,6 +101,25 @@ export function isToolOrServerName(rawName: string): boolean {
     return false;
 }
 
+export function isShortcutApp(app: RawApp): boolean {
+    const s = steam();
+    const overview = s.appStore?.GetAppOverviewByAppID?.(app.appid);
+    const type = app.app_type ?? overview?.app_type;
+    return (
+        type === SHORTCUT_APP_TYPE ||
+        app.appid >= 0x80000000 ||
+        app.appid < 0 ||
+        overview?.is_shortcut === true ||
+        app.is_shortcut === true ||
+        (typeof app.m_gameid === 'string' && app.m_gameid.length > 0 && app.m_gameid !== String(app.appid))
+    );
+}
+
+export function isSteamGameApp(app: RawApp): boolean {
+    if (isShortcutApp(app)) return false;
+    return isGameOrShortcutApp(app);
+}
+
 export function isGameOrShortcutApp(app: RawApp): boolean {
     const s = steam();
     const overview = s.appStore?.GetAppOverviewByAppID?.(app.appid);
@@ -129,14 +148,7 @@ export function isGameOrShortcutApp(app: RawApp): boolean {
     }
 
     // Shortcuts / Non-Steam are games
-    const isShortcut =
-        type === SHORTCUT_APP_TYPE ||
-        app.appid >= 0x80000000 ||
-        app.appid < 0 ||
-        overview?.is_shortcut === true ||
-        app.is_shortcut === true ||
-        (typeof app.m_gameid === 'string' && app.m_gameid.length > 0 && app.m_gameid !== String(app.appid));
-    if (isShortcut) return true;
+    if (isShortcutApp(app)) return true;
 
     // Steam games (type 1) or demos (type 64)
     if (type === GAME_APP_TYPE || type === DEMO_APP_TYPE) return true;
@@ -364,15 +376,7 @@ export function readRawApps(): {
     // Shortcuts / Non-Steam
     const shortcuts: RawApp[] = [];
     for (const a of allAppsMap.values()) {
-        const overview = s.appStore?.GetAppOverviewByAppID?.(a.appid);
-        const isShortcut =
-            a.app_type === SHORTCUT_APP_TYPE ||
-            a.appid >= 0x80000000 ||
-            a.appid < 0 ||
-            overview?.is_shortcut === true ||
-            a.is_shortcut === true ||
-            (typeof a.m_gameid === 'string' && a.m_gameid.length > 0 && a.m_gameid !== String(a.appid));
-        if (isShortcut) {
+        if (isShortcutApp(a)) {
             shortcuts.push(a);
         }
     }
@@ -385,21 +389,13 @@ export function readRawApps(): {
         }
     }
 
-    // All apps: Prefer Steam's allGamesCollection which natively excludes tools, dedicated servers, and SDKs!
+    // All Steam games: Exclude non-Steam shortcuts, tools, dedicated servers, and SDKs!
     const allGamesFromCollection = extractCollectionApps(cStore?.allGamesCollection);
     let all: RawApp[] = [];
     if (allGamesFromCollection.length > 0) {
-        const seen = new Set<number>(allGamesFromCollection.map((a) => a.appid));
-        all = [...allGamesFromCollection];
-        // Add shortcuts that might not be in allGamesCollection
-        for (const sApp of shortcuts) {
-            if (!seen.has(sApp.appid) && isGameOrShortcutApp(sApp)) {
-                seen.add(sApp.appid);
-                all.push(sApp);
-            }
-        }
+        all = allGamesFromCollection.filter(isSteamGameApp);
     } else {
-        all = Array.from(allAppsMap.values()).filter(isGameOrShortcutApp);
+        all = Array.from(allAppsMap.values()).filter(isSteamGameApp);
     }
 
     // Gather all raw collections from collectionStore early
@@ -620,10 +616,12 @@ export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[
             },
         ];
 
+        const steamGames = regularGames.filter((g) => !g.isShortcut);
+
         const baseCategories: LibraryCategory[] = [
             { id: 'installed', name: 'INSTALLED', count: regularGames.length, games: regularGames },
             { id: 'great-on-deck', name: 'GREAT ON DECK', count: regularGames.slice(0, 3).length, games: regularGames.slice(0, 3) },
-            { id: 'all', name: 'ALL GAMES', count: regularGames.length, games: regularGames },
+            { id: 'all', name: 'ALL STEAM GAMES', count: steamGames.length, games: steamGames },
             { id: 'favorites', name: 'FAVORITES', count: regularGames.filter((g) => g.playedMinutes > 3000).length, games: regularGames.filter((g) => g.playedMinutes > 3000) },
             { id: 'collections', name: 'COLLECTIONS', count: mockCollections.length, games: [], collections: mockCollections },
             { id: 'non-steam', name: 'NON-STEAM', count: regularGames.filter((g) => g.isShortcut).length, games: regularGames.filter((g) => g.isShortcut) },
@@ -657,10 +655,11 @@ export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[
         Boolean(app.app_type && (app.app_type & 8) !== 0);
 
     const isGameApp = (app: RawApp) => isGameOrShortcutApp(app) && !isOst(app);
+    const isSteamGame = (app: RawApp) => isSteamGameApp(app) && !isOst(app);
 
     const regularInstalled = installed.filter(isGameApp);
     const regularDeckCompat = deckCompat.filter(isGameApp);
-    const regularAll = all.filter(isGameApp);
+    const regularAll = all.filter(isSteamGame);
     const regularFavorites = favorites.filter(isGameApp);
     const regularShortcuts = shortcuts.filter(isGameApp);
 
@@ -672,7 +671,7 @@ export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[
         categories.push({ id: 'great-on-deck', name: 'GREAT ON DECK', count: regularDeckCompat.length, games: toItems(regularDeckCompat) });
     }
 
-    categories.push({ id: 'all', name: 'ALL GAMES', count: regularAll.length, games: toItems(regularAll) });
+    categories.push({ id: 'all', name: 'ALL STEAM GAMES', count: regularAll.length, games: toItems(regularAll) });
 
     if (regularFavorites.length > 0) {
         categories.push({ id: 'favorites', name: 'FAVORITES', count: regularFavorites.length, games: toItems(regularFavorites) });

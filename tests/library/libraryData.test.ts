@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCategories, isGameOrShortcutApp, isToolOrServerName, rawAppToItem } from '../../src/library/libraryData';
+import { buildCategories, isGameOrShortcutApp, isShortcutApp, isSteamGameApp, isToolOrServerName, rawAppToItem } from '../../src/library/libraryData';
 
 describe('libraryData: buildCategories', () => {
     it('creates standard categories for mock games', () => {
@@ -30,8 +30,13 @@ describe('libraryData: buildCategories', () => {
         const categories = buildCategories(mock);
         expect(categories.length).toBeGreaterThanOrEqual(5);
         expect(categories.map((c) => c.name)).toEqual(
-            expect.arrayContaining(['INSTALLED', 'GREAT ON DECK', 'ALL GAMES', 'FAVORITES', 'COLLECTIONS', 'NON-STEAM'])
+            expect.arrayContaining(['INSTALLED', 'GREAT ON DECK', 'ALL STEAM GAMES', 'FAVORITES', 'COLLECTIONS', 'NON-STEAM'])
         );
+        const allCat = categories.find((c) => c.id === 'all');
+        expect(allCat?.name).toBe('ALL STEAM GAMES');
+        expect(allCat?.count).toBe(1);
+        expect(allCat?.games[0].name).toBe('Zelda');
+
         const nonSteam = categories.find((c) => c.id === 'non-steam');
         expect(nonSteam?.count).toBe(1);
         expect(nonSteam?.games[0].name).toBe('Chrono Trigger');
@@ -127,6 +132,17 @@ describe('libraryData: buildCategories', () => {
         expect(isGameOrShortcutApp({ appid: 4, app_type: 1073741824, display_name: 'Shortcut' })).toBe(true);
         expect(isGameOrShortcutApp({ appid: 5, app_type: 64, display_name: 'Demo' })).toBe(true);
         expect(isGameOrShortcutApp({ appid: 6, display_name: 'Alien Swarm SDK' })).toBe(false);
+    });
+
+    it('identifies shortcut and steam apps with isShortcutApp and isSteamGameApp', () => {
+        expect(isShortcutApp({ appid: 1, app_type: 1073741824 })).toBe(true);
+        expect(isShortcutApp({ appid: 0x80000001 })).toBe(true);
+        expect(isShortcutApp({ appid: 42, is_shortcut: true })).toBe(true);
+        expect(isShortcutApp({ appid: 100, app_type: 1 })).toBe(false);
+
+        expect(isSteamGameApp({ appid: 100, app_type: 1 })).toBe(true);
+        expect(isSteamGameApp({ appid: 100, app_type: 1073741824 })).toBe(false);
+        expect(isSteamGameApp({ appid: 0x80000001 })).toBe(false);
     });
 
     it('filters out dedicated servers and SDKs from all regular categories in mock games', () => {
