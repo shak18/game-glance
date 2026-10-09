@@ -319,6 +319,21 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
         handleDetails();
     }, [handleDetails, handleOpenCollection, isCollectionsTab, isInsideSubCollection]);
 
+    // Activation on the Focusable root container. Guard against synthetic/bubbled mouse pointer clicks
+    // so mouse clicks on background or items never trigger an accidental launch of the selected game.
+    const handleRootActivate = useCallback((e?: unknown) => {
+        if (e && typeof e === 'object') {
+            const evt = e as { type?: string; clientX?: number; clientY?: number; pointerType?: string };
+            if (evt.type === 'click' || evt.pointerType === 'mouse') {
+                return;
+            }
+            if (typeof evt.clientX === 'number' && typeof evt.clientY === 'number' && (evt.clientX > 0 || evt.clientY > 0)) {
+                return;
+            }
+        }
+        onActivate();
+    }, [onActivate]);
+
     const onCancel = useCallback(() => {
         if (isInsideSubCollection) {
             handleBackToCollections();
@@ -468,10 +483,36 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
         }
     }, [columns, cycleCategory, focusZone, totalItemsCount, handleBackToCollections, handlePlayGame, handleSelectGame, isCollectionsTab, isInsideSubCollection, onActivate, selectedGameIdx]);
 
+    // Ensure initial focus lands in SpotlightLibrary if nothing else is focused on mount
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const active = document.activeElement;
+            if (!active || active === document.body) {
+                const rootEl = document.querySelector('.sgl-root') as HTMLElement | null;
+                rootEl?.focus();
+            }
+        }, 50);
+        return () => clearTimeout(timer);
+    }, []);
+
     // Keyboard handlers for browser preview and physical keyboards
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                // When focused on Steam's top search bar, allow ArrowDown or Escape to return focus
+                // down into the Spotlight Library category tabs!
+                const isModal = Boolean((e.target as HTMLElement).closest?.('[role="dialog"], [aria-modal="true"], .ModalPosition_Content, .decky-modal'));
+                if (!isModal && (e.key === 'ArrowDown' || e.key === 'Escape')) {
+                    (e.target as HTMLElement).blur();
+                    const rootEl = document.querySelector('.sgl-root') as HTMLElement | null;
+                    rootEl?.focus();
+                    setFocusZone('tabs');
+                    playNavSound();
+                    e.preventDefault();
+                    return;
+                }
+                return;
+            }
 
             // Bumper controls: [ and ] or PageUp / PageDown
             if (e.key === 'PageUp' || e.key === '[' || e.key === 'q') {
@@ -496,6 +537,18 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
                     setFocusZone('grid');
                     playNavSound();
                     e.preventDefault();
+                } else if (e.key === 'ArrowUp') {
+                    // Navigate UP into Steam's top search input
+                    const searchInput = (
+                        document.querySelector('input[type="search"]') ??
+                        document.querySelector('header input') ??
+                        document.querySelector('input')
+                    ) as HTMLInputElement | null;
+                    if (searchInput) {
+                        searchInput.focus();
+                        playNavSound();
+                        e.preventDefault();
+                    }
                 }
                 // Allow ArrowUp from tabs to bubble up to Steam's top bar
                 return;
@@ -571,6 +624,7 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
             className="sgl-root"
             preferredFocus={true}
             noFocusRing
+            tabIndex={0}
             style={{
                 '--accent': gameAccent,
                 '--glance-accent': gameAccent,
@@ -581,7 +635,14 @@ export function SpotlightLibrary({ mockGames }: SpotlightLibraryProps) {
                 // Focus returns from top header onto category tabs
                 setFocusZone('tabs');
             }}
+            onFocus={(e) => {
+                // When focus enters sgl-root from outside (e.g. Steam top header)
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                    setFocusZone('tabs');
+                }
+            }}
             onButtonDown={onGamepadButtonDown}
+            onActivate={handleRootActivate}
             onCancel={onCancel}
         >
             <style>{LIBRARY_CSS}</style>
