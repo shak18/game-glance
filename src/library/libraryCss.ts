@@ -298,6 +298,72 @@ export const LIBRARY_CSS = `
     transition: opacity 0.2s ease;
 }
 
+.sgl-poster-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #0d1117;
+}
+
+.sgl-poster-fallback-bg {
+    position: absolute;
+    inset: -20px;
+    width: calc(100% + 40px);
+    height: calc(100% + 40px);
+    object-fit: cover;
+    filter: blur(16px) brightness(0.42) saturate(1.2);
+    transform: scale(1.15);
+    z-index: 1;
+}
+
+.sgl-poster-fallback-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(13, 17, 23, 0.2) 0%, rgba(13, 17, 23, 0.8) 100%);
+    z-index: 2;
+}
+
+.sgl-poster-fallback-content {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.sgl-poster-fallback-logo {
+    max-width: 85%;
+    max-height: 55%;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.9));
+}
+
+.sgl-poster-fallback-banner {
+    width: 90%;
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    object-fit: cover;
+    aspect-ratio: 16 / 9;
+}
+
+.sgl-poster-fallback-title {
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.35;
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+    padding: 12px;
+}
+
 .sgl-title-box {
     min-height: 44px;
     display: flex;
@@ -583,21 +649,52 @@ export const LIBRARY_CSS = `
     position: absolute;
     inset: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: 12px;
-    background: linear-gradient(180deg, #181d28 0%, #0c1017 100%);
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background: #0f141d;
+    overflow: hidden;
 }
 
-.sgl-card-title {
+.sgl-card-fallback-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+
+.sgl-card-fallback-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(10, 14, 22, 0.25) 0%, rgba(10, 14, 22, 0.75) 100%);
+    z-index: 2;
+}
+
+.sgl-card-fallback-logo {
+    position: relative;
+    z-index: 3;
+    max-width: 80%;
+    max-height: 60%;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.9));
+}
+
+.sgl-card-fallback-title {
+    position: relative;
+    z-index: 3;
     font-size: 13px;
     font-weight: 700;
+    line-height: 1.3;
     color: #ffffff;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+    text-align: center;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    padding: 0 8px;
 }
 
 .sgl-card-running-badge {

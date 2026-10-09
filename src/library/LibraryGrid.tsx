@@ -1,6 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { FaFolder } from 'react-icons/fa';
-import { browserStores, capsuleUrls as getCapsuleUrls, landscapeUrls as getLandscapeUrls } from '../home/artwork';
+import {
+    browserStores,
+    capsuleUrls as getCapsuleUrls,
+    heroUrls as getHeroUrls,
+    landscapeUrls as getLandscapeUrls,
+    logoUrls as getLogoUrls,
+} from '../home/artwork';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
 
 interface LibraryGridProps {
@@ -70,6 +76,64 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
         }
     };
 
+    const isBannerAvailable = Boolean(src && !hasError);
+
+    // Fallback: Hero background image
+    const heroCandidates = React.useMemo(() => {
+        if (isBannerAvailable) return [];
+        if (game.heroUrl) return [game.heroUrl];
+        return getHeroUrls(game.appId, browserStores);
+    }, [isBannerAvailable, game.appId, game.heroUrl]);
+
+    const [heroSrc, setHeroSrc] = React.useState<string>(heroCandidates[0] ?? '');
+    const [heroIdx, setHeroIdx] = React.useState(0);
+    const [hasHeroError, setHasHeroError] = React.useState(false);
+
+    useEffect(() => {
+        setHeroIdx(0);
+        setHasHeroError(false);
+        setHeroSrc(heroCandidates[0] ?? '');
+    }, [heroCandidates]);
+
+    const handleHeroError = () => {
+        const next = heroIdx + 1;
+        if (next < heroCandidates.length) {
+            setHeroIdx(next);
+            setHeroSrc(heroCandidates[next]);
+        } else {
+            setHasHeroError(true);
+        }
+    };
+
+    // Fallback: Centered game logo
+    const logoCandidates = React.useMemo(() => {
+        if (isBannerAvailable) return [];
+        if (game.logoUrl) return [game.logoUrl];
+        return getLogoUrls(game.appId, browserStores);
+    }, [isBannerAvailable, game.appId, game.logoUrl]);
+
+    const [logoSrc, setLogoSrc] = React.useState<string>(logoCandidates[0] ?? '');
+    const [logoIdx, setLogoIdx] = React.useState(0);
+    const [hasLogoError, setHasLogoError] = React.useState(false);
+
+    useEffect(() => {
+        setLogoIdx(0);
+        setHasLogoError(false);
+        setLogoSrc(logoCandidates[0] ?? '');
+    }, [logoCandidates]);
+
+    const handleLogoError = () => {
+        const next = logoIdx + 1;
+        if (next < logoCandidates.length) {
+            setLogoIdx(next);
+            setLogoSrc(logoCandidates[next]);
+        } else {
+            setHasLogoError(true);
+        }
+    };
+
+    const isLogoAvailable = Boolean(logoSrc && !hasLogoError);
+
     return (
         <div
             ref={cardRef}
@@ -101,7 +165,7 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
                 onContextMenu?.(e);
             }}
         >
-            {src && !hasError ? (
+            {isBannerAvailable ? (
                 <img
                     key={src}
                     src={src}
@@ -112,7 +176,28 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
                 />
             ) : (
                 <div className="sgl-card-fallback">
-                    <span className="sgl-card-title">{game.name}</span>
+                    {heroSrc && !hasHeroError && (
+                        <img
+                            key={heroSrc}
+                            src={heroSrc}
+                            alt=""
+                            className="sgl-card-fallback-bg"
+                            onError={handleHeroError}
+                            loading="lazy"
+                        />
+                    )}
+                    <div className="sgl-card-fallback-overlay" />
+                    {isLogoAvailable ? (
+                        <img
+                            key={logoSrc}
+                            src={logoSrc}
+                            alt={game.name}
+                            className="sgl-card-fallback-logo"
+                            onError={handleLogoError}
+                        />
+                    ) : (
+                        <span className="sgl-card-fallback-title">{game.name}</span>
+                    )}
                 </div>
             )}
 

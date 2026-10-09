@@ -86,6 +86,69 @@ type StoreGlobals = {
 
 const steam = () => globalThis as unknown as StoreGlobals;
 
+export const GAME_APP_TYPE = 1;
+export const TOOL_APP_TYPE = 4;
+export const SOUNDTRACK_APP_TYPE = 8;
+export const DEMO_APP_TYPE = 64;
+
+export function isToolOrServerName(rawName: string): boolean {
+    const name = rawName.toLowerCase().trim();
+    if (!name) return false;
+    if (name.includes('dedicated server') || name.includes('servidor dedicado') || name.includes('test server')) return true;
+    if (name.endsWith(' sdk') || name.includes(' sdk ') || name.startsWith('sdk ') || name === 'sdk') return true;
+    if (name.endsWith(' authoring tools') || name.endsWith(' creation kit') || name.endsWith(' map editor') || name.endsWith(' level editor')) return true;
+    if (name.includes('steamworks common redist') || name.includes('steamworks shared')) return true;
+    return false;
+}
+
+export function isGameOrShortcutApp(app: RawApp): boolean {
+    const s = steam();
+    const overview = s.appStore?.GetAppOverviewByAppID?.(app.appid);
+    const type = app.app_type ?? overview?.app_type;
+
+    // Dedicated servers, tools, SDKs (app_type 4 or bitmask)
+    if (type === TOOL_APP_TYPE || (typeof type === 'number' && (type & TOOL_APP_TYPE) !== 0)) {
+        return false;
+    }
+
+    // Soundtracks (app_type 8) are separated into the dedicated Soundtracks tab
+    if (type === SOUNDTRACK_APP_TYPE || (typeof type === 'number' && (type & SOUNDTRACK_APP_TYPE) !== 0)) {
+        return false;
+    }
+
+    // Check Steam's explicit tool flags
+    const ovRec = overview as Record<string, unknown> | undefined;
+    if (ovRec?.bIsTool === true || ovRec?.is_tool === true || ovRec?.bIsDedicatedServer === true) {
+        return false;
+    }
+
+    // Name-based safety check for dedicated servers, SDKs, mod tools
+    const name = overview?.display_name || app.display_name || '';
+    if (isToolOrServerName(name)) {
+        return false;
+    }
+
+    // Shortcuts / Non-Steam are games
+    const isShortcut =
+        type === SHORTCUT_APP_TYPE ||
+        app.appid >= 0x80000000 ||
+        app.appid < 0 ||
+        overview?.is_shortcut === true ||
+        app.is_shortcut === true ||
+        (typeof app.m_gameid === 'string' && app.m_gameid.length > 0 && app.m_gameid !== String(app.appid));
+    if (isShortcut) return true;
+
+    // Steam games (type 1) or demos (type 64)
+    if (type === GAME_APP_TYPE || type === DEMO_APP_TYPE) return true;
+
+    // If type is undefined, accept if not marked as a tool/server by name
+    if (type === undefined) {
+        return true;
+    }
+
+    return false;
+}
+
 function isSoundtrackCollection(col: Record<string, unknown>, id: string, name: string): boolean {
     const rawId = String(col.id ?? col.m_strId ?? id ?? '').toLowerCase();
     if (
@@ -298,6 +361,22 @@ export function readRawApps(): {
         return list;
     };
 
+    // Shortcuts / Non-Steam
+    const shortcuts: RawApp[] = [];
+    for (const a of allAppsMap.values()) {
+        const overview = s.appStore?.GetAppOverviewByAppID?.(a.appid);
+        const isShortcut =
+            a.app_type === SHORTCUT_APP_TYPE ||
+            a.appid >= 0x80000000 ||
+            a.appid < 0 ||
+            overview?.is_shortcut === true ||
+            a.is_shortcut === true ||
+            (typeof a.m_gameid === 'string' && a.m_gameid.length > 0 && a.m_gameid !== String(a.appid));
+        if (isShortcut) {
+            shortcuts.push(a);
+        }
+    }
+
     // Installed apps
     const installed = extractCollectionApps(cStore?.localGamesCollection);
     if (installed.length === 0) {
@@ -306,8 +385,22 @@ export function readRawApps(): {
         }
     }
 
-    // All apps
-    const all = Array.from(allAppsMap.values());
+    // All apps: Prefer Steam's allGamesCollection which natively excludes tools, dedicated servers, and SDKs!
+    const allGamesFromCollection = extractCollectionApps(cStore?.allGamesCollection);
+    let all: RawApp[] = [];
+    if (allGamesFromCollection.length > 0) {
+        const seen = new Set<number>(allGamesFromCollection.map((a) => a.appid));
+        all = [...allGamesFromCollection];
+        // Add shortcuts that might not be in allGamesCollection
+        for (const sApp of shortcuts) {
+            if (!seen.has(sApp.appid) && isGameOrShortcutApp(sApp)) {
+                seen.add(sApp.appid);
+                all.push(sApp);
+            }
+        }
+    } else {
+        all = Array.from(allAppsMap.values()).filter(isGameOrShortcutApp);
+    }
 
     // Gather all raw collections from collectionStore early
     const rawColsList: unknown[] = [];
@@ -395,21 +488,7 @@ export function readRawApps(): {
         }
     }
 
-    // Shortcuts / Non-Steam
-    const shortcuts: RawApp[] = [];
-    for (const a of allAppsMap.values()) {
-        const overview = s.appStore?.GetAppOverviewByAppID?.(a.appid);
-        const isShortcut =
-            a.app_type === SHORTCUT_APP_TYPE ||
-            a.appid >= 0x80000000 ||
-            a.appid < 0 ||
-            overview?.is_shortcut === true ||
-            a.is_shortcut === true ||
-            (typeof a.m_gameid === 'string' && a.m_gameid.length > 0 && a.m_gameid !== String(a.appid));
-        if (isShortcut) {
-            shortcuts.push(a);
-        }
-    }
+
 
     // Soundtracks
     const musicCollectionApps = extractCollectionApps(cStore?.musicCollection ?? cStore?.soundtracksCollection);
@@ -523,7 +602,7 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
 export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[] {
     if (mockGames && mockGames.length > 0) {
         // Playground mock categories
-        const regularGames = mockGames.filter((g) => !g.isSoundtrack);
+        const regularGames = mockGames.filter((g) => !g.isSoundtrack && !isToolOrServerName(g.name));
         const soundtracks = mockGames.filter((g) => g.isSoundtrack);
 
         const mockCollections: LibraryCollectionItem[] = [
@@ -577,11 +656,13 @@ export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[
         app.app_type === 8 ||
         Boolean(app.app_type && (app.app_type & 8) !== 0);
 
-    const regularInstalled = installed.filter((a) => !isOst(a));
-    const regularDeckCompat = deckCompat.filter((a) => !isOst(a));
-    const regularAll = all.filter((a) => !isOst(a));
-    const regularFavorites = favorites.filter((a) => !isOst(a));
-    const regularShortcuts = shortcuts.filter((a) => !isOst(a));
+    const isGameApp = (app: RawApp) => isGameOrShortcutApp(app) && !isOst(app);
+
+    const regularInstalled = installed.filter(isGameApp);
+    const regularDeckCompat = deckCompat.filter(isGameApp);
+    const regularAll = all.filter(isGameApp);
+    const regularFavorites = favorites.filter(isGameApp);
+    const regularShortcuts = shortcuts.filter(isGameApp);
 
     const categories: LibraryCategory[] = [
         { id: 'installed', name: 'INSTALLED', count: regularInstalled.length, games: toItems(regularInstalled) },
@@ -600,7 +681,7 @@ export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[
     // Convert user collections to LibraryCollectionItem[] under dedicated COLLECTIONS category
     const collectionItems: LibraryCollectionItem[] = [];
     for (const uc of userCollections) {
-        const regularUcApps = uc.apps.filter((a) => !isOst(a));
+        const regularUcApps = uc.apps.filter(isGameApp);
         const games = toItems(regularUcApps);
         if (games.length > 0) {
             collectionItems.push({
