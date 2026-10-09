@@ -373,4 +373,23 @@ export function setCachedCoverUrl(appId: number, url: string): void {
     workingCoverUrlCache.set(appId, url);
 }
 
+export interface CachedGridCardState {
+    mode: 'banner' | 'hero-logo' | 'hero-title' | 'logo-only' | 'poster' | 'title-only';
+    bannerUrl?: string;
+    heroUrl?: string;
+    logoUrl?: string;
+    posterUrl?: string;
+}
+
+const cardStateCache = new Map<number, CachedGridCardState>();
+
+export function getCachedCardState(appId: number): CachedGridCardState | undefined {
+    return cardStateCache.get(appId);
+}
+
+export function setCachedCardState(appId: number, state: CachedGridCardState): void {
+    cardStateCache.set(appId, state);
+}
+
+
 
