@@ -11,12 +11,14 @@ import { getSteamLanguage } from './data/steam';
 import { startUpdateChecks } from './data/update';
 import { patchGamePage } from './patches/gamePage';
 import { patchHomePage } from './patches/homePage';
+import { patchLibraryPage } from './patches/libraryPage';
 
 export default definePlugin(() => {
     settings.load().catch((error) => console.error(`${LOG_PREFIX} failed to load settings`, error));
     void getSteamLanguage(); // resolve early so game pages render in the right locale immediately
     const unpatch = patchGamePage();
     const unpatchHome = patchHomePage(); // never throws; applied after and independent of the game page patch
+    const unpatchLibrary = patchLibraryPage();
     const stopAutoPreload = startAutoPreload();
     const stopUpdateChecks = startUpdateChecks(); // quiet: once now (a day-old answer is reused), then daily
     console.log(`${LOG_PREFIX} loaded`);
@@ -30,6 +32,7 @@ export default definePlugin(() => {
             const steps: [string, () => void][] = [
                 ['game page unpatch', unpatch],
                 ['Home unpatch', unpatchHome],
+                ['Library unpatch', unpatchLibrary],
                 ['auto preload stop', stopAutoPreload],
                 ['update checks stop', stopUpdateChecks],
                 ['downloads stop', stopDownloads],

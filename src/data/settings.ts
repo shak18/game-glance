@@ -6,6 +6,8 @@ export interface Settings {
     enabled: boolean;
     autoPreload: boolean; // pre-load game data for installed games in the background
     spotlightHome: boolean; // replace Steam's Home screen with Spotlight Home
+    spotlightLibrary: boolean; // replace Steam's Library screen with Spotlight Library
+    libraryGridColumns: number; // poster columns in Spotlight Library grid (3-7, default 3)
     wishlistDeals: boolean; // look up wishlist sales on Steam's public store
     cleanPage: boolean; // the Game Glance page's Clean look: one row at the bottom, no description or HowLongToBeat cards
     homeStatusBar: boolean; // Spotlight Home's status bar: clock, battery and connection in Steam's top strip
@@ -15,7 +17,19 @@ export interface Settings {
 }
 
 const KEY = 'settings';
-const DEFAULTS: Settings = { enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: RECENT_ROW, homeRowSort: 'lastPlayed' };
+const DEFAULTS: Settings = {
+    enabled: true,
+    autoPreload: true,
+    spotlightHome: false,
+    spotlightLibrary: false,
+    libraryGridColumns: 3,
+    wishlistDeals: false,
+    cleanPage: false,
+    homeStatusBar: true,
+    gameLogo: false,
+    homeRow: RECENT_ROW,
+    homeRowSort: 'lastPlayed',
+};
 
 export function createSettingsStore(kv: KvBackend) {
     let current: Settings = { ...DEFAULTS };
@@ -30,6 +44,11 @@ export function createSettingsStore(kv: KvBackend) {
                 enabled: pick('enabled'),
                 autoPreload: pick('autoPreload'),
                 spotlightHome: pick('spotlightHome'),
+                spotlightLibrary: pick('spotlightLibrary'),
+                libraryGridColumns:
+                    typeof raw?.libraryGridColumns === 'number' && raw.libraryGridColumns >= 2 && raw.libraryGridColumns <= 8
+                        ? raw.libraryGridColumns
+                        : DEFAULTS.libraryGridColumns,
                 wishlistDeals: pick('wishlistDeals'),
                 cleanPage: pick('cleanPage'),
                 homeStatusBar: pick('homeStatusBar'),
@@ -52,6 +71,16 @@ export function createSettingsStore(kv: KvBackend) {
         },
         async setSpotlightHome(spotlightHome: boolean): Promise<void> {
             current = { ...current, spotlightHome };
+            emit();
+            await kv.set(KEY, current);
+        },
+        async setSpotlightLibrary(spotlightLibrary: boolean): Promise<void> {
+            current = { ...current, spotlightLibrary };
+            emit();
+            await kv.set(KEY, current);
+        },
+        async setLibraryGridColumns(libraryGridColumns: number): Promise<void> {
+            current = { ...current, libraryGridColumns };
             emit();
             await kv.set(KEY, current);
         },

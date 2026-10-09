@@ -1,5 +1,5 @@
 import { toaster } from '@decky/api';
-import { ButtonItem, DropdownItem, Navigation, PanelSection, PanelSectionRow, TextField, ToggleField } from '@decky/ui';
+import { ButtonItem, DropdownItem, Navigation, PanelSection, PanelSectionRow, SliderField, TextField, ToggleField } from '@decky/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { cache, overrides } from '../data/cache';
 import { useCurrentGame } from '../data/currentGame';
@@ -63,7 +63,7 @@ function UpdatesSection() {
 }
 
 export function SettingsPanel() {
-    const { enabled, autoPreload, spotlightHome, wishlistDeals, cleanPage, homeStatusBar, gameLogo, homeRow, homeRowSort } = useSettings();
+    const { enabled, autoPreload, spotlightHome, spotlightLibrary, libraryGridColumns, wishlistDeals, cleanPage, homeStatusBar, gameLogo, homeRow, homeRowSort } = useSettings();
     // Read when the panel opens, so a collection made since shows up.
     const collections = useMemo(steamHomeCollections, []);
     const rowChosen = collections.some((c) => c.id === homeRow) ? homeRow : RECENT_ROW;
@@ -176,6 +176,37 @@ export function SettingsPanel() {
                         onChange={(value) => settings.setWishlistDeals(value)}
                     />
                 </PanelSectionRow>
+            </PanelSection>
+            <PanelSection title="Spotlight Library">
+                <PanelSectionRow>
+                    <ToggleField
+                        label="Spotlight Library"
+                        description="Replaces Steam's Library screen with a Pegasus-inspired 2-panel view. Off returns Steam's own Library."
+                        checked={spotlightLibrary}
+                        onChange={(value) => settings.setSpotlightLibrary(value)}
+                    />
+                </PanelSectionRow>
+                {spotlightLibrary && (
+                    <PanelSectionRow>
+                        <SliderField
+                            label="Grid Columns"
+                            description="Number of poster columns in the library view (3 to 7)."
+                            value={libraryGridColumns}
+                            min={3}
+                            max={7}
+                            step={1}
+                            notchCount={5}
+                            notchLabels={[
+                                { notchIndex: 0, label: '3' },
+                                { notchIndex: 1, label: '4' },
+                                { notchIndex: 2, label: '5' },
+                                { notchIndex: 3, label: '6' },
+                                { notchIndex: 4, label: '7' },
+                            ]}
+                            onChange={(value: number) => settings.setLibraryGridColumns(value)}
+                        />
+                    </PanelSectionRow>
+                )}
             </PanelSection>
             <PanelSection title="HowLongToBeat match">
                 {game ? (

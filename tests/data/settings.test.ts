@@ -7,7 +7,7 @@ describe('settings', () => {
         const kv = memoryKv();
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
         const listener = vi.fn();
         store.subscribe(listener);
         await store.setEnabled(false);
@@ -22,7 +22,7 @@ describe('settings', () => {
         await kv.set('settings', 'nonsense');
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
     });
 });
 
@@ -34,16 +34,16 @@ describe('settings: automatic pre-load', () => {
         await store.setAutoPreload(false);
         const reloaded = createSettingsStore(kv);
         await reloaded.load();
-        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
+        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
     });
     it('keeps the other setting when one changes, including settings saved before this option existed', async () => {
         const kv = memoryKv();
         await kv.set('settings', { enabled: false });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
         await store.setAutoPreload(false);
-        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
     });
 });
 
@@ -57,6 +57,29 @@ describe('settings: spotlight home', () => {
         const reloaded = createSettingsStore(kv);
         await reloaded.load();
         expect(reloaded.get().spotlightHome).toBe(true);
+    });
+});
+
+describe('settings: spotlight library', () => {
+    it('spotlight library is off by default and remembers being turned on', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().spotlightLibrary).toBe(false);
+        await store.setSpotlightLibrary(true);
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().spotlightLibrary).toBe(true);
+    });
+    it('library grid columns defaults to 3 and persists changes', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().libraryGridColumns).toBe(3);
+        await store.setLibraryGridColumns(5);
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().libraryGridColumns).toBe(5);
     });
 });
 
@@ -79,7 +102,7 @@ describe('settings: the removed Home switches', () => {
         await kv.set('settings', { enabled: true, autoPreload: true, spotlightHome: true, wishlistDeals: true, homeFeed: false, cleanHome: true });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, wishlistDeals: true, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: true, cleanPage: false, homeStatusBar: true, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed' });
     });
 });
 
