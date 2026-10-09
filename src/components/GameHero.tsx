@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOG_PREFIX } from '../constants';
 import { cache } from '../data/cache';
 import { setCurrentGame } from '../data/currentGame';
@@ -25,6 +25,8 @@ import { sizeStat } from '../logic/sizeStat';
 import { useDownload } from '../home/useDownload';
 import { useLaunchOverlay } from '../styles/launchOverlay';
 import { accentCss, cleanCss, downloadCss, launchCss, launchSelectors, themeCss, unifideckCss } from '../styles/theme';
+import { FaFolder, FaStar } from 'react-icons/fa';
+import { getGameCollections } from '../data/gameCollections';
 import { CleanInfo } from './CleanInfo';
 import { ErrorBoundary } from './ErrorBoundary';
 import { GameStatusBar } from './GameStatusBar';
@@ -123,6 +125,7 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
     const cleanStyle = clean ? cleanCss() : '';
     const family = restyle ? familyPillLabel(game.appId) : null;
     const eyebrow = restyle ? lastPlayedEyebrow(overview, locale, unifideck?.lastPlayed ?? null) : null;
+    const collections = useMemo(() => getGameCollections(game.appId), [game.appId]);
     return (
         <>
             {/* Spotlight Home's status bar, over Steam's top strip, with the restyled page (not while Steam's launch screen is up). */}
@@ -151,6 +154,23 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
                     </SourcePill>
                 )}
                 {cleanStyle && <CleanInfo game={game} hltb={hltb} locale={locale} size={size} />}
+                {collections.length > 0 && !cleanStyle && (
+                    <div className="gg-collections">
+                        {collections.map((col: string) => {
+                            const isFav = col.toLowerCase().includes('favorit');
+                            return (
+                                <div key={col} className="gg-collection-pill">
+                                    {isFav ? (
+                                        <FaStar className="gg-collection-icon" size={10} />
+                                    ) : (
+                                        <FaFolder className="gg-collection-icon" size={10} />
+                                    )}
+                                    <span>{col}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
                 <div className="gg-cards">
                     <InfoCard game={game} locale={locale} description={description} size={size} />
                     <HltbCard result={hltb} playedMinutes={game.playedMinutes} locale={locale} restyle={restyle} />

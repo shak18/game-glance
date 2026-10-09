@@ -430,6 +430,13 @@ function restyleRules({ header, details, root, play, shared }: ThemeClasses, lay
         `.gg-logo { display: block; width: auto; height: auto; max-width: ${d(LOGO_BOX.width)}; max-height: ${d(LOGO_BOX.height)}; object-fit: contain; object-position: left bottom;
             filter: drop-shadow(0 ${d(4)} ${d(24)} rgba(0, 0, 0, 0.45)); }`,
 
+        // Collections pills (between play row and cards)
+        `.gg-collections { display: flex; align-items: center; gap: ${d(8)}; flex-wrap: wrap; margin-bottom: ${d(10)}; }`,
+        `.gg-collection-pill { display: inline-flex; align-items: center; gap: ${d(5)}; padding: ${d(3)} ${d(9)}; border-radius: 999px;
+            background: rgba(12, 16, 22, 0.45); border: 1px solid rgba(255, 255, 255, 0.14); backdrop-filter: blur(${d(10)});
+            font-size: ${d(11)}; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.85); line-height: 1.2; }`,
+        `.gg-collection-icon { font-size: ${d(10)}; color: var(--glance-accent-text, var(--gg-accent)); display: flex; align-items: center; }`,
+
         // Cards: grid 1.1fr / 1fr, gap 18; padding 20x24, radius 16, the handoff's glass; its type sizes.
         `.gg-cards { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: ${d(18)}; }`,
         `.gg-card { display: flex; flex-direction: column; gap: ${d(12)}; padding: ${d(20)} ${d(24)}; border-radius: ${d(16)};
