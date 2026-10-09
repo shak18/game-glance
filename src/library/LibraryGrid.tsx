@@ -3,11 +3,9 @@ import { FaFolder } from 'react-icons/fa';
 import {
     browserStores,
     capsuleUrls as getCapsuleUrls,
-    getCachedCardState,
     heroUrls as getHeroUrls,
     landscapeUrls as getLandscapeUrls,
     logoUrls as getLogoUrls,
-    setCachedCardState,
     soundtrackCoverUrls as getSoundtrackCoverUrls,
 } from '../home/artwork';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
@@ -54,12 +52,8 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
         }
     }, [isFocused]);
 
-    const cachedState = getCachedCardState(game.appId);
-
-    // 1. Primary horizontal banner (soundtracks use square cover, games use horizontal banner)
+    // Primary: Long horizontal banner (soundtracks use square cover)
     const bannerCandidates = React.useMemo(() => {
-        if (cachedState?.mode === 'banner' && cachedState.bannerUrl) return [cachedState.bannerUrl];
-        if (cachedState && cachedState.mode !== 'banner') return [];
         if (game.landscapeUrl) return [game.landscapeUrl];
         if (game.isSoundtrack) {
             return [
@@ -68,67 +62,45 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
             ];
         }
         return getLandscapeUrls(game.appId, browserStores);
-    }, [game.appId, game.landscapeUrl, game.isSoundtrack, cachedState]);
+    }, [game.appId, game.landscapeUrl, game.isSoundtrack]);
 
-    const [bannerSrc, setBannerSrc] = React.useState<string>(bannerCandidates[0] ?? '');
-    const [bannerIdx, setBannerIdx] = React.useState(0);
-    const [hasBannerError, setHasBannerError] = React.useState(
-        bannerCandidates.length === 0 || (cachedState ? cachedState.mode !== 'banner' : false)
-    );
-    const [isBannerLoaded, setIsBannerLoaded] = React.useState(cachedState?.mode === 'banner');
+    const [src, setSrc] = React.useState<string>(bannerCandidates[0] ?? '');
+    const [candidateIdx, setCandidateIdx] = React.useState(0);
+    const [hasError, setHasError] = React.useState(bannerCandidates.length === 0);
 
     useEffect(() => {
-        setBannerIdx(0);
-        setHasBannerError(bannerCandidates.length === 0 || (cachedState ? cachedState.mode !== 'banner' : false));
-        setIsBannerLoaded(cachedState?.mode === 'banner');
-        setBannerSrc(bannerCandidates[0] ?? '');
-    }, [bannerCandidates, cachedState]);
+        setCandidateIdx(0);
+        setHasError(bannerCandidates.length === 0);
+        setSrc(bannerCandidates[0] ?? '');
+    }, [bannerCandidates]);
 
-    const handleBannerLoad = () => {
-        setIsBannerLoaded(true);
-        if (bannerSrc) {
-            setCachedCardState(game.appId, { mode: 'banner', bannerUrl: bannerSrc });
-        }
-    };
-
-    const handleBannerError = () => {
-        const next = bannerIdx + 1;
+    const handleError = () => {
+        const next = candidateIdx + 1;
         if (next < bannerCandidates.length) {
-            setBannerIdx(next);
-            setBannerSrc(bannerCandidates[next]);
+            setCandidateIdx(next);
+            setSrc(bannerCandidates[next]);
         } else {
-            setHasBannerError(true);
+            setHasError(true);
         }
     };
 
-    const isBannerAvailable = Boolean(bannerSrc && !hasBannerError);
+    const isBannerAvailable = Boolean(src && !hasError);
 
-    // 2. Hero background candidates
+    // Fallback 1: Hero background image
     const heroCandidates = React.useMemo(() => {
-        if (isBannerAvailable) return [];
-        if (cachedState?.heroUrl) return [cachedState.heroUrl];
-        if (cachedState?.mode === 'logo-only' || cachedState?.mode === 'poster' || cachedState?.mode === 'title-only') return [];
         if (game.heroUrl) return [game.heroUrl];
         return getHeroUrls(game.appId, browserStores);
-    }, [isBannerAvailable, game.appId, game.heroUrl, cachedState]);
+    }, [game.appId, game.heroUrl]);
 
     const [heroSrc, setHeroSrc] = React.useState<string>(heroCandidates[0] ?? '');
     const [heroIdx, setHeroIdx] = React.useState(0);
-    const [hasHeroError, setHasHeroError] = React.useState(
-        heroCandidates.length === 0 || (cachedState ? !cachedState.heroUrl : false)
-    );
-    const [isHeroLoaded, setIsHeroLoaded] = React.useState(Boolean(cachedState?.heroUrl));
+    const [hasHeroError, setHasHeroError] = React.useState(heroCandidates.length === 0);
 
     useEffect(() => {
         setHeroIdx(0);
-        setHasHeroError(heroCandidates.length === 0 || (cachedState ? !cachedState.heroUrl : false));
-        setIsHeroLoaded(Boolean(cachedState?.heroUrl));
+        setHasHeroError(heroCandidates.length === 0);
         setHeroSrc(heroCandidates[0] ?? '');
-    }, [heroCandidates, cachedState]);
-
-    const handleHeroLoad = () => {
-        setIsHeroLoaded(true);
-    };
+    }, [heroCandidates]);
 
     const handleHeroError = () => {
         const next = heroIdx + 1;
@@ -140,32 +112,21 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
         }
     };
 
-    // 3. Logo candidates
+    // Fallback 2: Centered game logo
     const logoCandidates = React.useMemo(() => {
-        if (isBannerAvailable) return [];
-        if (cachedState?.logoUrl) return [cachedState.logoUrl];
-        if (cachedState?.mode === 'hero-title' || cachedState?.mode === 'poster' || cachedState?.mode === 'title-only') return [];
         if (game.logoUrl) return [game.logoUrl];
         return getLogoUrls(game.appId, browserStores);
-    }, [isBannerAvailable, game.appId, game.logoUrl, cachedState]);
+    }, [game.appId, game.logoUrl]);
 
     const [logoSrc, setLogoSrc] = React.useState<string>(logoCandidates[0] ?? '');
     const [logoIdx, setLogoIdx] = React.useState(0);
-    const [hasLogoError, setHasLogoError] = React.useState(
-        logoCandidates.length === 0 || (cachedState ? !cachedState.logoUrl : false)
-    );
-    const [isLogoLoaded, setIsLogoLoaded] = React.useState(Boolean(cachedState?.logoUrl));
+    const [hasLogoError, setHasLogoError] = React.useState(logoCandidates.length === 0);
 
     useEffect(() => {
         setLogoIdx(0);
-        setHasLogoError(logoCandidates.length === 0 || (cachedState ? !cachedState.logoUrl : false));
-        setIsLogoLoaded(Boolean(cachedState?.logoUrl));
+        setHasLogoError(logoCandidates.length === 0);
         setLogoSrc(logoCandidates[0] ?? '');
-    }, [logoCandidates, cachedState]);
-
-    const handleLogoLoad = () => {
-        setIsLogoLoaded(true);
-    };
+    }, [logoCandidates]);
 
     const handleLogoError = () => {
         const next = logoIdx + 1;
@@ -177,32 +138,22 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
         }
     };
 
-    // 4. Poster candidates (Option 3 if no logo and no hero background exist)
+    // Fallback 3 (Option 3): Poster capsule art
+    // Used ONLY if no logo and no hero background exist!
     const posterCandidates = React.useMemo(() => {
-        if (isBannerAvailable) return [];
-        if (cachedState?.posterUrl) return [cachedState.posterUrl];
-        if (cachedState && cachedState.mode !== 'poster') return [];
         if (game.capsuleUrl) return [game.capsuleUrl];
         return getCapsuleUrls(game.appId, browserStores);
-    }, [isBannerAvailable, game.appId, game.capsuleUrl, cachedState]);
+    }, [game.appId, game.capsuleUrl]);
 
     const [posterSrc, setPosterSrc] = React.useState<string>(posterCandidates[0] ?? '');
     const [posterIdx, setPosterIdx] = React.useState(0);
-    const [hasPosterError, setHasPosterError] = React.useState(
-        posterCandidates.length === 0 || (cachedState ? cachedState.mode !== 'poster' : false)
-    );
-    const [isPosterLoaded, setIsPosterLoaded] = React.useState(cachedState?.mode === 'poster');
+    const [hasPosterError, setHasPosterError] = React.useState(posterCandidates.length === 0);
 
     useEffect(() => {
         setPosterIdx(0);
-        setHasPosterError(posterCandidates.length === 0 || (cachedState ? cachedState.mode !== 'poster' : false));
-        setIsPosterLoaded(cachedState?.mode === 'poster');
+        setHasPosterError(posterCandidates.length === 0);
         setPosterSrc(posterCandidates[0] ?? '');
-    }, [posterCandidates, cachedState]);
-
-    const handlePosterLoad = () => {
-        setIsPosterLoaded(true);
-    };
+    }, [posterCandidates]);
 
     const handlePosterError = () => {
         const next = posterIdx + 1;
@@ -217,61 +168,6 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
     const isHeroAvailable = Boolean(heroSrc && !hasHeroError);
     const isLogoAvailable = Boolean(logoSrc && !hasLogoError);
     const isPosterAvailable = Boolean(posterSrc && !hasPosterError);
-
-    const isHeroSettled = hasHeroError || isHeroLoaded || heroCandidates.length === 0;
-    const isLogoSettled = hasLogoError || isLogoLoaded || logoCandidates.length === 0;
-
-    // Option 3: "if no logo, or background but it does have poster only then use the poster for the element"
-    const isUsePoster =
-        !isBannerAvailable &&
-        !isLogoAvailable &&
-        !isHeroAvailable &&
-        isPosterAvailable &&
-        isHeroSettled &&
-        isLogoSettled;
-
-    // Persist settled layout to in-memory cache to guarantee 0ms renders on return
-    useEffect(() => {
-        if (cachedState) return;
-        if (isBannerAvailable && isBannerLoaded) {
-            setCachedCardState(game.appId, { mode: 'banner', bannerUrl: bannerSrc });
-        } else if (hasBannerError && isHeroSettled && isLogoSettled) {
-            if (isLogoAvailable && isHeroAvailable && isLogoLoaded && isHeroLoaded) {
-                setCachedCardState(game.appId, { mode: 'hero-logo', heroUrl: heroSrc, logoUrl: logoSrc });
-            } else if (isLogoAvailable && isLogoLoaded && hasHeroError) {
-                setCachedCardState(game.appId, { mode: 'logo-only', logoUrl: logoSrc });
-            } else if (isHeroAvailable && isHeroLoaded && hasLogoError) {
-                setCachedCardState(game.appId, { mode: 'hero-title', heroUrl: heroSrc });
-            } else if (hasHeroError && hasLogoError) {
-                if (isPosterAvailable && isPosterLoaded) {
-                    setCachedCardState(game.appId, { mode: 'poster', posterUrl: posterSrc });
-                } else if (hasPosterError) {
-                    setCachedCardState(game.appId, { mode: 'title-only' });
-                }
-            }
-        }
-    }, [
-        cachedState,
-        isBannerAvailable,
-        isBannerLoaded,
-        hasBannerError,
-        isHeroSettled,
-        isLogoSettled,
-        isLogoAvailable,
-        isHeroAvailable,
-        isLogoLoaded,
-        isHeroLoaded,
-        isPosterAvailable,
-        isPosterLoaded,
-        hasHeroError,
-        hasLogoError,
-        hasPosterError,
-        game.appId,
-        bannerSrc,
-        heroSrc,
-        logoSrc,
-        posterSrc,
-    ]);
 
     return (
         <div
@@ -306,41 +202,19 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
         >
             {isBannerAvailable ? (
                 <img
-                    src={bannerSrc}
+                    src={src}
                     alt={game.name}
                     className="sgl-card-img"
-                    onLoad={handleBannerLoad}
-                    onError={handleBannerError}
-                    style={{
-                        opacity: isBannerLoaded ? 1 : 0,
-                        transition: 'opacity 0.15s ease',
-                    }}
+                    onError={handleError}
                 />
-            ) : isUsePoster ? (
-                <img
-                    src={posterSrc}
-                    alt={game.name}
-                    className="sgl-card-img"
-                    onLoad={handlePosterLoad}
-                    onError={handlePosterError}
-                    style={{
-                        opacity: isPosterLoaded ? 1 : 0,
-                        transition: 'opacity 0.15s ease',
-                    }}
-                />
-            ) : (
+            ) : isLogoAvailable || isHeroAvailable ? (
                 <div className="sgl-card-fallback">
                     {isHeroAvailable && (
                         <img
                             src={heroSrc}
                             alt=""
                             className="sgl-card-fallback-bg"
-                            onLoad={handleHeroLoad}
                             onError={handleHeroError}
-                            style={{
-                                opacity: isHeroLoaded ? 1 : 0,
-                                transition: 'opacity 0.15s ease',
-                            }}
                         />
                     )}
                     {isHeroAvailable && <div className="sgl-card-fallback-overlay" />}
@@ -349,16 +223,22 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
                             src={logoSrc}
                             alt={game.name}
                             className="sgl-card-fallback-logo"
-                            onLoad={handleLogoLoad}
                             onError={handleLogoError}
-                            style={{
-                                opacity: isLogoLoaded ? 1 : 0,
-                                transition: 'opacity 0.15s ease',
-                            }}
                         />
                     ) : (
                         <span className="sgl-card-fallback-title">{game.name}</span>
                     )}
+                </div>
+            ) : isPosterAvailable ? (
+                <img
+                    src={posterSrc}
+                    alt={game.name}
+                    className="sgl-card-img"
+                    onError={handlePosterError}
+                />
+            ) : (
+                <div className="sgl-card-fallback">
+                    <span className="sgl-card-fallback-title">{game.name}</span>
                 </div>
             )}
 
