@@ -33,8 +33,155 @@ interface BannerCardProps {
     onContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
+export type ResolvedCardArt =
+    | { mode: 'banner'; url: string }
+    | { mode: 'hero-logo'; heroUrl: string; logoUrl: string }
+    | { mode: 'hero'; heroUrl: string }
+    | { mode: 'logo'; logoUrl: string }
+    | { mode: 'poster'; url: string }
+    | { mode: 'none' };
+
+export const cardArtMemo = new Map<number, ResolvedCardArt>();
+const inFlightArt = new Map<number, Promise<ResolvedCardArt>>();
+
+function checkImageLoads(url: string, timeoutMs = 2500): Promise<boolean> {
+    if (!url) return Promise.resolve(false);
+    if (typeof Image === 'undefined') {
+        return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+        let done = false;
+        const img = new Image();
+        const timer = setTimeout(() => {
+            if (!done) {
+                done = true;
+                img.onload = null;
+                img.onerror = null;
+                resolve(false);
+            }
+        }, timeoutMs);
+
+        img.onload = () => {
+            if (!done) {
+                done = true;
+                clearTimeout(timer);
+                resolve(img.naturalWidth > 0);
+            }
+        };
+
+        img.onerror = () => {
+            if (!done) {
+                done = true;
+                clearTimeout(timer);
+                resolve(false);
+            }
+        };
+
+        img.src = url;
+    });
+}
+
+async function findFirstWorkingImage(urls: string[]): Promise<string | null> {
+    for (const url of urls) {
+        if (await checkImageLoads(url)) {
+            return url;
+        }
+    }
+    return null;
+}
+
+export function resolveGameArt(game: LibraryGameItem): Promise<ResolvedCardArt> {
+    const cached = cardArtMemo.get(game.appId);
+    if (cached) return Promise.resolve(cached);
+
+    const pending = inFlightArt.get(game.appId);
+    if (pending) return pending;
+
+    const promise = (async (): Promise<ResolvedCardArt> => {
+        // 1. Primary: Long horizontal banner (soundtracks check square cover first)
+        const bannerCandidates = game.landscapeUrl
+            ? [game.landscapeUrl]
+            : game.isSoundtrack
+                ? [...getSoundtrackCoverUrls(game.appId, browserStores), ...getLandscapeUrls(game.appId, browserStores)]
+                : getLandscapeUrls(game.appId, browserStores);
+
+        const bannerUrl = await findFirstWorkingImage(bannerCandidates);
+        if (bannerUrl) {
+            const res: ResolvedCardArt = { mode: 'banner', url: bannerUrl };
+            cardArtMemo.set(game.appId, res);
+            return res;
+        }
+
+        // 2. Banner not available -> Option 1 & 2: Check Hero and Logo
+        const heroCandidates = game.heroUrl ? [game.heroUrl] : getHeroUrls(game.appId, browserStores);
+        const logoCandidates = game.logoUrl ? [game.logoUrl] : getLogoUrls(game.appId, browserStores);
+
+        const [heroUrl, logoUrl] = await Promise.all([
+            findFirstWorkingImage(heroCandidates),
+            findFirstWorkingImage(logoCandidates),
+        ]);
+
+        if (heroUrl && logoUrl) {
+            const res: ResolvedCardArt = { mode: 'hero-logo', heroUrl, logoUrl };
+            cardArtMemo.set(game.appId, res);
+            return res;
+        }
+
+        if (logoUrl) {
+            const res: ResolvedCardArt = { mode: 'logo', logoUrl };
+            cardArtMemo.set(game.appId, res);
+            return res;
+        }
+
+        if (heroUrl) {
+            const res: ResolvedCardArt = { mode: 'hero', heroUrl };
+            cardArtMemo.set(game.appId, res);
+            return res;
+        }
+
+        // 3. Option 3: Poster capsule ONLY if no logo and no hero background!
+        const posterCandidates = game.capsuleUrl ? [game.capsuleUrl] : getCapsuleUrls(game.appId, browserStores);
+        const posterUrl = await findFirstWorkingImage(posterCandidates);
+        if (posterUrl) {
+            const res: ResolvedCardArt = { mode: 'poster', url: posterUrl };
+            cardArtMemo.set(game.appId, res);
+            return res;
+        }
+
+        // 4. Option 4: None (fallback title on dark card)
+        const res: ResolvedCardArt = { mode: 'none' };
+        cardArtMemo.set(game.appId, res);
+        return res;
+    })().finally(() => {
+        inFlightArt.delete(game.appId);
+    });
+
+    inFlightArt.set(game.appId, promise);
+    return promise;
+}
+
 export function BannerCard({ game, isFocused, accent = '#1a9fff', onClick, onDoubleClick, onContextMenu }: BannerCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
+
+    // Initial state directly from memo: instantaneous if already visited!
+    const [art, setArt] = React.useState<ResolvedCardArt>(() => cardArtMemo.get(game.appId) ?? { mode: 'none' });
+
+    useEffect(() => {
+        const cached = cardArtMemo.get(game.appId);
+        if (cached) {
+            setArt(cached);
+            return;
+        }
+        let active = true;
+        resolveGameArt(game).then((res) => {
+            if (active) {
+                setArt(res);
+            }
+        });
+        return () => {
+            active = false;
+        };
+    }, [game.appId, game.landscapeUrl, game.heroUrl, game.logoUrl, game.capsuleUrl, game.isSoundtrack]);
 
     // Ensure focused card scrolls into view vertically within the grid panel (never scrolls parent layout)
     useEffect(() => {
@@ -51,137 +198,6 @@ export function BannerCard({ game, isFocused, accent = '#1a9fff', onClick, onDou
             }
         }
     }, [isFocused]);
-
-    // Primary: Long horizontal banner (soundtracks use square cover)
-    const bannerCandidates = React.useMemo(() => {
-        if (game.landscapeUrl) return [game.landscapeUrl];
-        if (game.isSoundtrack) {
-            return [
-                ...getSoundtrackCoverUrls(game.appId, browserStores),
-                ...getLandscapeUrls(game.appId, browserStores),
-            ];
-        }
-        return getLandscapeUrls(game.appId, browserStores);
-    }, [game.appId, game.landscapeUrl, game.isSoundtrack]);
-
-    const [src, setSrc] = React.useState<string>(bannerCandidates[0] ?? '');
-    const [candidateIdx, setCandidateIdx] = React.useState(0);
-    const [hasError, setHasError] = React.useState(bannerCandidates.length === 0);
-    const [isBannerLoaded, setIsBannerLoaded] = React.useState(false);
-
-    useEffect(() => {
-        setCandidateIdx(0);
-        setHasError(bannerCandidates.length === 0);
-        setIsBannerLoaded(false);
-        setSrc(bannerCandidates[0] ?? '');
-    }, [bannerCandidates]);
-
-    const handleError = () => {
-        setIsBannerLoaded(false);
-        const next = candidateIdx + 1;
-        if (next < bannerCandidates.length) {
-            setCandidateIdx(next);
-            setSrc(bannerCandidates[next]);
-        } else {
-            setHasError(true);
-        }
-    };
-
-    // Fallback 1: Hero background image
-    const heroCandidates = React.useMemo(() => {
-        if (game.heroUrl) return [game.heroUrl];
-        return getHeroUrls(game.appId, browserStores);
-    }, [game.appId, game.heroUrl]);
-
-    const [heroSrc, setHeroSrc] = React.useState<string>(heroCandidates[0] ?? '');
-    const [heroIdx, setHeroIdx] = React.useState(0);
-    const [hasHeroError, setHasHeroError] = React.useState(heroCandidates.length === 0);
-    const [isHeroLoaded, setIsHeroLoaded] = React.useState(false);
-
-    useEffect(() => {
-        setHeroIdx(0);
-        setHasHeroError(heroCandidates.length === 0);
-        setIsHeroLoaded(false);
-        setHeroSrc(heroCandidates[0] ?? '');
-    }, [heroCandidates]);
-
-    const handleHeroError = () => {
-        setIsHeroLoaded(false);
-        const next = heroIdx + 1;
-        if (next < heroCandidates.length) {
-            setHeroIdx(next);
-            setHeroSrc(heroCandidates[next]);
-        } else {
-            setHasHeroError(true);
-        }
-    };
-
-    // Fallback 2: Centered game logo
-    const logoCandidates = React.useMemo(() => {
-        if (game.logoUrl) return [game.logoUrl];
-        return getLogoUrls(game.appId, browserStores);
-    }, [game.appId, game.logoUrl]);
-
-    const [logoSrc, setLogoSrc] = React.useState<string>(logoCandidates[0] ?? '');
-    const [logoIdx, setLogoIdx] = React.useState(0);
-    const [hasLogoError, setHasLogoError] = React.useState(logoCandidates.length === 0);
-    const [isLogoLoaded, setIsLogoLoaded] = React.useState(false);
-
-    useEffect(() => {
-        setLogoIdx(0);
-        setHasLogoError(logoCandidates.length === 0);
-        setIsLogoLoaded(false);
-        setLogoSrc(logoCandidates[0] ?? '');
-    }, [logoCandidates]);
-
-    const handleLogoError = () => {
-        setIsLogoLoaded(false);
-        const next = logoIdx + 1;
-        if (next < logoCandidates.length) {
-            setLogoIdx(next);
-            setLogoSrc(logoCandidates[next]);
-        } else {
-            setHasLogoError(true);
-        }
-    };
-
-    // Fallback 3 (Option 3): Poster capsule art
-    // Used ONLY if no logo and no hero background exist!
-    const posterCandidates = React.useMemo(() => {
-        if (game.capsuleUrl) return [game.capsuleUrl];
-        return getCapsuleUrls(game.appId, browserStores);
-    }, [game.appId, game.capsuleUrl]);
-
-    const [posterSrc, setPosterSrc] = React.useState<string>(posterCandidates[0] ?? '');
-    const [posterIdx, setPosterIdx] = React.useState(0);
-    const [hasPosterError, setHasPosterError] = React.useState(posterCandidates.length === 0);
-    const [isPosterLoaded, setIsPosterLoaded] = React.useState(false);
-
-    useEffect(() => {
-        setPosterIdx(0);
-        setHasPosterError(posterCandidates.length === 0);
-        setIsPosterLoaded(false);
-        setPosterSrc(posterCandidates[0] ?? '');
-    }, [posterCandidates]);
-
-    const handlePosterError = () => {
-        setIsPosterLoaded(false);
-        const next = posterIdx + 1;
-        if (next < posterCandidates.length) {
-            setPosterIdx(next);
-            setPosterSrc(posterCandidates[next]);
-        } else {
-            setHasPosterError(true);
-        }
-    };
-
-    const isHeroProbing = Boolean(heroSrc && !hasHeroError);
-    const isLogoProbing = Boolean(logoSrc && !hasLogoError);
-
-    // Option 3 rule: Poster is eligible ONLY if there is no hero background and no logo!
-    // If hero or logo is loaded, or if hero or logo is still probing, poster must NOT take over.
-    const isHeroOrLogoAvailable = isHeroLoaded || isLogoLoaded || isHeroProbing || isLogoProbing;
-    const isPosterEligible = !isHeroOrLogoAvailable;
 
     return (
         <div
@@ -214,111 +230,58 @@ export function BannerCard({ game, isFocused, accent = '#1a9fff', onClick, onDou
                 onContextMenu?.(e);
             }}
         >
-            {/* Base Layer: Clean fallback container is ALWAYS mounted so cards NEVER flash or pop.
-                Non-Steam games with little or no artwork immediately show their title solidly without any broken image icons. */}
-            <div className="sgl-card-fallback">
-                {isHeroProbing && (
-                    <img
-                        src={heroSrc}
-                        alt=""
-                        className="sgl-card-fallback-bg"
-                        style={{
-                            opacity: isHeroLoaded ? 1 : 0,
-                            transition: 'opacity 0.2s ease',
-                        }}
-                        onLoad={(e) => {
-                            if (e.currentTarget.naturalWidth > 0) {
-                                setIsHeroLoaded(true);
-                            }
-                        }}
-                        onError={handleHeroError}
-                    />
-                )}
-                {isHeroLoaded && <div className="sgl-card-fallback-overlay" />}
-                {isLogoProbing && (
-                    <img
-                        src={logoSrc}
-                        alt={game.name}
-                        className="sgl-card-fallback-logo"
-                        style={{
-                            position: isLogoLoaded ? 'relative' : 'absolute',
-                            opacity: isLogoLoaded ? 1 : 0,
-                            transition: 'opacity 0.2s ease',
-                        }}
-                        onLoad={(e) => {
-                            if (e.currentTarget.naturalWidth > 0) {
-                                setIsLogoLoaded(true);
-                            }
-                        }}
-                        onError={handleLogoError}
-                    />
-                )}
-                {/* Fallback title: Solidly visible if no logo is loaded (e.g. while probing or if logo fails or doesn't exist) */}
-                {(!isLogoProbing || !isLogoLoaded) && (
+            {/* Primary Banner (Wide image) */}
+            {art.mode === 'banner' ? (
+                <img
+                    src={art.url}
+                    alt={game.name}
+                    className="sgl-card-img"
+                />
+            ) : art.mode === 'hero-logo' || art.mode === 'logo' || art.mode === 'hero' ? (
+                /* Option 1 & 2: Hero background with logo / Logo only / Hero only */
+                <div className="sgl-card-fallback">
+                    {(art.mode === 'hero-logo' || art.mode === 'hero') && (
+                        <img
+                            src={art.heroUrl}
+                            alt=""
+                            className="sgl-card-fallback-bg"
+                        />
+                    )}
+                    {(art.mode === 'hero-logo' || art.mode === 'hero') && (
+                        <div className="sgl-card-fallback-overlay" />
+                    )}
+                    {(art.mode === 'hero-logo' || art.mode === 'logo') ? (
+                        <img
+                            src={art.logoUrl}
+                            alt={game.name}
+                            className="sgl-card-fallback-logo"
+                        />
+                    ) : (
+                        <span className="sgl-card-fallback-title">{game.name}</span>
+                    )}
+                </div>
+            ) : art.mode === 'poster' ? (
+                /* Option 3: Poster capsule (used ONLY if no hero & no logo) */
+                <img
+                    src={art.url}
+                    alt={game.name}
+                    className="sgl-card-img"
+                />
+            ) : (
+                /* Option 4: Solid fallback title on dark card */
+                <div className="sgl-card-fallback">
                     <span className="sgl-card-fallback-title">{game.name}</span>
-                )}
-            </div>
-
-            {/* Poster Capsule Image (Option 3): Used ONLY if no banner, and no hero/logo exists */}
-            {isPosterEligible && posterSrc && !hasPosterError && (
-                <img
-                    src={posterSrc}
-                    alt={game.name}
-                    className="sgl-card-img"
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        opacity: isPosterLoaded && !isBannerLoaded ? 1 : 0,
-                        zIndex: isPosterLoaded && !isBannerLoaded ? 3 : -1,
-                        pointerEvents: 'none',
-                        transition: 'opacity 0.2s ease',
-                    }}
-                    onLoad={(e) => {
-                        if (e.currentTarget.naturalWidth > 0) {
-                            setIsPosterLoaded(true);
-                        }
-                    }}
-                    onError={handlePosterError}
-                />
-            )}
-
-            {/* Wide Banner Image (Primary): Probes silently in background; fades in on top when loaded */}
-            {src && !hasError && (
-                <img
-                    src={src}
-                    alt={game.name}
-                    className="sgl-card-img"
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        opacity: isBannerLoaded ? 1 : 0,
-                        zIndex: isBannerLoaded ? 4 : -1,
-                        pointerEvents: 'none',
-                        transition: 'opacity 0.2s ease',
-                    }}
-                    onLoad={(e) => {
-                        if (e.currentTarget.naturalWidth > 0) {
-                            setIsBannerLoaded(true);
-                        }
-                    }}
-                    onError={handleError}
-                />
+                </div>
             )}
 
             {game.running && (
-                <div className="sgl-card-running-badge" style={{ zIndex: 5 }}>
+                <div className="sgl-card-running-badge">
                     <div className="sgl-running-dot" />
                     <span>PLAYING</span>
                 </div>
             )}
 
-            <div className="sgl-card-bar" style={{ zIndex: 5 }} />
+            <div className="sgl-card-bar" />
         </div>
     );
 }
@@ -532,7 +495,7 @@ export function LibraryGrid({
             <div className="sgl-grid" style={{ '--sgl-columns': columns } as React.CSSProperties}>
                 {games.map((game, idx) => (
                     <BannerCard
-                        key={`${game.appId}-${game.isSoundtrack ? 'ost' : 'game'}-${idx}`}
+                        key={`${game.appId}-${game.isSoundtrack ? 'ost' : 'game'}`}
                         game={game}
                         isFocused={isGridFocused && idx === selectedIndex}
                         accent={accent}

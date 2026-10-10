@@ -239,8 +239,9 @@ export const browserStores: SteamStores = {
         }
 
         // Direct custom horizontal images from Steam's config/grid folder (served at /customimages/)
-        // Windows Steam and SteamGridDB save custom artwork directly here
-        if (g.appStore || g.appDetailsStore) {
+        // Windows Steam and SteamGridDB save custom artwork directly here for shortcuts
+        const isShortcut = !overview || overview.app_type !== 1 || (id < 0 || id > 0x7fffffff) || Boolean((overview as Record<string, unknown>).m_gameid);
+        if (isShortcut && (g.appStore || g.appDetailsStore)) {
             steamUrls.push(`/customimages/${id}.png`, `/customimages/${id}.jpg`);
             if (id < 0) {
                 const unsigned = id >>> 0;
@@ -267,7 +268,8 @@ export const browserStores: SteamStores = {
             const customPath = (overview as Record<string, unknown>).strCustomHeroPath ?? (overview as Record<string, unknown>).m_strCustomHeroPath;
             if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
         }
-        if (store) {
+        const isShortcut = !overview || overview.app_type !== 1 || (id < 0 || id > 0x7fffffff) || Boolean((overview as Record<string, unknown>).m_gameid);
+        if (isShortcut && store) {
             steamUrls.push(`/customimages/${id}_hero.jpg`, `/customimages/${id}_hero.png`);
             const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
             if (gid && String(gid) !== String(id)) {
@@ -293,7 +295,8 @@ export const browserStores: SteamStores = {
 
         // Direct custom portrait images in config/grid (served at /customimages/)
         // Windows Steam and SteamGridDB save custom artwork directly here
-        if (store) {
+        const isShortcut = !overview || overview.app_type !== 1 || (id < 0 || id > 0x7fffffff) || Boolean((overview as Record<string, unknown>).m_gameid);
+        if (isShortcut && store) {
             steamUrls.push(`/customimages/${id}p.png`, `/customimages/${id}p.jpg`);
             if (id < 0) {
                 const unsigned = id >>> 0;
@@ -320,7 +323,8 @@ export const browserStores: SteamStores = {
             const customPath = (overview as Record<string, unknown>).strCustomLogoPath ?? (overview as Record<string, unknown>).m_strCustomLogoPath;
             if (typeof customPath === 'string' && customPath) steamUrls.push(customPath);
         }
-        if (store) {
+        const isShortcut = !overview || overview.app_type !== 1 || (id < 0 || id > 0x7fffffff) || Boolean((overview as Record<string, unknown>).m_gameid);
+        if (isShortcut && store) {
             steamUrls.push(`/customimages/${id}_logo.png`);
             const gid = (overview as Record<string, unknown> | undefined)?.m_gameid;
             if (gid && String(gid) !== String(id)) {
