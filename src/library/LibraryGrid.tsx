@@ -33,7 +33,7 @@ interface BannerCardProps {
     onContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContextMenu }: BannerCardProps) {
+export function BannerCard({ game, isFocused, accent = '#1a9fff', onClick, onDoubleClick, onContextMenu }: BannerCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
 
     // Ensure focused card scrolls into view vertically within the grid panel (never scrolls parent layout)
@@ -67,14 +67,17 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
     const [src, setSrc] = React.useState<string>(bannerCandidates[0] ?? '');
     const [candidateIdx, setCandidateIdx] = React.useState(0);
     const [hasError, setHasError] = React.useState(bannerCandidates.length === 0);
+    const [isBannerLoaded, setIsBannerLoaded] = React.useState(false);
 
     useEffect(() => {
         setCandidateIdx(0);
         setHasError(bannerCandidates.length === 0);
+        setIsBannerLoaded(false);
         setSrc(bannerCandidates[0] ?? '');
     }, [bannerCandidates]);
 
     const handleError = () => {
+        setIsBannerLoaded(false);
         const next = candidateIdx + 1;
         if (next < bannerCandidates.length) {
             setCandidateIdx(next);
@@ -83,8 +86,6 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
             setHasError(true);
         }
     };
-
-    const isBannerAvailable = Boolean(src && !hasError);
 
     // Fallback 1: Hero background image
     const heroCandidates = React.useMemo(() => {
@@ -95,14 +96,17 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
     const [heroSrc, setHeroSrc] = React.useState<string>(heroCandidates[0] ?? '');
     const [heroIdx, setHeroIdx] = React.useState(0);
     const [hasHeroError, setHasHeroError] = React.useState(heroCandidates.length === 0);
+    const [isHeroLoaded, setIsHeroLoaded] = React.useState(false);
 
     useEffect(() => {
         setHeroIdx(0);
         setHasHeroError(heroCandidates.length === 0);
+        setIsHeroLoaded(false);
         setHeroSrc(heroCandidates[0] ?? '');
     }, [heroCandidates]);
 
     const handleHeroError = () => {
+        setIsHeroLoaded(false);
         const next = heroIdx + 1;
         if (next < heroCandidates.length) {
             setHeroIdx(next);
@@ -121,14 +125,17 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
     const [logoSrc, setLogoSrc] = React.useState<string>(logoCandidates[0] ?? '');
     const [logoIdx, setLogoIdx] = React.useState(0);
     const [hasLogoError, setHasLogoError] = React.useState(logoCandidates.length === 0);
+    const [isLogoLoaded, setIsLogoLoaded] = React.useState(false);
 
     useEffect(() => {
         setLogoIdx(0);
         setHasLogoError(logoCandidates.length === 0);
+        setIsLogoLoaded(false);
         setLogoSrc(logoCandidates[0] ?? '');
     }, [logoCandidates]);
 
     const handleLogoError = () => {
+        setIsLogoLoaded(false);
         const next = logoIdx + 1;
         if (next < logoCandidates.length) {
             setLogoIdx(next);
@@ -148,14 +155,17 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
     const [posterSrc, setPosterSrc] = React.useState<string>(posterCandidates[0] ?? '');
     const [posterIdx, setPosterIdx] = React.useState(0);
     const [hasPosterError, setHasPosterError] = React.useState(posterCandidates.length === 0);
+    const [isPosterLoaded, setIsPosterLoaded] = React.useState(false);
 
     useEffect(() => {
         setPosterIdx(0);
         setHasPosterError(posterCandidates.length === 0);
+        setIsPosterLoaded(false);
         setPosterSrc(posterCandidates[0] ?? '');
     }, [posterCandidates]);
 
     const handlePosterError = () => {
+        setIsPosterLoaded(false);
         const next = posterIdx + 1;
         if (next < posterCandidates.length) {
             setPosterIdx(next);
@@ -165,9 +175,13 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
         }
     };
 
-    const isHeroAvailable = Boolean(heroSrc && !hasHeroError);
-    const isLogoAvailable = Boolean(logoSrc && !hasLogoError);
-    const isPosterAvailable = Boolean(posterSrc && !hasPosterError);
+    const isHeroProbing = Boolean(heroSrc && !hasHeroError);
+    const isLogoProbing = Boolean(logoSrc && !hasLogoError);
+
+    // Option 3 rule: Poster is eligible ONLY if there is no hero background and no logo!
+    // If hero or logo is loaded, or if hero or logo is still probing, poster must NOT take over.
+    const isHeroOrLogoAvailable = isHeroLoaded || isLogoLoaded || isHeroProbing || isLogoProbing;
+    const isPosterEligible = !isHeroOrLogoAvailable;
 
     return (
         <div
@@ -200,56 +214,111 @@ function BannerCard({ game, isFocused, accent, onClick, onDoubleClick, onContext
                 onContextMenu?.(e);
             }}
         >
-            {isBannerAvailable ? (
-                <img
-                    src={src}
-                    alt={game.name}
-                    className="sgl-card-img"
-                    onError={handleError}
-                />
-            ) : isLogoAvailable || isHeroAvailable ? (
-                <div className="sgl-card-fallback">
-                    {isHeroAvailable && (
-                        <img
-                            src={heroSrc}
-                            alt=""
-                            className="sgl-card-fallback-bg"
-                            onError={handleHeroError}
-                        />
-                    )}
-                    {isHeroAvailable && <div className="sgl-card-fallback-overlay" />}
-                    {isLogoAvailable ? (
-                        <img
-                            src={logoSrc}
-                            alt={game.name}
-                            className="sgl-card-fallback-logo"
-                            onError={handleLogoError}
-                        />
-                    ) : (
-                        <span className="sgl-card-fallback-title">{game.name}</span>
-                    )}
-                </div>
-            ) : isPosterAvailable ? (
+            {/* Base Layer: Clean fallback container is ALWAYS mounted so cards NEVER flash or pop.
+                Non-Steam games with little or no artwork immediately show their title solidly without any broken image icons. */}
+            <div className="sgl-card-fallback">
+                {isHeroProbing && (
+                    <img
+                        src={heroSrc}
+                        alt=""
+                        className="sgl-card-fallback-bg"
+                        style={{
+                            opacity: isHeroLoaded ? 1 : 0,
+                            transition: 'opacity 0.2s ease',
+                        }}
+                        onLoad={(e) => {
+                            if (e.currentTarget.naturalWidth > 0) {
+                                setIsHeroLoaded(true);
+                            }
+                        }}
+                        onError={handleHeroError}
+                    />
+                )}
+                {isHeroLoaded && <div className="sgl-card-fallback-overlay" />}
+                {isLogoProbing && (
+                    <img
+                        src={logoSrc}
+                        alt={game.name}
+                        className="sgl-card-fallback-logo"
+                        style={{
+                            position: isLogoLoaded ? 'relative' : 'absolute',
+                            opacity: isLogoLoaded ? 1 : 0,
+                            transition: 'opacity 0.2s ease',
+                        }}
+                        onLoad={(e) => {
+                            if (e.currentTarget.naturalWidth > 0) {
+                                setIsLogoLoaded(true);
+                            }
+                        }}
+                        onError={handleLogoError}
+                    />
+                )}
+                {/* Fallback title: Solidly visible if no logo is loaded (e.g. while probing or if logo fails or doesn't exist) */}
+                {(!isLogoProbing || !isLogoLoaded) && (
+                    <span className="sgl-card-fallback-title">{game.name}</span>
+                )}
+            </div>
+
+            {/* Poster Capsule Image (Option 3): Used ONLY if no banner, and no hero/logo exists */}
+            {isPosterEligible && posterSrc && !hasPosterError && (
                 <img
                     src={posterSrc}
                     alt={game.name}
                     className="sgl-card-img"
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        opacity: isPosterLoaded && !isBannerLoaded ? 1 : 0,
+                        zIndex: isPosterLoaded && !isBannerLoaded ? 3 : -1,
+                        pointerEvents: 'none',
+                        transition: 'opacity 0.2s ease',
+                    }}
+                    onLoad={(e) => {
+                        if (e.currentTarget.naturalWidth > 0) {
+                            setIsPosterLoaded(true);
+                        }
+                    }}
                     onError={handlePosterError}
                 />
-            ) : (
-                <div className="sgl-card-fallback">
-                    <span className="sgl-card-fallback-title">{game.name}</span>
-                </div>
+            )}
+
+            {/* Wide Banner Image (Primary): Probes silently in background; fades in on top when loaded */}
+            {src && !hasError && (
+                <img
+                    src={src}
+                    alt={game.name}
+                    className="sgl-card-img"
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        opacity: isBannerLoaded ? 1 : 0,
+                        zIndex: isBannerLoaded ? 4 : -1,
+                        pointerEvents: 'none',
+                        transition: 'opacity 0.2s ease',
+                    }}
+                    onLoad={(e) => {
+                        if (e.currentTarget.naturalWidth > 0) {
+                            setIsBannerLoaded(true);
+                        }
+                    }}
+                    onError={handleError}
+                />
             )}
 
             {game.running && (
-                <div className="sgl-card-running-badge">
+                <div className="sgl-card-running-badge" style={{ zIndex: 5 }}>
                     <div className="sgl-running-dot" />
                     <span>PLAYING</span>
                 </div>
             )}
 
-            <div className="sgl-card-bar" />
+            <div className="sgl-card-bar" style={{ zIndex: 5 }} />
         </div>
     );
 }
