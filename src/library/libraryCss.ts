@@ -97,6 +97,16 @@ export const LIBRARY_CSS = `
     border: 1px solid rgba(255, 255, 255, 0.15);
     letter-spacing: 0.5px;
     flex-shrink: 0;
+    transition: all 0.15s ease-out;
+}
+
+.sgl-bumper-badge.sgl-keycap {
+    min-width: 18px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .sgl-tabs {
@@ -544,6 +554,15 @@ export const LIBRARY_CSS = `
     background: rgba(255, 255, 255, 0.14);
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sgl-btn-badge.sgl-keycap {
+    font-size: 9.5px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    text-transform: uppercase;
+    transition: all 0.12s ease-out;
 }
 
 /* Right Panel: Game Grid */
