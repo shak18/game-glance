@@ -17,7 +17,6 @@ import { LibraryInspector } from './LibraryInspector';
 import { LIBRARY_CSS } from './libraryCss';
 import { buildCategories, LibraryCategory, LibraryCollectionItem, LibraryGameItem } from './libraryData';
 import { markLeavingLibrary, noteLibrary, resetLibraryMemory, takeLibraryRestore } from './libraryMemory';
-import { reportGamepadInput } from './useInputMode';
 
 interface SpotlightLibraryProps {
     mockGames?: LibraryGameItem[];
@@ -353,7 +352,6 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     // Gamepad controller event handler for Decky's Focusable tree
     const onGamepadButtonDown = useCallback((evt: GamepadEvent) => {
         try {
-            reportGamepadInput();
             const btn = Number(evt?.detail?.button);
             const now = Date.now();
 
@@ -628,13 +626,6 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
             preferredFocus={true}
             noFocusRing
             tabIndex={0}
-            actionDescriptionMap={{
-                [GamepadButton.OK]: isCollectionsTab && !isInsideSubCollection ? 'Open' : (selectedGame?.isSoundtrack ? 'Open' : 'Details'),
-                [GamepadButton.OPTIONS]: isCollectionsTab && !isInsideSubCollection ? undefined : 'Play',
-                [GamepadButton.CANCEL]: isInsideSubCollection ? 'Back' : undefined,
-                [GamepadButton.BUMPER_LEFT]: 'Prev Category',
-                [GamepadButton.BUMPER_RIGHT]: 'Next Category',
-            }}
             style={{
                 '--accent': gameAccent,
                 '--glance-accent': gameAccent,

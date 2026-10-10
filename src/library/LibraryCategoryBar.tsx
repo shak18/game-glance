@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { FaGamepad } from 'react-icons/fa';
 import { LibraryCategory } from './libraryData';
-import { getBumperGlyphs, useInputMode } from './useInputMode';
 
 interface LibraryCategoryBarProps {
     categories: LibraryCategory[];
@@ -25,10 +24,6 @@ export function LibraryCategoryBar({
     const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? categories[0];
     const navRef = useRef<HTMLElement | null>(null);
     const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-
-    const inputMode = useInputMode();
-    const bumpers = getBumperGlyphs(inputMode);
-    const badgeClass = `sgl-bumper-badge${inputMode === 'keyboard' ? ' sgl-keycap' : ''}`;
 
     // Automatically scroll the active tab strictly within the tabs nav container (never scrolls parent layout)
     useEffect(() => {
@@ -68,14 +63,14 @@ export function LibraryCategoryBar({
                         <span>‹ COLLECTIONS</span>
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className={badgeClass}>{bumpers.left}</span>
+                        <span className="sgl-bumper-badge">L1</span>
                         <span className="sgl-breadcrumb-title">{activeSubCollectionName.toUpperCase()}</span>
-                        <span className={badgeClass}>{bumpers.right}</span>
+                        <span className="sgl-bumper-badge">R1</span>
                     </div>
                 </div>
             ) : (
                 <div className="sgl-tabs-container">
-                    <span className={badgeClass}>{bumpers.left}</span>
+                    <span className="sgl-bumper-badge">L1</span>
                     <nav className="sgl-tabs" role="tablist" ref={navRef}>
                         {categories.map((cat, idx) => {
                             const isActive = cat.id === activeCategoryId;
@@ -103,7 +98,7 @@ export function LibraryCategoryBar({
                             );
                         })}
                     </nav>
-                    <span className={badgeClass}>{bumpers.right}</span>
+                    <span className="sgl-bumper-badge">R1</span>
                 </div>
             )}
 

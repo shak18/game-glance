@@ -15,7 +15,6 @@ import { formatHours, minutesToHours, steamLanguageToLocale } from '../logic/for
 import { formatLastPlayed } from '../home/recents';
 import { peekSteamLanguage } from '../data/steam';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
-import { getActionGlyph, useInputMode } from './useInputMode';
 
 interface LibraryInspectorProps {
     game: LibraryGameItem | null;
@@ -263,11 +262,6 @@ export function LibraryInspector({
     onDetails,
     onOpenCollection,
 }: LibraryInspectorProps) {
-    const inputMode = useInputMode();
-    const selectGlyph = getActionGlyph('select', inputMode);
-    const playGlyph = getActionGlyph('play', inputMode);
-    const badgeClass = `sgl-btn-badge${inputMode === 'keyboard' ? ' sgl-keycap' : ''}`;
-
     // Collection overview mode with multi-poster fan showcase
     if (isCollectionView && collection) {
         const games = collection.games;
@@ -358,7 +352,7 @@ export function LibraryInspector({
                     >
                         <FaFolderOpen size={13} />
                         <span>Open Collection</span>
-                        <span className={badgeClass}>{selectGlyph}</span>
+                        <span className="sgl-btn-badge">A</span>
                     </button>
                 </div>
             </aside>
@@ -473,7 +467,7 @@ export function LibraryInspector({
                     >
                         <FaMusic size={12} />
                         <span>Open Soundtrack</span>
-                        <span className={badgeClass}>{selectGlyph}</span>
+                        <span className="sgl-btn-badge">A</span>
                     </button>
                 </div>
             ) : (
@@ -488,7 +482,7 @@ export function LibraryInspector({
                     >
                         <FaInfoCircle size={13} />
                         <span>Details</span>
-                        <span className={badgeClass}>{selectGlyph}</span>
+                        <span className="sgl-btn-badge">A</span>
                     </button>
                     <button
                         className="sgl-btn-play"
@@ -500,7 +494,7 @@ export function LibraryInspector({
                     >
                         <FaPlay size={11} />
                         <span>{playLabel}</span>
-                        <span className={badgeClass}>{playGlyph}</span>
+                        <span className="sgl-btn-badge">Y</span>
                     </button>
                 </div>
             )}
