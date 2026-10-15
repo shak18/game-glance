@@ -159,6 +159,14 @@ export function cancelLibraryOpen() {
     activeLibraryBridge = null;
 }
 
+const SGL_BRIDGE_DROP = [
+    '.sgl-header',
+    '.sgl-inspector',
+    '.sgl-grid-panel',
+    '.sgl-category-bar',
+    '.sgl-grid-viewport',
+];
+
 export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLElement | null) {
     if (activeLibraryBridge) return;
     playNavSound('IntoGameDetail');
@@ -229,7 +237,7 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
             navTimer = null;
             try {
                 if (root) {
-                    bridge = mountOpenBridge(root, steamEnterOffCss());
+                    bridge = mountOpenBridge(root, steamEnterOffCss(), [], SGL_BRIDGE_DROP);
                 }
             } catch {}
             try {
@@ -237,7 +245,7 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
             } catch {
                 cleanup();
             }
-        }, 160);
+        }, 200);
     } catch (error) {
         console.warn(`${LOG_PREFIX} SpotlightLibrary: open transition failed`, error);
         cleanup();
@@ -421,9 +429,9 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
         setTimeout(() => {
             try {
                 if (rootRef.current) {
-                    const bridge = mountOpenBridge(rootRef.current, steamEnterOffCss());
-                    bridge.fadeOut(300);
-                    setTimeout(() => bridge.remove(), 350);
+                    const bridge = mountOpenBridge(rootRef.current, steamEnterOffCss(), [], SGL_BRIDGE_DROP);
+                    bridge.fadeOut(240);
+                    setTimeout(() => bridge.remove(), 290);
                 }
             } catch {}
             try {
@@ -433,7 +441,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
                     Navigation.Navigate('/');
                 } catch {}
             }
-        }, 160);
+        }, 200);
     }, []);
 
     // Open a collection to view its games

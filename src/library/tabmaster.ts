@@ -141,6 +141,8 @@ export function applyTabMasterCategories(
 
         const mappedId = normalizeTabMasterId(tab.id);
 
+        const tabTitle = typeof tab.title === 'string' && tab.title.trim().length > 0 ? tab.title.trim() : null;
+
         // Check if this matches a built-in category
         const existingCat = baseMap.get(mappedId);
         if (existingCat) {
@@ -149,7 +151,7 @@ export function applyTabMasterCategories(
                 position: tab.position ?? 0,
                 category: {
                     ...existingCat,
-                    name: tab.title ? tab.title.toUpperCase() : existingCat.name,
+                    name: tabTitle ? tabTitle.toUpperCase() : existingCat.name,
                 },
             });
             continue;
@@ -169,16 +171,19 @@ export function applyTabMasterCategories(
 
         // Also check if tab.id itself matches a collection id or name
         if (!customCollection) {
-            customCollection = collectionsMap.get(tab.id.toLowerCase()) ?? collectionsMap.get(tab.title.toLowerCase());
+            const idKey = typeof tab.id === 'string' ? tab.id.toLowerCase() : '';
+            const titleKey = tabTitle ? tabTitle.toLowerCase() : '';
+            customCollection = collectionsMap.get(idKey) ?? (titleKey ? collectionsMap.get(titleKey) : undefined);
         }
 
         if (customCollection && customCollection.games.length > 0) {
             handledCategoryIds.add(`tm-${tab.id}`);
+            const finalTitle = tabTitle || customCollection.name;
             resultCategories.push({
                 position: tab.position ?? 0,
                 category: {
                     id: `tm-${tab.id}`,
-                    name: (tab.title || customCollection.name).toUpperCase(),
+                    name: finalTitle.toUpperCase(),
                     count: customCollection.games.length,
                     games: customCollection.games,
                 },

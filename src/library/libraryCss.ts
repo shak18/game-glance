@@ -59,7 +59,15 @@ export const LIBRARY_CSS = `
 .gh-bridge,
 .gh-bridge *,
 .gh-bridge *::before,
-.gh-bridge *::after {
+.gh-bridge *::after,
+.sgl-root.gh-bridge,
+.sgl-root.gh-bridge *,
+.sgl-root.gh-bridge .sgl-header,
+.sgl-root.gh-bridge .sgl-inspector,
+.sgl-root.gh-bridge .sgl-grid-panel,
+.sgl-root.gh-bridge .sgl-bg-container,
+.sgl-root.sgl-leaving.gh-bridge,
+.sgl-root.sgl-leaving.gh-bridge * {
     animation: none !important;
     transition: none !important;
 }
@@ -71,72 +79,66 @@ export const LIBRARY_CSS = `
     pointer-events: none !important;
 }
 
-.sgl-root.sgl-leaving .sgl-header,
-.sgl-root[data-sgl-leaving="true"] .sgl-header,
-.sgl-root[data-gh-leaving] .sgl-header {
+.sgl-root.sgl-leaving:not(.gh-bridge) .sgl-header,
+.sgl-root[data-sgl-leaving="true"]:not(.gh-bridge) .sgl-header,
+.sgl-root[data-gh-leaving]:not(.gh-bridge) .sgl-header {
     animation: sglHeaderExit 200ms cubic-bezier(.25, 0, 0, 1) forwards !important;
     will-change: transform, opacity;
 }
 
-.sgl-root.sgl-leaving .sgl-inspector,
-.sgl-root[data-sgl-leaving="true"] .sgl-inspector,
-.sgl-root[data-gh-leaving] .sgl-inspector {
+.sgl-root.sgl-leaving:not(.gh-bridge) .sgl-inspector,
+.sgl-root[data-sgl-leaving="true"]:not(.gh-bridge) .sgl-inspector,
+.sgl-root[data-gh-leaving]:not(.gh-bridge) .sgl-inspector {
     animation: sglInspectorExit 200ms cubic-bezier(.25, 0, 0, 1) forwards !important;
     will-change: transform, opacity;
 }
 
-.sgl-root.sgl-leaving .sgl-grid-panel,
-.sgl-root[data-sgl-leaving="true"] .sgl-grid-panel,
-.sgl-root[data-gh-leaving] .sgl-grid-panel {
+.sgl-root.sgl-leaving:not(.gh-bridge) .sgl-grid-panel,
+.sgl-root[data-sgl-leaving="true"]:not(.gh-bridge) .sgl-grid-panel,
+.sgl-root[data-gh-leaving]:not(.gh-bridge) .sgl-grid-panel {
     animation: sglGridExit 200ms cubic-bezier(.25, 0, 0, 1) forwards !important;
     will-change: transform, opacity;
 }
 
-.sgl-root.sgl-leaving .sgl-bg-container,
-.sgl-root[data-sgl-leaving="true"] .sgl-bg-container,
-.sgl-root[data-gh-leaving] .sgl-bg-container {
-    animation: sglBgExit 200ms ease forwards !important;
-    will-change: opacity;
-}
 
 /* Entrance animations: stylishly zoom/slide in from outside the viewport on enter or back */
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-header {
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-header {
     animation: sglHeaderEnter 280ms cubic-bezier(.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
 }
 
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector {
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector {
     animation: sglInspectorEnter 300ms cubic-bezier(.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
 }
 
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-grid-panel {
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-grid-panel {
     animation: sglGridEnter 320ms cubic-bezier(.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
 }
 
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-bg-container {
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-bg-container {
     animation: sglBgEnter 340ms ease-out both;
     will-change: opacity;
 }
 
 /* Cascading entrance for elements inside inspector (from left) */
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-poster-wrapper,
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector-col-fan {
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-poster-wrapper,
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector-col-fan {
     animation: sglChildLeftEnter 260ms 40ms cubic-bezier(.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
 }
 
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-title-box,
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-meta-row,
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-stats-grid,
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector-actions {
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-title-box,
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-meta-row,
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-stats-grid,
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector-actions {
     animation: sglChildLeftEnter 260ms 80ms cubic-bezier(.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
 }
 
 /* Cascading entrance for grid inside right panel (from right) */
-.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-grid {
+.sgl-root:not(.gh-bridge):not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-grid {
     animation: sglChildRightEnter 280ms 40ms cubic-bezier(.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
 }
