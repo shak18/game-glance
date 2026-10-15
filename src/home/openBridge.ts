@@ -42,6 +42,7 @@ export function mountOpenBridge(root: HTMLElement, css = '', extras: Element[] =
     copy.classList.add('gh-bridge');
     // Not Home's "just back" state (homeCss .gh-back: its UI fading in after B): in the copy that fade would replay from 0.
     copy.classList.remove('gh-back');
+    copy.classList.remove('sgl-back');
     // Parts already gone by the hand-over (`drop`: Home's game row, tabs and feed) are left out: on the Ally they were
     // half the copy's style and layout work, in the frame Steam is busiest.
     if (drop.length > 0) for (const el of [...copy.querySelectorAll(drop.join(', '))]) el.remove();

@@ -7,7 +7,7 @@ describe('settings', () => {
         const kv = memoryKv();
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
         const listener = vi.fn();
         store.subscribe(listener);
         await store.setEnabled(false);
@@ -22,7 +22,7 @@ describe('settings', () => {
         await kv.set('settings', 'nonsense');
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
     });
 });
 
@@ -34,16 +34,16 @@ describe('settings: automatic pre-load', () => {
         await store.setAutoPreload(false);
         const reloaded = createSettingsStore(kv);
         await reloaded.load();
-        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
+        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
     });
     it('keeps the other setting when one changes, including settings saved before this option existed', async () => {
         const kv = memoryKv();
         await kv.set('settings', { enabled: false });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
         await store.setAutoPreload(false);
-        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
     });
 });
 
@@ -81,6 +81,16 @@ describe('settings: spotlight library', () => {
         await reloaded.load();
         expect(reloaded.get().libraryGridColumns).toBe(5);
     });
+    it('library collection columns defaults to 5 and persists changes', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().libraryCollectionColumns).toBe(5);
+        await store.setLibraryCollectionColumns(6);
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().libraryCollectionColumns).toBe(6);
+    });
 });
 
 describe('settings: wishlist deals', () => {
@@ -102,7 +112,7 @@ describe('settings: the removed Home switches', () => {
         await kv.set('settings', { enabled: true, autoPreload: true, spotlightHome: true, wishlistDeals: true, homeFeed: false, cleanHome: true });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, spotlightLibrary: false, libraryGridColumns: 3, wishlistDeals: true, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: true, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true });
     });
 });
 

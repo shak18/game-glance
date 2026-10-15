@@ -70,6 +70,7 @@ export function SettingsPanel() {
         spotlightHome,
         spotlightLibrary,
         libraryGridColumns,
+        libraryCollectionColumns,
         wishlistDeals,
         cleanPage,
         zoomTransition,
@@ -247,25 +248,47 @@ export function SettingsPanel() {
                     />
                 </PanelSectionRow>
                 {spotlightLibrary && (
-                    <PanelSectionRow>
-                        <SliderField
-                            label="Grid Columns"
-                            description="Number of poster columns in the library view (3 to 7)."
-                            value={libraryGridColumns}
-                            min={3}
-                            max={7}
-                            step={1}
-                            notchCount={5}
-                            notchLabels={[
-                                { notchIndex: 0, label: '3' },
-                                { notchIndex: 1, label: '4' },
-                                { notchIndex: 2, label: '5' },
-                                { notchIndex: 3, label: '6' },
-                                { notchIndex: 4, label: '7' },
-                            ]}
-                            onChange={(value: number) => settings.setLibraryGridColumns(value)}
-                        />
-                    </PanelSectionRow>
+                    <>
+                        <PanelSectionRow>
+                            <SliderField
+                                label="Game Columns"
+                                description="Number of poster columns in games views (3 to 7)."
+                                value={libraryGridColumns}
+                                min={3}
+                                max={7}
+                                step={1}
+                                notchCount={5}
+                                notchLabels={[
+                                    { notchIndex: 0, label: '3' },
+                                    { notchIndex: 1, label: '4' },
+                                    { notchIndex: 2, label: '5' },
+                                    { notchIndex: 3, label: '6' },
+                                    { notchIndex: 4, label: '7' },
+                                ]}
+                                onChange={(value: number) => settings.setLibraryGridColumns(value)}
+                            />
+                        </PanelSectionRow>
+                        <PanelSectionRow>
+                            <SliderField
+                                label="Collection Columns"
+                                description="Number of columns in collections view (3 to 8)."
+                                value={libraryCollectionColumns}
+                                min={3}
+                                max={8}
+                                step={1}
+                                notchCount={6}
+                                notchLabels={[
+                                    { notchIndex: 0, label: '3' },
+                                    { notchIndex: 1, label: '4' },
+                                    { notchIndex: 2, label: '5' },
+                                    { notchIndex: 3, label: '6' },
+                                    { notchIndex: 4, label: '7' },
+                                    { notchIndex: 5, label: '8' },
+                                ]}
+                                onChange={(value: number) => settings.setLibraryCollectionColumns(value)}
+                            />
+                        </PanelSectionRow>
+                    </>
                 )}
             </PanelSection>
             <PanelSection title="Visuals & Effects">

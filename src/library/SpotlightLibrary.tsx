@@ -18,7 +18,8 @@ import { markOpen, onOpenReady } from '../data/openIntent';
 import { homeMode } from '../home/mode';
 import type { PageLook } from '../home/openTargets';
 import { steamEnterOffCss } from '../styles/theme';
-import { OPEN_TIMINGS } from '../home/motion';
+import { OPEN_TIMINGS, RETURN_TIMINGS } from '../home/motion';
+import { markLeaving as markLeavingHome } from '../home/homeMemory';
 import { usableSize } from '../home/homeView';
 import { homeCanvas } from '../home/scale';
 import { cardArtMemo, LibraryGrid } from './LibraryGrid';
@@ -231,12 +232,20 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     const size = useBoxSize(rootRef);
     const canvas = homeCanvas(size?.width ?? 0, size?.height ?? 0);
     const currentSettings = useSettings();
-    const columns = Math.min(7, Math.max(3, currentSettings.libraryGridColumns ?? 3));
     const categories: LibraryCategory[] = useMemo(() => buildCategories(mockGames), [mockGames]);
 
     // Memory restore on mount
     const restoreRef = useRef(takeLibraryRestore());
     const initialRestore = restoreRef.current;
+
+    // Back from a page (B): suppress Steam's page enter fade and fade in library UI
+    const [back, setBack] = useState(initialRestore !== null);
+    useEffect(() => {
+        if (!back) return undefined;
+        const timer = setTimeout(() => setBack(false), RETURN_TIMINGS.hold);
+        return () => clearTimeout(timer);
+    }, [back]);
+    const enterOff = useMemo(() => (back ? steamEnterOffCss() : ''), [back]);
 
     const initialCatId = useMemo(() => {
         if (initialRestore && categories.some((c) => c.id === initialRestore.categoryId)) {
@@ -254,6 +263,11 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
 
     const isCollectionsTab = activeCategory?.id === 'collections';
     const isInsideSubCollection = isCollectionsTab && Boolean(selectedCollectionId);
+    const isCollectionsView = isCollectionsTab && !isInsideSubCollection;
+
+    const gameColumns = Math.min(7, Math.max(3, currentSettings.libraryGridColumns ?? 3));
+    const collectionColumns = Math.min(8, Math.max(3, currentSettings.libraryCollectionColumns ?? 5));
+    const columns = isCollectionsView ? collectionColumns : gameColumns;
 
     const activeSubCollection: LibraryCollectionItem | null = useMemo(() => {
         if (!isInsideSubCollection) return null;
@@ -357,6 +371,14 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     const navigateHome = useCallback(() => {
         isExitingHomeRef.current = true;
         resetLibraryMemory();
+        markLeavingHome();
+        try {
+            if (rootRef.current) {
+                const bridge = mountOpenBridge(rootRef.current, steamEnterOffCss());
+                bridge.fadeOut(300);
+                setTimeout(() => bridge.remove(), 350);
+            }
+        } catch {}
         try {
             Navigation.Navigate('/library/home');
         } catch {
@@ -862,7 +884,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     return (
         <Focusable
             ref={rootRef as unknown as React.Ref<HTMLDivElement>}
-            className={`sgl-root${compact ? ' sgl-compact' : ''}`}
+            className={`sgl-root${compact ? ' sgl-compact' : ''}${back ? ' sgl-back' : ''}`}
             preferredFocus={true}
             noFocusRing
             tabIndex={0}
@@ -887,6 +909,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
             onCancel={onCancel}
         >
             <style>{LIBRARY_CSS}</style>
+            {enterOff && <style>{enterOff}</style>}
 
             {/* Ambient Blurred Background */}
             <LibraryBackground candidates={heroCandidates} />

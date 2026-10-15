@@ -104,6 +104,19 @@ export function openNews(appId: number, gid: string) {
 
 /** Opens Steam's Library: its own library-tab call when present, else the /library route. */
 export function openLibrary() {
+    markLeaving();
+    try {
+        if (settings.get().spotlightLibrary && typeof document !== 'undefined') {
+            const root = document.querySelector('.gh-root') as HTMLElement | null;
+            if (root) {
+                const footer = steamFooter();
+                const extras = [...document.querySelectorAll('.gg-status-host'), ...(footer ? [...document.querySelectorAll(footer)] : [])];
+                const bridge = mountOpenBridge(root, steamEnterOffCss(), extras, ['.gh-recents', '.gh-tabs', '.gh-feed']);
+                bridge.fadeOut(300);
+                setTimeout(() => bridge.remove(), 350);
+            }
+        }
+    } catch {}
     try {
         if (typeof Navigation.NavigateToLibraryTab === 'function') Navigation.NavigateToLibraryTab();
         else Navigation.Navigate('/library');

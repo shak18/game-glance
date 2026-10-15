@@ -8,6 +8,7 @@ export interface Settings {
     spotlightHome: boolean; // replace Steam's Home screen with Spotlight Home
     spotlightLibrary: boolean; // replace Steam's Library screen with Spotlight Library
     libraryGridColumns: number; // poster columns in Spotlight Library grid (3-7, default 3)
+    libraryCollectionColumns: number; // columns in Spotlight Library collections view (3-8, default 5)
     wishlistDeals: boolean; // look up wishlist sales on Steam's public store
     cleanPage: boolean; // the Game Glance page's Clean look: one row at the bottom, no description or HowLongToBeat cards
     zoomTransition: boolean; // animates the banner expanding into full screen when opening a game
@@ -30,6 +31,7 @@ const DEFAULTS: Settings = {
     spotlightHome: false,
     spotlightLibrary: false,
     libraryGridColumns: 3,
+    libraryCollectionColumns: 5,
     wishlistDeals: false,
     cleanPage: false,
     zoomTransition: true,
@@ -63,6 +65,10 @@ export function createSettingsStore(kv: KvBackend) {
                     typeof raw?.libraryGridColumns === 'number' && raw.libraryGridColumns >= 2 && raw.libraryGridColumns <= 8
                         ? raw.libraryGridColumns
                         : DEFAULTS.libraryGridColumns,
+                libraryCollectionColumns:
+                    typeof raw?.libraryCollectionColumns === 'number' && raw.libraryCollectionColumns >= 2 && raw.libraryCollectionColumns <= 8
+                        ? raw.libraryCollectionColumns
+                        : DEFAULTS.libraryCollectionColumns,
                 wishlistDeals: pick('wishlistDeals'),
                 cleanPage: pick('cleanPage'),
                 zoomTransition: pick('zoomTransition'),
@@ -107,6 +113,11 @@ export function createSettingsStore(kv: KvBackend) {
         },
         async setLibraryGridColumns(libraryGridColumns: number): Promise<void> {
             current = { ...current, libraryGridColumns };
+            emit();
+            await kv.set(KEY, current);
+        },
+        async setLibraryCollectionColumns(libraryCollectionColumns: number): Promise<void> {
+            current = { ...current, libraryCollectionColumns };
             emit();
             await kv.set(KEY, current);
         },

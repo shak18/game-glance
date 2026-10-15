@@ -61,6 +61,22 @@ export const LIBRARY_CSS = `
     transition: opacity 300ms ease !important;
 }
 
+.sgl-root.sgl-back .sgl-body,
+.sgl-root.sgl-back .sgl-header {
+    animation: sglFadeIn 220ms cubic-bezier(.2,.65,.3,1) both;
+}
+
+@keyframes sglFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.995);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 /* Ambient Blurred Background */
 .sgl-bg-container {
     position: absolute;
