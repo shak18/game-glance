@@ -8,6 +8,7 @@ from gameglance.home_errors import FILE_NAME, append_log, start_entry
 from gameglance.kv import KvStore
 from gameglance.migrate import carry_over, old_data_path
 from gameglance.store_lookup import RegistryCache, key_for_appid, store_for_appid
+from gameglance.tabmaster import get_tabmaster_data
 
 DATA_PATH = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "data.json")
 if carry_over(old_data_path(decky.DECKY_PLUGIN_SETTINGS_DIR), DATA_PATH):
@@ -54,6 +55,13 @@ class Plugin:
         except Exception:
             decky.logger.exception("[game-glance] get_heroic_description failed")
             return None
+
+    async def get_tabmaster_settings(self):
+        try:
+            return get_tabmaster_data(decky.DECKY_PLUGIN_SETTINGS_DIR, decky.DECKY_USER_HOME)
+        except Exception:
+            decky.logger.exception("[game-glance] get_tabmaster_settings failed")
+            return {"found": False, "tabs": []}
 
     async def log_home_error(self, entry: str) -> None:
         # Home recovered from an error (src/home/RouteGuard): kept in the plugin's own log for a bug report.

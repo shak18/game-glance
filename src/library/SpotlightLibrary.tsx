@@ -27,6 +27,7 @@ import { LibraryInspector } from './LibraryInspector';
 import { LIBRARY_CSS } from './libraryCss';
 import { buildCategories, LibraryCategory, LibraryCollectionItem, LibraryGameItem } from './libraryData';
 import { markLeavingLibrary, noteLibrary, resetLibraryMemory, takeLibraryRestore } from './libraryMemory';
+import { fetchTabMasterSettings, getCachedTabMasterSettings, TabMasterSettingsResult } from './tabmaster';
 
 interface BoxSize {
     width: number;
@@ -232,7 +233,26 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     const size = useBoxSize(rootRef);
     const canvas = homeCanvas(size?.width ?? 0, size?.height ?? 0);
     const currentSettings = useSettings();
-    const categories: LibraryCategory[] = useMemo(() => buildCategories(mockGames), [mockGames]);
+    const [tabMasterData, setTabMasterData] = useState<TabMasterSettingsResult | null>(() => getCachedTabMasterSettings());
+
+    useEffect(() => {
+        if (!currentSettings.tabMasterSync) return;
+        let active = true;
+        fetchTabMasterSettings().then((data) => {
+            if (active && data) {
+                setTabMasterData(data);
+            }
+        });
+        return () => {
+            active = false;
+        };
+    }, [currentSettings.tabMasterSync]);
+
+    const effectiveTabMasterData = currentSettings.tabMasterSync ? tabMasterData : null;
+    const categories: LibraryCategory[] = useMemo(
+        () => buildCategories(mockGames, effectiveTabMasterData),
+        [mockGames, effectiveTabMasterData]
+    );
 
     // Memory restore on mount
     const restoreRef = useRef(takeLibraryRestore());

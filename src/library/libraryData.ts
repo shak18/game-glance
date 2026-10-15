@@ -1,6 +1,7 @@
 import { SHORTCUT_APP_TYPE } from '../data/installedGames';
 import { readGameInfo } from '../data/steam';
 import { HeroicRef, heroicStoreLabel } from '../logic/heroic';
+import { applyTabMasterCategories, TabMasterSettingsResult } from './tabmaster';
 
 export interface LibraryGameItem {
     appId: number;
@@ -634,7 +635,7 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
     };
 }
 
-export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[] {
+export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: TabMasterSettingsResult | null): LibraryCategory[] {
     if (mockGames && mockGames.length > 0) {
         // Playground mock categories
         const regularGames = mockGames.filter((g) => !g.isSoundtrack && !isToolOrServerName(g.name));
@@ -668,7 +669,7 @@ export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[
         if (soundtracks.length > 0) {
             baseCategories.push({ id: 'soundtracks', name: 'SOUNDTRACKS', count: soundtracks.length, games: soundtracks });
         }
-        return baseCategories;
+        return tabMasterData ? applyTabMasterCategories(baseCategories, mockCollections, tabMasterData) : baseCategories;
     }
 
     const { installed, installedAppIds, deckCompat, all, favorites, shortcuts, soundtracks, soundtrackAppIds, userCollections, runningAppIds } = readRawApps();
@@ -754,5 +755,6 @@ export function buildCategories(mockGames?: LibraryGameItem[]): LibraryCategory[
         });
     }
 
-    return categories.filter((c) => c.count > 0 || c.id === 'installed' || c.id === 'all');
+    const base = categories.filter((c) => c.count > 0 || c.id === 'installed' || c.id === 'all');
+    return tabMasterData ? applyTabMasterCategories(base, collectionItems, tabMasterData) : base;
 }

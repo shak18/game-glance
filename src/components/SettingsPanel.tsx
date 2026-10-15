@@ -84,6 +84,7 @@ export function SettingsPanel() {
         homeFriends,
         homeRecommended,
         homeCollections,
+        tabMasterSync,
     } = useSettings();
     // Read when the panel opens, so a collection made since shows up.
     const collections = useMemo(steamHomeCollections, []);
@@ -286,6 +287,14 @@ export function SettingsPanel() {
                                     { notchIndex: 5, label: '8' },
                                 ]}
                                 onChange={(value: number) => settings.setLibraryCollectionColumns(value)}
+                            />
+                        </PanelSectionRow>
+                        <PanelSectionRow>
+                            <ToggleField
+                                label="Sync with TabMaster"
+                                description="Inherits your custom tabs, tab order, and hidden tabs from the TabMaster plugin when installed."
+                                checked={tabMasterSync}
+                                onChange={(value) => settings.setTabMasterSync(value)}
                             />
                         </PanelSectionRow>
                     </>

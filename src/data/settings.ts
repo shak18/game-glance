@@ -22,6 +22,7 @@ export interface Settings {
     homeFriends: boolean; // Spotlight Home feed: Friends tab
     homeRecommended: boolean; // Spotlight Home feed: Recommended tab
     homeCollections: boolean; // Spotlight Home feed: Collections tab
+    tabMasterSync: boolean; // sync tab order, visibility, and custom tabs from TabMaster when installed
 }
 
 const KEY = 'settings';
@@ -45,6 +46,7 @@ const DEFAULTS: Settings = {
     homeFriends: true,
     homeRecommended: true,
     homeCollections: true,
+    tabMasterSync: true,
 };
 
 export function createSettingsStore(kv: KvBackend) {
@@ -82,6 +84,7 @@ export function createSettingsStore(kv: KvBackend) {
                 homeFriends: pick('homeFriends'),
                 homeRecommended: pick('homeRecommended'),
                 homeCollections: pick('homeCollections'),
+                tabMasterSync: pick('tabMasterSync'),
             };
             emit();
         },
@@ -178,6 +181,11 @@ export function createSettingsStore(kv: KvBackend) {
         },
         async setHomeCollections(homeCollections: boolean): Promise<void> {
             current = { ...current, homeCollections };
+            emit();
+            await kv.set(KEY, current);
+        },
+        async setTabMasterSync(tabMasterSync: boolean): Promise<void> {
+            current = { ...current, tabMasterSync };
             emit();
             await kv.set(KEY, current);
         },

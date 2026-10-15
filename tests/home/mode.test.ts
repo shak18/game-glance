@@ -22,6 +22,7 @@ const make = (enabled: boolean, spotlightHome: boolean, cleanPage = false): Sett
     homeFriends: true,
     homeRecommended: true,
     homeCollections: true,
+    tabMasterSync: true,
 });
 
 describe('homeMode', () => {
