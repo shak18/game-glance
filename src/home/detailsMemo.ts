@@ -1,3 +1,5 @@
+import type { CloudDetails } from './cloud';
+
 /**
  * Library assets Steam sent through `SteamClient.Apps.RegisterForAppDetails`, kept for the session.
  *
@@ -17,6 +19,8 @@ export const DETAILS_MEMO_MAX = 64;
 
 const memo = new Map<number, LibraryAssets>();
 const achievementMemo = new Map<number, { achieved: number; total: number }>();
+const cloudMemo = new Map<number, CloudDetails>();
+const spaceMemo = new Map<number, number>();
 type AchievementSink = (appId: number, counts: { achieved: number; total: number }) => void;
 let sink: AchievementSink | null = null;
 
@@ -38,6 +42,8 @@ export function noteDetails(appId: number, details: unknown) {
     try {
         if (!Number.isInteger(appId) || appId <= 0) return;
         noteAchievements(appId, details);
+        noteCloud(appId, details);
+        noteSpace(appId, details);
         const assets = (details as { libraryAssets?: unknown } | null | undefined)?.libraryAssets;
         if (!assets || typeof assets !== 'object') return;
         const { strHeroImage, strHeaderImage, strLogoImage } = assets as Record<string, unknown>;
@@ -72,9 +78,48 @@ function noteAchievements(appId: number, details: unknown) {
     while (achievementMemo.size > DETAILS_MEMO_MAX) achievementMemo.delete(achievementMemo.keys().next().value as number);
 }
 
+/** The cloud fields the callback carries (not persisted: the state is live, and the focused game's registration keeps it current). */
+function noteCloud(appId: number, details: unknown) {
+    const d = details as Record<string, unknown> | null | undefined;
+    if (typeof d?.bCloudEnabledForApp !== 'boolean') return;
+    const { bCloudEnabledForApp, bCloudEnabledForAccount, bHasAnyLocalContent, eCloudStatus, nCloudProgressPercent } = d;
+    cloudMemo.delete(appId);
+    cloudMemo.set(appId, { bCloudEnabledForApp, bCloudEnabledForAccount, bHasAnyLocalContent, eCloudStatus, nCloudProgressPercent });
+    while (cloudMemo.size > DETAILS_MEMO_MAX) cloudMemo.delete(cloudMemo.keys().next().value as number);
+}
+
+/** The remembered cloud fields for `appId` (Home's cloud button when Steam's store has none for the game), or undefined. */
+export function memoCloud(appId: number): CloudDetails | undefined {
+    return cloudMemo.get(appId);
+}
+
 /** The remembered achievement counts for `appId` (Home's Achievements chip when Steam's store has none), or undefined. */
 export function memoAchievements(appId: number): { achieved: number; total: number } | undefined {
     return achievementMemo.get(appId);
+}
+
+/**
+ * `game` with the remembered achievement counts when Steam's store has none for it (a game Steam did not load itself, or
+ * a game page's first frame before Steam has loaded its details); Steam's own counts and shortcuts are left as they are.
+ */
+export function withKnownAchievements<T extends { appId: number; isShortcut: boolean; achievements: { achieved: number; total: number } | null }>(game: T): T {
+    if (game.achievements || game.isShortcut) return game;
+    const known = memoAchievements(game.appId);
+    return known ? { ...game, achievements: known } : game;
+}
+
+/** The space Steam says a game needs to install (`lDiskSpaceRequiredBytes`, from the details callback), if it was noted. */
+export function memoSpaceRequired(appId: number): number | undefined {
+    return spaceMemo.get(appId);
+}
+
+/** Remembers the space a game needs; anything but a positive number is ignored. Bounded like the other memos. */
+function noteSpace(appId: number, details: unknown) {
+    const bytes = (details as { lDiskSpaceRequiredBytes?: unknown } | null | undefined)?.lDiskSpaceRequiredBytes;
+    if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return;
+    spaceMemo.delete(appId);
+    spaceMemo.set(appId, bytes);
+    while (spaceMemo.size > DETAILS_MEMO_MAX) spaceMemo.delete(spaceMemo.keys().next().value as number);
 }
 
 /** The remembered assets for `appId`, or undefined. */
@@ -87,4 +132,6 @@ export function resetDetailsMemo() {
     sink = null;
     memo.clear();
     achievementMemo.clear();
+    cloudMemo.clear();
+    spaceMemo.clear();
 }

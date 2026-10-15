@@ -65,7 +65,7 @@ export function FeedCard({ item, left, accent, preferred, onFocused, setRef }: {
         last.current = now;
         try {
             const target = item.opens;
-            if (target?.kind === 'page') openGame(target.appId, self.current, item.art);
+            if (target?.kind === 'page') openGame(target.appId, self.current);
             else if (target?.kind === 'store') openStorePage(target.appId);
             else if (target?.kind === 'news') openNews(target.appId, target.gid);
             else if (target?.kind === 'join') confirmJoin(target.url, target.question, self.current);

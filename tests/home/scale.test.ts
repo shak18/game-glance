@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { homeCanvas } from '../../src/home/scale';
+import { canvasStyle, homeCanvas } from '../../src/home/scale';
 
 describe('homeCanvas', () => {
     it('homeCanvas picks 1440x810 for 1920x1080 with scale 4/3', () => {
@@ -18,5 +18,15 @@ describe('homeCanvas', () => {
             expect([1280, 1440]).toContain(c.logicalWidth);
             expect([800, 810]).toContain(c.logicalHeight);
         }
+    });
+});
+
+describe('canvasStyle', () => {
+    it('scales the canvas to its box', () => {
+        expect(canvasStyle({ logicalWidth: 1440, scale: 0.575 }, 810, true)).toMatchObject({ width: '1440px', height: '810px', transform: 'scale(0.575)' });
+    });
+    it("hidden until it has a size; then it inherits (an explicit 'visible' showed Home through Steam's hidden exit, as a ghost)", () => {
+        expect(canvasStyle({ logicalWidth: 1440, scale: 1 }, 810, false).visibility).toBe('hidden');
+        expect(canvasStyle({ logicalWidth: 1440, scale: 1 }, 810, true).visibility).toBeUndefined();
     });
 });

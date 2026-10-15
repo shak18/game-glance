@@ -23,3 +23,33 @@ export function isKnownHomeShape(routeProps: unknown): boolean {
         return false;
     }
 }
+
+const MEMO = Symbol.for('react.memo');
+
+const isClass = (type: unknown) =>
+    typeof type === 'function' && !!(type as { prototype?: { isReactComponent?: unknown } }).prototype?.isReactComponent;
+
+/**
+ * True for the Home route child's type when it can be called as a plain function: Decky's wrapper, or another
+ * plugin's afterPatch wrapper. SteamGridDB calls this type directly, so it must never be a class (issue #18).
+ */
+export function isPatchableHomeType(type: unknown): boolean {
+    try {
+        return typeof type === 'function' && !isClass(type);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * True when `element` (what the route child returns) is Steam's Home: a memo around a function component, the shape
+ * verified on device (SteamOS 3.8.28) and the one SteamGridDB's Home patch relies on. Pure and never throws.
+ */
+export function isMemoHome(element: unknown): boolean {
+    try {
+        const type = (element as { type?: { $$typeof?: unknown; type?: unknown } } | null)?.type;
+        return !!type && type.$$typeof === MEMO && typeof type.type === 'function' && !isClass(type.type);
+    } catch {
+        return false;
+    }
+}

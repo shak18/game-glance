@@ -1,4 +1,4 @@
-import { browserStores, capsuleUrls, heroUrls } from './artwork';
+import { accentHeroUrls, browserStores, capsuleUrls, customArtVersion } from './artwork';
 import { pickAccent } from './accent';
 
 const W = 64;
@@ -56,9 +56,14 @@ function readAccent(img: HTMLImageElement): string | null {
 /** Browser glue: samples the hero, then the capsule, into a small canvas. Null on any failure. */
 export async function sampleAccent(appId: number): Promise<string | null> {
     try {
-        const urls = [...heroUrls(appId, browserStores).slice(0, 1), ...capsuleUrls(appId, browserStores)];
+        const urls = [...accentHeroUrls(appId, browserStores), ...capsuleUrls(appId, browserStores)];
         return await sampleUrls(urls, { load: loadImage, read: readAccent });
     } catch {
         return null;
     }
+}
+
+/** Browser glue: the version of a game's custom art, which the accent is kept under (accent.accentKey, #32). */
+export function accentVersion(appId: number): number {
+    return customArtVersion(appId, browserStores);
 }

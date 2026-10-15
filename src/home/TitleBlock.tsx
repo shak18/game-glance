@@ -4,9 +4,10 @@ import type { Chip } from './chips';
 function ChipView({ chip }: { chip: Chip }) {
     const progress = chip.progress;
     return (
-        <div className="gh-chip">
+        <div className="gh-chip" data-chip={chip.key}>
             <div className="gh-chip-label">{chip.label}</div>
-            <div className="gh-chip-value">{chip.value}</div>
+            {/* data-text: the open transition can draw an accent copy of the words over them (homeCss.openingRules) */}
+            <div className="gh-chip-value" data-text={chip.value}>{chip.value}</div>
             {progress !== undefined && Number.isFinite(progress) && (
                 <div className="gh-chip-bar">
                     <div className="gh-chip-fill" style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }} />
@@ -24,11 +25,11 @@ function ChipView({ chip }: { chip: Chip }) {
  */
 const px = (n: number) => `${n}px`;
 
-export function TitleBlock({ eyebrow, title, chips, appId = 0, logo = false, version = 0 }: { eyebrow: string; title: string; chips: Chip[]; appId?: number; logo?: boolean; version?: number }) {
+export function TitleBlock({ eyebrow, title, chips, appId = 0, logo = false, version = 0, resolve = true }: { eyebrow: string; title: string; chips: Chip[]; appId?: number; logo?: boolean; version?: number; resolve?: boolean }) {
     return (
         <>
             <div className="gh-title-slot">
-                <GameTitle appId={appId} name={title} logo={logo} className="gh-title" logoClassName="gh-logo" unit={px} version={version} />
+                <GameTitle appId={appId} name={title} logo={logo} className="gh-title" logoClassName="gh-logo" unit={px} version={version} resolve={resolve} />
             </div>
             <div className="gh-eyebrow">{eyebrow}</div>
             <div className="gh-chips">

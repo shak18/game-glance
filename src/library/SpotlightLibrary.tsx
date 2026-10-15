@@ -12,10 +12,14 @@ import { browserStores, guessedHeroUrls, heroUrls as getHeroUrls, useArtworkVers
 import { playNavSound } from '../home/navSound';
 import { LibraryBackground } from './LibraryBackground';
 import { LibraryCategoryBar } from './LibraryCategoryBar';
-import { mountOpenOverlay } from '../home/OpenOverlay';
-import { createOpenTransition, DOMRectLike, OpenTransition, usableRect } from '../home/openTransition';
-import { gameOpenArt } from '../home/homeNav';
-import { cssLayers, usableSize } from '../home/homeView';
+import { mountOpenBridge } from '../home/openBridge';
+import type { OpenBridge } from '../home/openTransition';
+import { markOpen, onOpenReady } from '../data/openIntent';
+import { homeMode } from '../home/mode';
+import type { PageLook } from '../home/openTargets';
+import { steamEnterOffCss } from '../styles/theme';
+import { OPEN_TIMINGS } from '../home/motion';
+import { usableSize } from '../home/homeView';
 import { homeCanvas } from '../home/scale';
 import { cardArtMemo, LibraryGrid } from './LibraryGrid';
 import { LibraryInspector } from './LibraryInspector';
@@ -136,7 +140,8 @@ export function libraryOpenArt(game: LibraryGameItem): string[] {
     if (game.heroUrl) urls.push(game.heroUrl);
     if (game.capsuleUrl) urls.push(game.capsuleUrl);
     try {
-        for (const u of gameOpenArt(game.appId)) {
+        const heroes = getHeroUrls(game.appId, browserStores);
+        for (const u of heroes) {
             if (!urls.includes(u)) urls.push(u);
         }
     } catch {
@@ -145,24 +150,15 @@ export function libraryOpenArt(game: LibraryGameItem): string[] {
     return urls;
 }
 
-let libraryTransition: OpenTransition | null = null;
-let leavingLibraryRoot: HTMLElement | null = null;
+let activeLibraryBridge: { cancel(): void } | null = null;
 
-export function getLibraryTransition(): OpenTransition {
-    libraryTransition ??= createOpenTransition({
-        navigate: (path) => Navigation.Navigate(path),
-        mount: (rect, art) => {
-            if (!leavingLibraryRoot) throw new Error('no Library root');
-            return mountOpenOverlay(leavingLibraryRoot, rect, art);
-        },
-        setTimer: (fn, ms) => setTimeout(fn, ms),
-        clearTimer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
-        warn: (message, error) => console.warn(`${LOG_PREFIX} SpotlightLibrary: ${message}`, error),
-    });
-    return libraryTransition;
+export function cancelLibraryOpen() {
+    activeLibraryBridge?.cancel();
+    activeLibraryBridge = null;
 }
 
 export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLElement | null) {
+    playNavSound('IntoGameDetail');
     markLeavingLibrary();
 
     if (!settings.get().zoomTransition) {
@@ -174,42 +170,59 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
         return;
     }
 
-    let rect: DOMRectLike | null = null;
+    let bridge: OpenBridge | null = null;
+    let stopReady: (() => void) | null = null;
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+        if (safetyTimer) {
+            clearTimeout(safetyTimer);
+            safetyTimer = null;
+        }
+        if (stopReady) {
+            stopReady();
+            stopReady = null;
+        }
+        if (bridge) {
+            bridge.remove();
+            bridge = null;
+        }
+        activeLibraryBridge = null;
+    };
+
     try {
         const hasDoc = typeof document !== 'undefined';
         const root = (sourceEl?.closest?.('.sgl-root') ?? (hasDoc ? document.querySelector('.sgl-root') : null)) as HTMLElement | null;
-        leavingLibraryRoot = root;
-
-        const candidateSource = sourceEl ?? (
-            hasDoc ? (
-                document.querySelector(`.sgl-card[data-app-id="${game.appId}"]`) ??
-                document.querySelector('.sgl-card.focused') ??
-                document.querySelector('.sgl-poster-wrapper')
-            ) : null
-        ) as HTMLElement | null;
-
-        if (candidateSource && root) {
-            const r = candidateSource.getBoundingClientRect();
-            if (usableRect(r)) {
-                rect = { left: r.left, top: r.top, width: r.width, height: r.height };
-            }
+        if (root) {
+            bridge = mountOpenBridge(root, steamEnterOffCss());
         }
-    } catch (error) {
-        console.warn(`${LOG_PREFIX} SpotlightLibrary: could not measure source element`, error);
-        rect = null;
-    }
 
-    const art = cssLayers(libraryOpenArt(game));
+        const mode = homeMode(settings.get());
+        const look: PageLook = mode.cleanDetails ? 'clean' : 'spotlight';
+        const pageRestyled = mode.gamePage && mode.restyleDetails;
 
-    try {
-        getLibraryTransition().open(game.appId, rect, art);
+        markOpen(game.appId, {
+            look: pageRestyled ? look : 'steam',
+            mode: 'all',
+        });
+
+        stopReady = onOpenReady((readyAppId) => {
+            if (readyAppId === game.appId && bridge) {
+                bridge.fadeOut(OPEN_TIMINGS.bridgeFade);
+                setTimeout(cleanup, OPEN_TIMINGS.bridgeFade + 50);
+            }
+        });
+
+        safetyTimer = setTimeout(cleanup, OPEN_TIMINGS.readyCap + 300);
+        activeLibraryBridge = { cancel: cleanup };
+
+        Navigation.Navigate(`/library/app/${game.appId}`);
     } catch (error) {
         console.warn(`${LOG_PREFIX} SpotlightLibrary: open transition failed`, error);
+        cleanup();
         try {
             Navigation.Navigate(`/library/app/${game.appId}`);
         } catch {}
-    } finally {
-        leavingLibraryRoot = null;
     }
 }
 
@@ -548,7 +561,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     }, [onActivate]);
 
     const onCancel = useCallback(() => {
-        libraryTransition?.cancel();
+        cancelLibraryOpen();
         if (isInsideSubCollection) {
             handleBackToCollections();
             return;

@@ -16,6 +16,8 @@ interface Props {
     unit(n: number): string;
     /** Changes when Steam has loaded more games' details (Home), so a logo file name it now knows is tried. */
     version?: number;
+    /** False while Home cycles fast through games (home/fastCycle): only a logo already known is drawn, else the name; nothing is looked up. */
+    resolve?: boolean;
 }
 
 /** The logo cropped to its visible part and sized by area (home/logo.logoFit). */
@@ -32,7 +34,7 @@ function logoStyle(choice: LogoChoice, unit: (n: number) => string): CSSProperti
  * one still loading leaves the slot empty, so the name never flashes before it. The name is the fallback: no logo listed,
  * none loading, or no app id (Home's library tile). Shared by Home and the game page.
  */
-export function GameTitle({ appId, name, logo, className, logoClassName, unit, version = 0 }: Props) {
+export function GameTitle({ appId, name, logo, className, logoClassName, unit, version = 0, resolve = true }: Props) {
     const artworkVersion = useArtworkVersion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const list = useMemo(() => (logo ? logoList(appId) : { urls: [], key: '' }), [logo, appId, version, artworkVersion]);
@@ -41,7 +43,7 @@ export function GameTitle({ appId, name, logo, className, logoClassName, unit, v
     const [retry, setRetry] = useState(0);
 
     useEffect(() => {
-        if (!logo || known !== undefined || list.urls.length === 0) return undefined;
+        if (!logo || !resolve || known !== undefined || list.urls.length === 0) return undefined;
         let live = true;
         resolveLogo(appId, list).then((choice) => {
             if (live) setResolved({ appId, key: list.key, choice });
@@ -50,19 +52,19 @@ export function GameTitle({ appId, name, logo, className, logoClassName, unit, v
             live = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [logo, appId, list.key, retry, artworkVersion]);
+    }, [logo, appId, list.key, retry, resolve, artworkVersion]);
 
     const fresh = known !== undefined ? known : resolved && resolved.appId === appId && resolved.key === list.key ? resolved.choice : undefined;
     // While a better source loads (Steam just listed the local file), the logo it had stays up.
     const choice = fresh === undefined && logo ? lastLogo(appId) ?? undefined : fresh;
     if (!logo || list.urls.length === 0 || choice === null) return <div className={className}>{name}</div>;
-    if (choice === undefined) return null;
+    if (choice === undefined) return resolve ? null : <div className={className}>{name}</div>;
     return (
         <img
             key={`${appId}:${choice.url}`}
             className={logoClassName}
             style={logoStyle(choice, unit)}
-            src={choice.url}
+            src={choice.src ?? choice.url}
             alt={name}
             crossOrigin="anonymous"
             onError={() => {

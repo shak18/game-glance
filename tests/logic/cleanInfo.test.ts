@@ -26,10 +26,10 @@ describe('cleanStats (the Clean look\'s info card)', () => {
 });
 
 describe('cleanStats with a Unifideck size', () => {
-    it('puts the size ahead of Played, with the same shape; absent without one', () => {
+    it('puts the size right after Played (Played stays first in every game, Michael), with the same shape; absent without one', () => {
         const withSize = cleanStats(game, found, 'en-US', { key: 'size', label: 'Installed size', value: '3.2 GB' });
-        expect(withSize.map((s) => s.key)).toEqual(['size', 'played', 'achievements', 'hltb']);
-        expect(withSize[0]).toEqual({ key: 'size', label: 'Installed size', value: '3.2 GB' });
+        expect(withSize.map((s) => s.key)).toEqual(['played', 'size', 'achievements', 'hltb']);
+        expect(withSize[1]).toEqual({ key: 'size', label: 'Installed size', value: '3.2 GB' });
         expect(cleanStats(game, found, 'en-US', null).map((s) => s.key)).toEqual(['played', 'achievements', 'hltb']);
     });
 });

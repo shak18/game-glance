@@ -27,7 +27,7 @@ your games, over their own art.
   buttons, and Steam Cloud as a small icon coloured by its sync state.
 - **Store pill.** Where the game comes from, with the store's icon: Steam, GOG, Epic, Amazon, Battle.net, Ubisoft,
   Xbox Cloud or Heroic. A game borrowed through **Steam Families** gets a second pill with the owner's name
-  ("Family Sharing · Grave").
+  ("Family Sharing · Lender").
 - **Clean look** (optional): only the art and one row at the bottom (Play, the buttons, and a small card with your play
   time, achievements and HowLongToBeat's main story), without the description and HowLongToBeat cards.
 - **Non-Steam games.** Games added by [Heroic](https://heroicgameslauncher.com) or
@@ -43,6 +43,10 @@ page keeps its classic look.
 
 ## Spotlight Home
 
+https://github.com/user-attachments/assets/e12cb973-b34c-4dff-8f94-b0b59762a67a
+
+*Spotlight Home on a ROG Xbox Ally: picking games, then opening one in the Clean look and in the Spotlight look.*
+
 ![Spotlight Home on a TV: the game's logo, its chips, Play and the games row](docs/images/tv-home-logo.jpg)
 
 An optional new Home screen, off by default (Quick Access → Game Glance → Spotlight Home).
@@ -55,8 +59,12 @@ An optional new Home screen, off by default (Quick Access → Game Glance → Sp
   row below). Games new to your library join the recent games, marked NEW. The selected game opens into a wide card;
   the row ends in a Library card.
 - **Controls.** Left and Right pick a game, A opens its page, up reaches Play and the buttons. **L1 and R1** pick the
-  previous or next game from anywhere above the tabs and put focus on Play (hold to keep going), so a game starts in two presses. The
-  gear button, or View/Select, opens Steam's own menu for the game.
+  previous or next game from anywhere above the tabs and put focus on Play (hold to keep going), so a game starts in two presses. Held,
+  the d-pad and stick go at the same steady pace as L1 and R1. While you press quickly through the games only the
+  highlight moves; the art and colour catch up once you stop. The gear button, or View/Select, opens Steam's own menu
+  for the game.
+- **Opening a game.** Home turns into the game's page: the art stays put while the title, Play and the buttons move to
+  their places on the page and the chips grow into its cards.
 - **Steam Cloud.** For games with cloud saves, Steam's and Unifideck's, a cloud button shows the sync state and opens
   Steam's sync dialog when there is a problem.
 - **Status bar.** The time (12 or 24 hours, as set in Steam's Settings → System), battery (a bolt while charging, red
@@ -120,6 +128,14 @@ Also in Quick Access:
 - **Clear cached data.**
 - **Updates:** the installed version, **Update to …** when a newer release is out, and **Check for updates**.
 
+## If Home shows an error
+
+If Spotlight Home hits an error, it shows Steam's own Home instead and writes the error to a log file in the plugin's log folder:
+
+`~/homebrew/logs/Game Glance/game-glance.log`
+
+It also records each start-up with the log's path. Attach that file to the issue report. It keeps the newest entries and stays small.
+
 ## Fork improvements & highlights
 
 This fork introduces several key enhancements and quality-of-life improvements:
@@ -138,6 +154,7 @@ This fork introduces several key enhancements and quality-of-life improvements:
   across both Spotlight Home and Spotlight Library.
 - **Robustness & Edge Cases:** Improved handling for non-Steam games, soundtrack formats, offline cache persistence,
   and SteamOS client compatibility.
+
 
 ## Your language
 
@@ -203,6 +220,11 @@ A release is a GitHub release tagged `vX.Y.Z` (the version in `package.json`) wi
 
 `scripts/serve.sh` serves the zip on your network for **Install plugin from URL**. The `scripts/cef-*.mjs` helpers
 drive Steam's UI through remote CEF debugging; see the device checklist for the setup.
+
+## Roadmap and progress
+
+Planned work and what is in progress are on the [Game Glance project board](https://github.com/users/michpalm/projects/2).
+Each item links to its issue. To suggest a feature or report a bug, [open an issue](https://github.com/michpalm/game-glance/issues).
 
 ## About this project
 

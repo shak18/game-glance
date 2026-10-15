@@ -37,22 +37,6 @@ export function wideArt(landscape: string[], hero: string[], capsule: string[]):
     return layers.length > 0 ? layers : null;
 }
 
-/**
- * Art for the open transition's clone: the wide card's layers (`wide`, from wideArt), then the capsule as the
- * last resort (the handoff: wide || hero || cover). Empty when nothing is known; the clone is then ink only.
- */
-export function openArtLayers(wide: string[] | null, capsule: string[]): string[] {
-    return [...new Set([...(wide ?? []), ...capsule])].filter((u) => typeof u === 'string' && u.length > 0);
-}
-
-/** Urls as one CSS background-image value, stacked (the first that loads paints on top); '' without urls. */
-export function cssLayers(list: string[]): string {
-    return list
-        .filter((u) => typeof u === 'string' && u.length > 0)
-        .map((u) => `url("${u.replace(/"/g, '%22')}")`)
-        .join(', ');
-}
-
 /** Steam's RunGame takes the 64-bit game id for non-Steam shortcuts, the app id otherwise. */
 export function runGameId(appId: number, gameId: string | undefined): string {
     return typeof gameId === 'string' && /^\d+$/.test(gameId) ? gameId : String(appId);
@@ -72,13 +56,13 @@ export function playAction(installed: boolean, running: boolean, download: Downl
 }
 
 /**
- * Whether a resolved hero art may be kept for the session. Only once Steam's details for the game are
- * loaded (before that `strHeroImage` is unknown); a game with hero art keeps only the hero itself
- * (a fallback then means a slow or failed load); a game without hero art keeps its fallback. Misses never.
+ * Whether a resolved hero art may be kept for the session (remembered with the url list it came from, so details that
+ * list another file look again). A hero that loaded, always; a fallback only once Steam's details say the game has no
+ * hero art (before, or with hero art, it means a slow or failed load). Misses never.
  */
 export function shouldMemoArt(detailsLoaded: boolean, hasHeroImage: boolean, mode: 'full' | 'fallback' | 'none'): boolean {
-    if (mode === 'none' || !detailsLoaded) return false;
-    return hasHeroImage ? mode === 'full' : true;
+    if (mode === 'full') return true;
+    return mode === 'fallback' && detailsLoaded && !hasHeroImage;
 }
 
 /** "Play a game…" only when recents are empty and the boot-time retries are over. */

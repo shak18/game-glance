@@ -1,4 +1,4 @@
-import { formatHours, minutesToHours } from '../logic/format';
+import { formatAchievements, formatBytes, formatHours, minutesToHours } from '../logic/format';
 import { formatLastPlayed } from './recents';
 import { tr } from '../i18n/steamText';
 
@@ -18,6 +18,9 @@ export interface GameChipInput {
     hltbMainHours: number | null;
     /** Set for a game new to the library (never played): when it was added. Replaces Played and Last played. */
     addedAt?: number;
+    /** A Steam game not installed: its installed flag, and the space Steam says it needs (the chip right of Played). */
+    installed?: boolean;
+    spaceBytes?: number | null;
 }
 
 export function gameChips(i: GameChipInput, now: number, locale: string): Chip[] {
@@ -26,12 +29,14 @@ export function gameChips(i: GameChipInput, now: number, locale: string): Chip[]
     const chips: Chip[] = isNew
         ? [{ key: 'added', label: tr('added'), value: formatLastPlayed(i.addedAt as number, now, locale) }]
         : [{ key: 'played', label: tr('played'), value: formatHours(playedHours, locale) }];
+    const space = i.installed === false && typeof i.spaceBytes === 'number' ? formatBytes(i.spaceBytes, locale) : null;
+    if (space) chips.splice(1, 0, { key: 'size', label: tr('spaceRequired'), value: space });
     if (i.achievements && i.achievements.total > 0) {
         const { achieved, total } = i.achievements;
         chips.push({
             key: 'achievements',
             label: tr('achievements'),
-            value: `${achieved} / ${total}`,
+            value: formatAchievements({ achieved, total }),
             progress: Math.min(1, Math.max(0, achieved / total)),
         });
     }

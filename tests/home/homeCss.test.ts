@@ -1,9 +1,12 @@
+import { SETTLE_WIDEN_MS } from '../../src/home/fastCycle';
 import { describe, expect, it } from 'vitest';
 import {
-    FEED_SHEET, hexAlpha, homeCss, MAX_STACK_SHIFT, openOverlayCss, sourcePillTop, stackShift, TITLE_BLOCK, titleBlockBottom, titleBlockLayout,
+    statusCss, HOME_PILL,
+    FEED_SHEET, hexAlpha, homeCss, MAX_STACK_SHIFT, sourcePillTop, stackShift, TITLE_BLOCK, titleBlockBottom, titleBlockLayout,
 } from '../../src/home/homeCss';
 import { sourcePillLook } from '../../src/styles/sourcePill';
-import { ACCENT_MS, CAP_ART_FADE_MS, CAP_STATE_MS, HERO_FADE_MS, SHEET_MS, SLIDE_MS } from '../../src/home/motion';
+import { PAGE_LAYOUT, PAGE_SCRIMS, pillFocusScale, STEAM_TOP_GRADIENT } from '../../src/styles/themeCss';
+import { ACCENT_MS, CAP_ART_FADE_MS, CAP_STATE_MS, HERO_FADE_MS, OPEN_TIMINGS, RETURN_TIMINGS, SHEET_MS, SLIDE_MS } from '../../src/home/motion';
 import { CARD_SCALE_DOCKED, CARD_SCALE_HANDHELD, recentsGeometry, recentsGlowTop } from '../../src/home/recentsLayout';
 
 /** Selector lists of every style rule, @-rule preludes (keyframes, @property) excluded. */
@@ -123,6 +126,11 @@ describe('homeCss', () => {
         // glow (no y offset), and no bar along its bottom edge.
         expect(css).toMatch(/\.gh-recents-focus \.gh-cap-wide, \.gh-recents-focus \.gh-cap-lib-on\s*\{[^}]*box-shadow:\s*0 0 0 2px rgba\(255,255,255,\.9\), 0 0 [\d.]+px [\d.]+px var\(--glance-accent\)/);
         expect(css).not.toMatch(/gh-recents-focus[^{]*\.gh-cap-bar/);
+        // During a fast L1/R1 run the selected card stays narrow (gh-cap-sel) and gets the same ring and glow.
+        expect(css).toMatch(/\.gh-recents-focus \.gh-cap-sel\s*\{[^}]*box-shadow:\s*0 0 0 2px rgba\(255,255,255,\.9\), 0 0 [\d.]+px [\d.]+px var\(--glance-accent\)/);
+        expect(css).toMatch(/\.gh-cap-sel\s*\{\s*--gh-edge: rgba\(255,255,255,\.35\)/);
+        // When the run ends the card widens quickly (SETTLE_WIDEN_MS), its neighbours moving with it.
+        expect(css).toMatch(new RegExp(`\\.gh-recents-snap \\.gh-cap\\s*\\{[^}]*transition: left ${SETTLE_WIDEN_MS}ms cubic-bezier\\([^)]*\\), width ${SETTLE_WIDEN_MS}ms`));
         // A game new to the library: a small light "New" pill at the card's top left.
         expect(css).toMatch(/\.gh-cap-new\s*\{[^}]*position:\s*absolute[^}]*text-transform:\s*uppercase[^}]*background:\s*rgba\(255,255,255,\.92\)/);
         expect(css).toMatch(/\.gh-cap\s*\{[^}]*cursor:\s*pointer/);
@@ -276,6 +284,9 @@ describe('homeCss', () => {
             }
         });
     });
+    it("Steam's own controller and gear icons are drawn at the page's size", () => {
+        expect(homeCss()).toMatch(new RegExp(`\\.gh-steam-icon svg\\s*\\{[^}]*width:\\s*${PAGE_LAYOUT.circleIcon}px[^;]*;\\s*height:\\s*${PAGE_LAYOUT.circleIcon}px`));
+    });
     it('the cloud circle is the same circle as the others; only its icon takes the state colour, with a halo', () => {
         const css = homeCss();
         expect(css).not.toMatch(/\.gh-btn-cloud\s*\{/);
@@ -337,22 +348,6 @@ describe('homeCss', () => {
         expect(css).toMatch(/\.gh-card-friend \{[^}]*border-radius: 3px !important[^}]*box-shadow: 0 0 0 2px/);
         expect(css).not.toMatch(/\.gh-(avatar|card-friend)[^{]*\{[^}]*border-radius: 50%/);
     });
-    it('homeCss fades Home out over 300 ms while the open overlay is up', () => {
-        expect(homeCss()).toMatch(/\.gh-root\[data-gh-leaving\]\s*\{[^}]*opacity:\s*0\s*!important[^}]*transition:\s*opacity 300ms/);
-    });
-    it('openOverlayCss expands over 480 ms and fades from 520 ms over 450 ms, over an ink base, gh- classes only', () => {
-        const css = openOverlayCss();
-        const list = selectors(css);
-        expect(list.length).toBeGreaterThan(1);
-        for (const sel of list) expect(sel.startsWith('.gh-'), sel).toBe(true);
-        expect(css).toMatch(/\.gh-open\s*\{[^}]*position:\s*fixed\s*!important[^}]*pointer-events:\s*none/);
-        expect(css).toMatch(/gh-open-expand 480ms cubic-bezier\(\.6,0,\.2,1\) both/);
-        expect(css).toMatch(/gh-open-fade 450ms ease 520ms forwards/);
-        expect(css).toMatch(/\.gh-open-clone\s*\{[^}]*background-color:\s*#07090c/);
-        // Animated properties must not be set !important in a rule, or the animation could not move them.
-        expect(css).not.toMatch(/\.gh-open-clone\s*\{[^}]*(?:[;{]\s*)(?:left|top|width|height|border-radius|opacity):/);
-        expect(css).toMatch(/@keyframes gh-open-expand\s*\{\s*from\s*\{[^}]*var\(--gh-from-w\)[^}]*\}\s*to\s*\{[^}]*width:\s*100%[^}]*border-radius:\s*0/);
-    });
     it('the Friends tab count: faded with nobody online, the online green (not the accent) with anyone connected', () => {
         const css = homeCss();
         expect(css).toMatch(/\.gh-tab-count \{[^}]*color: rgba\(255,255,255,\.4\) !important/);
@@ -375,5 +370,327 @@ describe('family pill on Home', () => {
         expect(rule).toMatch(/position: absolute !important; right: calc\(100% \+ 10px\) !important; top: 50% !important; transform: translateY\(-50%\) !important/);
         expect(rule).toContain(sourcePillLook((n) => `${n}px`).split(';')[0]);
         expect(css).toMatch(/\.gh-family-icon\s*\{/);
+    });
+});
+
+describe('homeCss open transition', () => {
+    /** Each rule as [selector list, body]. */
+    const rules = (css: string): Array<[string, string]> => {
+        const out: Array<[string, string]> = [];
+        const re = /([^{}]+)\{([^{}]*)\}/g;
+        let m: RegExpExecArray | null;
+        const flat = css.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+        while ((m = re.exec(flat)) !== null) out.push([m[1].trim(), m[2]]);
+        return out;
+    };
+    const css = homeCss();
+
+    it('moves the title block by its variable once the motion starts', () => {
+        const title = rules(css).find(([sel]) => sel.includes('[data-gh-opening="morph"][data-gh-phase="to"] .gh-title-slot'));
+        expect(title?.[1]).toContain('transform: var(--gho-title)');
+    });
+    it('animates only transform and opacity while opening', () => {
+        const opening = rules(css).filter(([sel]) => sel.includes('data-gh-opening'));
+        expect(opening.length).toBeGreaterThan(10);
+        for (const [sel, body] of opening) {
+            for (const m of body.matchAll(/transition:\s*([^;]+)/g)) {
+                const props = m[1].split(/,(?![^(]*\))/).map((p) => p.trim().split(/\s+/)[0]);
+                for (const p of props) expect(['transform', 'opacity', 'none'], `${sel}: ${m[1]}`).toContain(p);
+            }
+        }
+    });
+    it('the Play label needs no copy while opening: it is white on Home and on the page', () => {
+        const all = rules(css);
+        expect(all.some(([sel]) => sel.includes('data-gh-opening') && sel.endsWith('.gh-btn-label::after'))).toBe(false);
+    });
+    it("a chip's bar moves onto the page's when the morph gives it a place, and fades otherwise", () => {
+        const all = rules(css);
+        const bar = all.find(([sel]) => sel.includes('data-gh-phase="to"') && sel.endsWith('.gh-chip:nth-child(3) .gh-chip-bar'));
+        expect(bar?.[1]).toContain('transform: var(--gho-chip-2-bar, none)');
+        expect(bar?.[1]).toContain('opacity: var(--gho-chip-2-bar-o, 0)');
+        expect(all.some(([sel, body]) => sel.includes('data-gh-opening') && sel.includes('.gh-chip-bar') && /transform-origin:\s*0 0/.test(body))).toBe(true);
+    });
+    it("the morph ends on the page's own look: the glass is the page's tint without blur (the page grows its blur), the pill its exact round shape", () => {
+        const all = rules(css);
+        const body = (pred: (sel: string) => boolean) => all.filter(([sel]) => pred(sel)).map(([, b]) => b).join(' ');
+        const settleAt = Math.round(((OPEN_TIMINGS.morph - OPEN_TIMINGS.settle) / OPEN_TIMINGS.morph) * 100000) / 1000;
+        // The glass: the page panel's tint from the start, never blurred on Home (the arriving page grows the blur).
+        const shell = body((sel) => sel === '.gh-open-shell');
+        expect(shell).toMatch(/background:\s*rgba\(12,16,22,\.38\)/);
+        expect(shell).not.toContain('backdrop-filter');
+        expect(all.some(([sel]) => sel.includes('.gh-open-shell::'))).toBe(false);
+        // The pill: the page's focused pill at its exact size, faded in as the stretched layer stops.
+        const pill = body((sel) => sel.includes('data-gh-opening="morph"') && !sel.includes('data-gh-phase') && sel.endsWith('[data-action="play"]::after'));
+        expect(pill).toContain('width: calc(100% * var(--gho-play-sx))');
+        expect(pill).toContain('height: calc(100% * var(--gho-play-sy))');
+        expect(pill).toContain('top: var(--gho-play-dy)');
+        expect(pill).not.toContain('transform: var(--gho-play-bg)');
+        expect(body((sel) => sel.includes('data-gh-phase="to"') && sel.endsWith('[data-action="play"]::after'))).toContain(`animation: gh-open-settle ${OPEN_TIMINGS.morph}ms linear both`);
+        expect(css).toContain(`@keyframes gh-open-settle { 0%, ${settleAt}% { opacity: 0; animation-timing-function: ease-in-out; } 100% { opacity: 1; } }`);
+    });
+    it("a chip's label can fade on its own, and an accent copy of its value (data-text) can fade in over it", () => {
+        const all = rules(css);
+        const label = all.find(([sel]) => sel.includes('data-gh-phase="to"') && sel.endsWith('.gh-chip:nth-child(3) .gh-chip-label'));
+        expect(label?.[1]).toContain('opacity: var(--gho-chip-2-label-o, var(--gho-chip-2-o, 0))');
+        const copy = all.find(([sel]) => sel.includes('data-gh-opening') && !sel.includes('data-gh-phase') && sel.endsWith('.gh-chip-value::after'));
+        expect(copy?.[1]).toMatch(/content:\s*attr\(data-text\)/);
+        expect(copy?.[1]).toContain('color: var(--glance-accent-text)');
+        expect(copy?.[1]).toMatch(/opacity:\s*0/);
+        const lit = all.find(([sel]) => sel.includes('data-gh-phase="to"') && sel.endsWith('.gh-chip:nth-child(3) .gh-chip-value::after'));
+        expect(lit?.[1]).toContain('opacity: var(--gho-chip-2-accent, 0)');
+    });
+    it("a game that can be streamed: the Play pill ends in the page's arrow segment (Home's size), and a focusable arrow over it", () => {
+        const all = rules(css);
+        const seg = all.find(([sel]) => sel === '.gh-btn-play > .gh-play-arrow');
+        expect(seg?.[1]).toMatch(new RegExp(`position: absolute[^;]*;[^]*right: -1px[^]*width: ${HOME_PILL.arrow}px[^]*border-left: 1px solid rgba\\(4,17,12,\\.25\\)`));
+        expect(css).toMatch(new RegExp(`\\.gh-play-arrow svg\\s*\\{[^}]*width: ${HOME_PILL.arrowGlyph}px`));
+        // The arrow button lies over the segment (the row's gap pulled back), with no ring or growth of its own: focused,
+        // the segment lights as the page's does.
+        const btn = all.find(([sel]) => sel === '.gh-actions > .gh-btn-stream');
+        expect(btn?.[1]).toMatch(new RegExp(`width: ${HOME_PILL.arrow}px[^]*margin-left: -${HOME_PILL.arrow + 12}px[^]*background: transparent`));
+        // Nothing of its own over the pill: a button's glass blur here blurred the segment away (device, 8e90058).
+        expect(btn?.[1]).toMatch(/backdrop-filter: none/);
+        expect(btn?.[1]).toMatch(/border: none/);
+        const focus = all.find(([sel]) => sel === '.gh-actions > .gh-btn-stream.gh-focus');
+        expect(focus?.[1]).toMatch(/background: transparent[^]*box-shadow: none[^]*transform: none/);
+        // Focused, the whole pill shows Home's focus (as the page's pill does for its arrow), and the segment is tinted.
+        const pill = all.find(([sel]) => sel === '.gh-actions > .gh-btn-play:has(+ .gh-btn-stream.gh-focus)');
+        const hp = pillFocusScale(HOME_PILL.width, TITLE_BLOCK.button);
+        expect(pill?.[1]).toMatch(new RegExp(`box-shadow: 0 0 0 2px rgba\\(255,255,255,\\.9\\)[^]*transform: scale\\(${hp.x}, ${hp.y}\\)`));
+        const tint = all.find(([sel]) => sel === '.gh-actions > .gh-btn-play:has(+ .gh-btn-stream.gh-focus) > .gh-play-arrow');
+        expect(tint?.[1]).toMatch(/background: rgba\(255,255,255,\.28\)/);
+        // Opening: the segment moves with the pill and grows onto the page's (openMotion --gho-play-arrow), about its right end.
+        expect(all.some(([sel, body]) => sel.includes('data-gh-phase="to"') && sel.endsWith('.gh-play-arrow') && body.includes('transform: var(--gho-play-arrow)'))).toBe(true);
+        expect(all.some(([sel, body]) => sel.includes('data-gh-opening') && !sel.includes('data-gh-phase') && sel.endsWith('.gh-play-arrow') && /transform-origin:\s*100% 50%/.test(body))).toBe(true);
+        // The arrow button itself fades with the info button.
+        expect(all.some(([sel, body]) => sel.includes('data-gh-phase="to"') && sel.endsWith('.gh-btn-stream') && /opacity:\s*0/.test(body))).toBe(true);
+    });
+    it("a circle's icon takes the counter-scale about its centre while the circle grows", () => {
+        const all = rules(css);
+        // Picked among the circles (openHome measures .gh-btn-circle in order), so the stream arrow before them shifts nothing.
+        const icon = all.find(([sel]) => sel.includes('data-gh-phase="to"') && sel.endsWith('.gh-btn-circle:nth-child(2 of .gh-btn-circle) > .gh-btn-icon'));
+        expect(icon?.[1]).toContain('transform: var(--gho-circle-icon-1, none)');
+        expect(all.some(([sel, body]) => sel.includes('data-gh-opening') && !sel.includes('data-gh-phase') && sel.includes('.gh-btn-circle > .gh-btn-icon') && /transform-origin:\s*50% 50%/.test(body))).toBe(true);
+        // The cloud's icon is the page's size too (PAGE_LAYOUT.cloudIcon, on both).
+        expect(css).toMatch(new RegExp(`\\.gh-btn-cloud svg\\s*\\{[^}]*width:\\s*${PAGE_LAYOUT.cloudIcon}px`));
+    });
+    it("Home shades its art as the game page does, at rest (Michael: Cronos's page shading, by default), so opening never changes it", () => {
+        const all = rules(css);
+        const page = all.find(([sel]) => sel === '.gh-scrim-page');
+        // Steam's own top shadow on the page (its header's TopGradient, 75 px, probed on the Ally), then the restyle's layers.
+        expect(page?.[1]).toContain(`background: ${STEAM_TOP_GRADIENT}, ${PAGE_SCRIMS}`);
+        expect(STEAM_TOP_GRADIENT).toBe('linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0px, rgba(0, 0, 0, 0) 75px)');
+        expect(page?.[1]).not.toMatch(/opacity:\s*0/);
+        // Home's own gradients are gone, and nothing about the shading changes while opening.
+        expect(all.some(([sel]) => sel.includes('.gh-scrim-v') || sel.includes('.gh-scrim-l'))).toBe(false);
+        expect(all.some(([sel]) => sel.includes('data-gh-opening') && sel.includes('.gh-scrim-page'))).toBe(false);
+        // No dimming at rest (the page has none); the feed sheet still dims (SpotlightHome's DIM_SHEET).
+        expect(all.find(([sel]) => sel === '.gh-root')?.[1]).toMatch(/--gh-dim:\s*0;/);
+    });
+    it("the extras layer (the description, the HowLongToBeat card's rest) is hidden at rest and shown, part by part, only by a morph", () => {
+        const all = rules(css);
+        expect(all.find(([sel]) => sel === '.gh-open-extras')?.[1]).toContain('display: none');
+        const shown = all.find(([sel]) => sel === '.gh-root[data-gh-opening="morph"][data-gh-extras] .gh-open-extras')?.[1];
+        expect(shown).toContain('display: block');
+        // Hidden by its own (soft) opacity until the morph's late fade shows it.
+        expect(css).toContain('.gh-open-extras { opacity: 0; }');
+        for (const part of ['desc', 'hltb']) {
+            expect(all.find(([sel]) => sel === `.gh-open-extras .gh-x-${part}`)?.[1], part).toContain('display: none');
+            expect(all.some(([sel, body]) => sel === `.gh-root[data-gh-extras~="${part}"] .gh-x-${part}` && body.includes('display'))).toBe(true);
+        }
+    });
+    it("the extras layer's store pill is the page's: its look in the page's d unit, right-aligned at its place, the family pill in it", () => {
+        const all = rules(css);
+        const body = (sel: string) => all.find(([s]) => s === sel)?.[1] ?? '';
+        const dd = (n: number) => `calc(${n}px * var(--gho-x-d))`;
+        expect(body('.gh-open-extras .gh-x-pill')).toContain(sourcePillLook(dd).split(';')[1].trim());
+        for (const decl of ['left: var(--gho-x-pill-x)', 'top: var(--gho-x-pill-y)', 'transform: translateX(-100%)']) expect(body('.gh-open-extras .gh-x-pill')).toContain(decl);
+        expect(body('.gh-open-extras .gh-x-family')).toContain(`right: calc(100% + ${dd(10)})`);
+        expect(all.some(([sel, b]) => sel === '.gh-root[data-gh-extras~="pills"] .gh-x-pill' && b.includes('display: inline-flex'))).toBe(true);
+        // Home's own pill (moving into place) fades out as the page's fades in, still moving.
+        const home = body('.gh-root[data-gh-opening="morph"][data-gh-phase="to"][data-gh-extras~="pills"] .gh-source');
+        expect(home).toContain(`animation: gh-open-pill-out ${OPEN_TIMINGS.morph}ms linear both`);
+        expect(home).toMatch(/transition: transform \d+ms cubic-bezier\([^)]*\)/);
+    });
+    it("the extras layer's Unifideck size column: hidden unless Home drew it, at its place, in the page's value size", () => {
+        const all = rules(css);
+        const body = (sel: string) => all.find(([s]) => s === sel)?.[1] ?? '';
+        expect(body('.gh-open-extras .gh-x-size')).toContain('display: none');
+        for (const decl of ['left: var(--gho-x-size-x)', 'top: var(--gho-x-size-y)']) expect(body('.gh-open-extras .gh-x-size')).toContain(decl);
+        expect(all.some(([sel, b]) => sel === '.gh-root[data-gh-extras~="size"] .gh-x-size' && b.includes('display: flex'))).toBe(true);
+        expect(body('.gh-open-extras .gh-x-size .gh-x-value')).toContain('font-size: var(--gho-x-size-font)');
+    });
+    it("the extras layer's Play time column: the page's label and value, at its place, in the page's value size", () => {
+        const all = rules(css);
+        const body = (sel: string) => all.find(([s]) => s === sel)?.[1] ?? '';
+        expect(body('.gh-open-extras .gh-x-played')).toContain('display: none');
+        for (const decl of ['left: var(--gho-x-played-x)', 'top: var(--gho-x-played-y)']) expect(body('.gh-open-extras .gh-x-played')).toContain(decl);
+        expect(body('.gh-open-extras .gh-x-played .gh-x-value')).toContain('font-size: var(--gho-x-played-font)');
+        expect(all.some(([sel, b]) => sel === '.gh-root[data-gh-extras~="played"] .gh-x-played' && b.includes('display: flex'))).toBe(true);
+    });
+    it('the extras fade in (opacity only) during the morph and are complete at the hand-over', () => {
+        const to = rules(css).find(([sel]) => sel === '.gh-root[data-gh-opening="morph"][data-gh-phase="to"][data-gh-extras] .gh-open-extras')?.[1];
+        // Over the whole morph, held at 0 until its last OPEN_TIMINGS.extras ms (see "delayed fades" below).
+        expect(to).toContain(`animation: gh-open-extras-in ${OPEN_TIMINGS.morph}ms linear both`);
+    });
+    it("the extras are laid out as the page's cards, in the page's d unit (openMotion's --gho-x-d)", () => {
+        const all = rules(css);
+        const body = (sel: string) => all.find(([s]) => s === sel)?.[1] ?? '';
+        const dd = (n: number) => `calc(${n}px * var(--gho-x-d))`;
+        expect(body('.gh-open-extras .gh-x-desc')).toContain(`font-size: ${dd(PAGE_LAYOUT.cardText.desc)}`);
+        expect(body('.gh-open-extras .gh-x-desc')).toContain(`-webkit-line-clamp: ${PAGE_LAYOUT.cardText.descLines}`);
+        expect(body('.gh-open-extras .gh-x-hltb')).toContain(`gap: ${dd(PAGE_LAYOUT.cards.hltbGap)}`);
+        expect(body('.gh-open-extras .gh-x-label')).toContain(`font-size: ${dd(PAGE_LAYOUT.stats.label)}`);
+        expect(body('.gh-open-extras .gh-x-value')).toContain(`font-size: ${dd(PAGE_LAYOUT.stats.value)}`);
+        expect(body('.gh-open-extras .gh-x-stats')).toContain(`gap: ${dd(PAGE_LAYOUT.stats.colGapHltb)}`);
+        expect(body('.gh-open-extras .gh-x-bar')).toContain(`height: ${dd(PAGE_LAYOUT.cardText.bar)}`);
+        expect(body('.gh-open-extras .gh-x-caption')).toContain(`font-size: ${dd(PAGE_LAYOUT.cardText.caption)}`);
+        // Main's time is Home's chip, moving there: the layer keeps its place without drawing it.
+        expect(body('.gh-open-extras .gh-x-stats > div:first-child .gh-x-value')).toContain('visibility: hidden');
+    });
+    it('the glass panels are hidden until opening, and the second only when there are two', () => {
+        const all = rules(css);
+        expect(all.find(([sel]) => sel === '.gh-open-shell')?.[1]).toContain('display: none');
+        expect(all.some(([sel]) => sel.includes('[data-gh-shells="2"]') && sel.includes('.gh-open-shell[data-i="1"]'))).toBe(true);
+    });
+});
+
+describe('homeCss bridge', () => {
+    it('nothing inside the bridge animates again (the hero layer would replay its fade-in)', () => {
+        expect(homeCss()).toContain('.gh-root.gh-bridge, .gh-root.gh-bridge * { animation: none !important; transition: none !important; }');
+    });
+});
+
+describe('homeCss logo', () => {
+    it("leaves the logo's size to GameTitle's inline area sizing, as on the game page (an !important size here overrode it)", () => {
+        const body = /\.gh-logo \{([^}]*)\}/.exec(homeCss())?.[1] ?? '';
+        expect(body).not.toBe('');
+        for (const prop of ['width', 'height', 'max-width', 'max-height']) expect(body, prop).not.toMatch(new RegExp(`(^|[;\\s])${prop}:`));
+    });
+});
+
+describe('homeCss accent on hidden bars', () => {
+    it('bars nobody sees take a new accent at once (no colour transition): an unselected card, the hidden feed and tabs', () => {
+        const css = homeCss();
+        // Each L1/R1 step changes the accent: these ran ~30 colour transitions a step, all invisible (measured on the Ally).
+        expect(css).toMatch(/\.gh-cap:not\(\.gh-cap-focus\) \.gh-cap-bar \{ transition: opacity 250ms !important; \}/);
+        expect(css).toMatch(/\.gh-card:not\(\.gh-card-focus\) \.gh-card-bar \{ transition: opacity 250ms !important; \}/);
+        expect(css).toMatch(/\.gh-page:not\(\.gh-page-up\) \.gh-tab-line \{ transition: none !important; \}/);
+    });
+});
+
+describe('statusCss', () => {
+    it("one status bar at a time: while Home's is up, the page's (mounted later, on the same body) stays invisible", () => {
+        // Two stacked bars drew their white text twice, brighter, as Home's frozen copy faded over them (Michael: it blinked white).
+        expect(statusCss()).toMatch(/\.gg-status-host ~ \.gg-status-host \{[^}]*visibility: hidden/);
+    });
+});
+
+describe('homeCss Play pill', () => {
+    it('white words and glyph on the accent, as on the page', () => {
+        const body = /\.gh-btn-play \{([^}]*background: var\(--glance-accent\)[^}]*)\}/.exec(homeCss())?.[1] ?? '';
+        expect(body).toContain('color: #fff');
+        expect(body).not.toContain('--gh-on-accent');
+    });
+    it("focused: a white ring and accent glow, scaled by the page's focus scale (the page focuses its Play the same)", () => {
+        const body = /\.gh-btn\.gh-focus \{([^}]*)\}/.exec(homeCss())?.[1] ?? '';
+        expect(body).toContain('0 0 0 2px rgba(255,255,255,.9)');
+        expect(body).toContain(`scale(${PAGE_LAYOUT.focusScale})`);
+        // The Play pill grows by what a circle grows (its height's share), so its gap to the circles stays.
+        const hp = pillFocusScale(HOME_PILL.width, TITLE_BLOCK.button);
+        expect(/\.gh-actions > \.gh-btn-play\.gh-focus \{([^}]*)\}/.exec(homeCss())?.[1] ?? '').toContain(`scale(${hp.x}, ${hp.y})`);
+    });
+});
+
+describe('homeCss Play pill while opening', () => {
+    it("takes on the page's focused look as the morph settles (Steam focuses Play there): a ring layer at the page pill's exact size", () => {
+        const css = homeCss();
+        const after = /\.gh-root\[data-gh-opening="morph"\] \.gh-actions > \.gh-btn\[data-action="play"\]::after \{([^}]*)\}/.exec(css)?.[1] ?? '';
+        expect(after).toContain('box-shadow: 0 0 0 2px rgba(255,255,255,.9)');
+        expect(css).toContain('.gh-root[data-gh-opening="morph"] .gh-actions > .gh-btn[data-action="play"]::after { opacity: 0; }');
+        // The page's focused Play keeps its accent fill, as Home's (no lighter overlay any more).
+        expect(after).toContain('background: var(--glance-accent)');
+        expect(after).not.toContain('rgba(255,255,255,.28)');
+        const to = /\[data-gh-phase="to"\] \.gh-actions > \.gh-btn\[data-action="play"\]::after \{([^}]*)\}/.exec(css)?.[1] ?? '';
+        expect(to).not.toContain('transform');
+        // Faded in by the late-fade animation, which holds it at 1 (its own value stays 0: see "delayed fades").
+        expect(to).toContain('animation: gh-open-settle');
+    });
+});
+
+describe('HOME_PILL arrow', () => {
+    it("is the page's arrow at Home's pill height (54 against the page's 60), so its morph grows it evenly", () => {
+        expect(HOME_PILL.arrow).toBe(Math.round((PAGE_LAYOUT.playArrow.w * 54) / PAGE_LAYOUT.icon));
+        expect(HOME_PILL.arrowGlyph).toBe(Math.round((PAGE_LAYOUT.playArrow.glyph * 54) / PAGE_LAYOUT.icon));
+    });
+});
+
+describe('the way back (B from a page)', () => {
+    it("Home's title, chips, buttons and row fade in over the art, which is there at once (opacity only)", () => {
+        const css = homeCss(CARD_SCALE_HANDHELD);
+        expect(css).toMatch(new RegExp(`\\.gh-root\\.gh-back \\.gh-safe\\s*\\{[^}]*animation: gh-fade-in ${RETURN_TIMINGS.fade}ms ease both`));
+        expect(css).not.toMatch(/\.gh-back \.gh-hero/);
+    });
+});
+
+describe('delayed fades in the open transition', () => {
+    // On Steam's browser the GPU draws a delayed opacity transition at its end value during the delay (docked, Michael saw
+    // the description and HowLongToBeat numbers over the game cards; the page's computed opacity read 0 meanwhile).
+    const css = homeCss(CARD_SCALE_HANDHELD);
+    const at = (delay: number) => Math.round(((OPEN_TIMINGS.morph - delay) / OPEN_TIMINGS.morph) * 100000) / 1000;
+    it('no opacity transition waits (a delay after its duration)', () => {
+        expect(css).not.toMatch(/opacity \d+ms [a-z-]+(?:\([^)]*\))? \d+ms/);
+    });
+    it('the extras fade in as a keyframe animation that holds them at 0 for the wait, complete at the hand-over', () => {
+        expect(css).toContain(`@keyframes gh-open-extras-in { 0%, ${at(OPEN_TIMINGS.extras)}% { opacity: 0; animation-timing-function: ease-out; } 100% { opacity: 1; } }`);
+        const rule = css.match(/\.gh-root\[data-gh-opening="morph"\]\[data-gh-phase="to"\]\[data-gh-extras\] \.gh-open-extras\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(rule).toContain(`animation: gh-open-extras-in ${OPEN_TIMINGS.morph}ms linear both`);
+    });
+    // The GPU draws an element's own value until its animation runs: with the end value as its own, the extras showed in
+    // full over the cards for the first frames (docked).
+    it("the start value is each element's own: extras 0, Home's pill 1, the settle layer 0", () => {
+        const body = (re: RegExp) => css.match(re)?.[0] ?? '';
+        expect(css).toContain('.gh-open-extras { opacity: 0; }');
+        expect(body(/\.gh-root\[data-gh-opening="morph"\]\[data-gh-phase="to"\]\[data-gh-extras\] \.gh-open-extras\s*\{[^}]*\}/)).not.toContain('opacity');
+        expect(body(/\.gh-root\[data-gh-opening="morph"\]\[data-gh-phase="to"\]\[data-gh-extras~="pills"\] \.gh-source\s*\{[^}]*\}/)).not.toContain('opacity');
+        expect(body(/\.gh-root\[data-gh-opening="morph"\]\[data-gh-phase="to"\] \.gh-actions > \.gh-btn\[data-action="play"\]::after\s*\{[^}]*\}/)).not.toMatch(/opacity: 1/);
+    });
+    it("their own opacity is never !important: an animation cannot override an !important value (the extras and Play's ring stayed hidden through the morph, then popped in with the bridge)", () => {
+        const opacities = (target: string) => [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+            .filter(([, sel]) => !sel.includes('gh-bridge') && sel.trim().endsWith(target))
+            .map(([, sel, body]) => [sel.trim(), body.match(/opacity:[^;]*/)?.[0] ?? ''] as const)
+            .filter(([, o]) => o !== '');
+        for (const target of ['.gh-open-extras', '[data-action="play"]::after']) {
+            const found = opacities(target);
+            expect(found.length, target).toBeGreaterThan(0);
+            for (const [sel, o] of found) expect(o, sel).not.toContain('!important');
+        }
+    });
+    it("the bridge's freeze outranks every animation rule: the late fades and Home's way-back fade (opened soon after B)", () => {
+        expect(css).toMatch(/\.gh-root\.gh-bridge\.gh-back \.gh-safe\s*\{[^}]*animation: none/);
+        for (const target of ['\\.gh-open-extras', '\\.gh-source', '\\[data-action="play"\\]::after']) {
+            expect(css).toMatch(new RegExp(`\\.gh-root\\.gh-bridge\\[data-gh-opening\\]\\[data-gh-phase\\][^{]*${target}\\s*\\{[^}]*animation: none`));
+        }
+    });
+    it('the bridge (a frozen copy, nothing animates in it, pseudo-elements too) holds the end values', () => {
+        expect(css).toContain('.gh-root.gh-bridge *::before, .gh-root.gh-bridge *::after { animation: none !important; transition: none !important; }');
+        expect(css).toMatch(/\.gh-root\.gh-bridge\[data-gh-opening\]\[data-gh-phase\]\[data-gh-extras\] \.gh-open-extras\s*\{[^}]*opacity: 1/);
+        expect(css).toMatch(/\.gh-root\.gh-bridge\[data-gh-opening\]\[data-gh-phase\]\[data-gh-extras~="pills"\] \.gh-source\s*\{[^}]*opacity: 0/);
+        expect(css).toMatch(/\.gh-root\.gh-bridge\[data-gh-opening\]\[data-gh-phase\] \.gh-actions > \.gh-btn\[data-action="play"\]::after\s*\{[^}]*opacity: 1/);
+    });
+    it("Home's store pill fades out the same way, held at 1 for the wait", () => {
+        expect(css).toContain(`@keyframes gh-open-pill-out { 0%, ${at(OPEN_TIMINGS.extras)}% { opacity: 1; animation-timing-function: ease-in; } 100% { opacity: 0; } }`);
+    });
+});
+
+describe("a Unifideck game's cloud button (Unifideck's own look, as on its page)", () => {
+    const css = homeCss(CARD_SCALE_HANDHELD);
+    it('a white glyph at the circles\' glyph size, its state ring inside it (unless focused), dimmed without cloud support', () => {
+        expect(css).toMatch(/\.gh-btn-cloud\.gh-cloud-uni\s*\{[^}]*color: #fff/);
+        expect(css).toMatch(new RegExp(`\\.gh-btn-cloud\\.gh-cloud-uni svg\\s*\\{[^}]*width: ${PAGE_LAYOUT.circleIcon}px[^}]*filter: none`));
+        expect(css).toMatch(/\.gh-btn-cloud\.gh-cloud-uni:not\(\.gh-focus\)\s*\{[^}]*box-shadow: 0 0 0 2px var\(--gh-uni-ring, transparent\) inset/);
+        expect(css).toMatch(/\.gh-btn-cloud\.gh-cloud-uni-dim\s*\{[^}]*opacity: \.5/);
+        // Its in-sync check badge at Unifideck's proportion to the cloud (13 of the 24).
+        expect(css).toMatch(/\.gh-btn-cloud\.gh-cloud-uni svg\.gh-uni-badge\s*\{[^}]*width: 13px/);
     });
 });

@@ -11,7 +11,7 @@ const CLOUD_POLL_MS = 1000;
 const UNIFIDECK_CLOUD_POLL_MS = 15_000;
 
 /** A Unifideck game's cloud-save state (data/unifideckCloud), asked only while `active` (Steam has none for the game); null otherwise. */
-function useUnifideckCloud(appId: number | null, active: boolean): CloudState | null {
+export function useUnifideckCloud(appId: number | null, active: boolean): CloudState | null {
     const [state, setState] = useState<{ id: number | null; cloud: CloudState | null }>({ id: null, cloud: null });
     useEffect(() => {
         if (appId === null || !active) return undefined;

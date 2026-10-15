@@ -25,7 +25,13 @@ export function parseVersion(text: unknown): number[] | null {
     return core.split('.').map(Number);
 }
 
-/** Whether `latest` is a higher version than `current` (2.0.10 > 2.0.9; 2.1 = 2.1.0). False if either is not a version. */
+/** A pre-release tag ("3.1.0-rc.1"): a "-" after the version numbers. */
+const isPreRelease = (text: string) => text.trim().replace(/^v/i, '').includes('-');
+
+/**
+ * Whether `latest` is a higher version than `current` (2.0.10 > 2.0.9; 2.1 = 2.1.0). False if either is not a version.
+ * With the same numbers, a release is newer than its pre-release (3.1.0 > 3.1.0-rc.1).
+ */
 export function isNewer(latest: string, current: string): boolean {
     const a = parseVersion(latest);
     const b = parseVersion(current);
@@ -34,7 +40,7 @@ export function isNewer(latest: string, current: string): boolean {
         const d = (a[i] ?? 0) - (b[i] ?? 0);
         if (d !== 0) return d > 0;
     }
-    return false;
+    return isPreRelease(current) && !isPreRelease(latest);
 }
 
 export interface Release {

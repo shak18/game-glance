@@ -13,6 +13,7 @@ export interface Settings {
     zoomTransition: boolean; // animates the banner expanding into full screen when opening a game
     dimUninstalledGames: boolean; // dim and grayscale games in the library grid that are not installed
     homeStatusBar: boolean; // Spotlight Home's status bar: clock, battery and connection in Steam's top strip
+    statusAvatar: boolean; // your avatar, round and ringed in your status colour, in the status bar instead of the dot
     gameLogo: boolean; // the game's logo instead of its name on Home and the game page (the name when it has none)
     homeRow: string; // Home's games row: 'recent' (Steam's recent games, with those new to the library) or a collection id
     homeRowSort: RowSort; // how a collection's games are sorted in the row
@@ -34,6 +35,7 @@ const DEFAULTS: Settings = {
     zoomTransition: true,
     dimUninstalledGames: false,
     homeStatusBar: true,
+    statusAvatar: false,
     gameLogo: false,
     homeRow: RECENT_ROW,
     homeRowSort: 'lastPlayed',
@@ -66,6 +68,7 @@ export function createSettingsStore(kv: KvBackend) {
                 zoomTransition: pick('zoomTransition'),
                 dimUninstalledGames: pick('dimUninstalledGames'),
                 homeStatusBar: pick('homeStatusBar'),
+                statusAvatar: pick('statusAvatar'),
                 gameLogo: pick('gameLogo'),
                 homeRow: typeof raw?.homeRow === 'string' && raw.homeRow !== '' ? raw.homeRow : DEFAULTS.homeRow,
                 homeRowSort: rowSortOf(raw?.homeRowSort),
@@ -79,6 +82,11 @@ export function createSettingsStore(kv: KvBackend) {
         get: (): Settings => current,
         async setEnabled(enabled: boolean): Promise<void> {
             current = { ...current, enabled };
+            emit();
+            await kv.set(KEY, current);
+        },
+        async setStatusAvatar(statusAvatar: boolean): Promise<void> {
+            current = { ...current, statusAvatar };
             emit();
             await kv.set(KEY, current);
         },

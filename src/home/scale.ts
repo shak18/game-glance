@@ -18,3 +18,13 @@ export function homeCanvas(width: number, height: number): HomeCanvas {
     const canvas = width / height > WIDE_ASPECT ? WIDE : DECK;
     return { ...canvas, scale: width / canvas.logicalWidth };
 }
+
+/**
+ * The canvas's inline style: its logical size, scaled to the box. Hidden until the box has a real size (it never
+ * flashes at the wrong scale); then it inherits, never an explicit 'visible', which would show Home through an
+ * ancestor Steam hides (its page-leave animation, hidden during the open transition).
+ */
+export function canvasStyle(canvas: Pick<HomeCanvas, 'logicalWidth' | 'scale'>, logicalHeight: number, sized: boolean): { width: string; height: string; transform: string; visibility?: 'hidden' } {
+    const style = { width: `${canvas.logicalWidth}px`, height: `${logicalHeight}px`, transform: `scale(${canvas.scale})` };
+    return sized ? style : { ...style, visibility: 'hidden' };
+}

@@ -1,7 +1,7 @@
 import { sourcePillIcon, sourcePillLook } from '../../src/styles/sourcePill';
 import { describe, expect, it } from 'vitest';
-import { buildAccentCss, buildCleanCss, buildDownloadCss, buildLaunchCss, buildThemeCss, buildUnifideckCss, launchTargets, ThemeClasses } from '../../src/styles/themeCss';
-import { STEAM_LEGEND_PX } from '../../src/styles/themeCss';
+import { buildAccentCss, buildArrivingCss, buildCleanCss, buildSteamEnterOffCss, steamFooterSelector, buildDownloadCss, buildLaunchCss, buildThemeCss, buildUnifideckCss, launchTargets, ThemeClasses } from '../../src/styles/themeCss';
+import { PAGE_LAYOUT, PAGE_SCRIM_LAYERS, PAGE_SCRIMS, pageDUnit, pillFocusScale, STEAM_LEGEND_PX } from '../../src/styles/themeCss';
 
 const full: ThemeClasses = {
     header: { TopCapsule: 'hd_Top', BoxSizer: 'hd_Box' },
@@ -232,9 +232,26 @@ describe('buildUnifideckCss (a Unifideck game\u2019s page)', () => {
         expect(css).not.toContain('.unifideck-cancel-btn');
         expect(css).not.toContain('.unifideck-stop-btn');
     });
-    it('Spotlight Home\u2019s look adds the handoff type with dark text; without it, white text', () => {
+    it("Unifideck's main button reads as Home's pill and Steam's: its word as written, not in capitals (Unifideck's own style upper-cases it)", () => {
+        const css = buildUnifideckCss(full, { restyle: true });
+        expect(css).toMatch(/\.unifideck-install-btn[^{]*\{[^}]*text-transform: none !important/);
+        expect(css).toMatch(/\.unifideck-play-btn[^{]*\{[^}]*text-transform: none !important/);
+        // Laid out as Home's pill and Steam's: glyph and word from the left, at the page pill's inset, glyph size and gap.
+        expect(css).toMatch(/\.unifideck-install-btn[^{]*\{[^}]*justify-content: flex-start !important/);
+        // Its cloud button's in-sync check badge at Unifideck's proportion to the 24 glyph (our circles' rule would size it 24).
+        expect(css).toContain('.unifideck-icon-btn svg.unifideck-cloud-badge { width: calc(13 * var(--gg-d)) !important; height: calc(13 * var(--gg-d)) !important; }');
+        // Unifideck's own 8 px flex gap would add to the glyph's gap (its word sat 14 px further right than Home's).
+        expect(css).toMatch(/\.unifideck-install-btn[^{]*\{[^}]*gap: 0 !important/);
+        expect(css).toContain(`padding: 0 calc(${PAGE_LAYOUT.pill.padX} * var(--gg-d)) !important`);
+        expect(css).toMatch(new RegExp(`\\.unifideck-install-btn svg[^{]*\\{[^}]*width: calc\\(${PAGE_LAYOUT.pill.icon} \\* var\\(--gg-d\\)\\)`));
+    });
+    it('Spotlight Home\u2019s look adds the handoff type, white as everywhere, and focuses it as Home\u2019s Play (ring, glow, scale)', () => {
+        const css = buildUnifideckCss(full, { restyle: true });
         expect(buildUnifideckCss(full)).not.toContain('#0b0d10');
-        expect(buildUnifideckCss(full, { restyle: true })).toMatch(/\.unifideck-hide-native-play \.unifideck-play-btn[^{]*\{[^}]*color: #0b0d10 !important;/);
+        expect(css).not.toContain('#0b0d10');
+        expect(css).toMatch(/\.unifideck-hide-native-play \.unifideck-play-btn[^{]*\{[^}]*color: #ffffff !important;/);
+        const pf = pillFocusScale(PAGE_LAYOUT.playW, PAGE_LAYOUT.icon);
+        expect(css).toMatch(new RegExp(`\\.unifideck-play-btn\\.gpfocus[^{]*\\{[^}]*transform: scale\\(${pf.x}, ${pf.y}\\) !important;`));
     });
     it('with Spotlight Home\u2019s look its row has Steam\u2019s padding (none above, 36 below), so the pill is level with Steam\u2019s', () => {
         const rowRule = /:has\([^)]*\) \{[^}]*padding-top: 0 !important; padding-bottom: [^;]+ !important;/;
@@ -469,12 +486,30 @@ describe('buildThemeCss restyle (Spotlight Home on)', () => {
         // Not in the 1.1.1 output.
         expect(buildThemeCss(steam)).not.toContain('#5cf2b4');
     });
+    it('Play: white words and glyph on the accent pill, as on Home (Steam drew the glyph dark and the words white)', () => {
+        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"]')).toContain('color: #ffffff !important');
+        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"] > div')).toContain('color: #ffffff !important');
+        expect(restyled).not.toContain('#0b0d10');
+    });
+    it("Play has no green sheen: Steam's focus shine (a green gradient on its ::after) is hidden on the accent pill", () => {
+        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"]::after')).toContain('display: none !important');
+    });
+    it("Play focused as Home's: the fill stays the accent (no lighter overlay), a white ring and accent glow, scaled as Home's", () => {
+        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"].gpfocus')).toContain('background: transparent !important');
+        const ring = rulesFor(restyled, '.rt_PlayBtn > div:has(> [role="button"].gpfocus)');
+        expect(ring).toContain('rgba(255, 255, 255, 0.9)');
+        const pf = pillFocusScale(PAGE_LAYOUT.playW, PAGE_LAYOUT.icon);
+        expect(ring).toContain(`transform: scale(${pf.x}, ${pf.y}) !important`);
+        expect(rulesFor(restyled, '.rt_PlayBtn > div:has(> [role="button"])')).toContain('transition: transform 250ms, box-shadow 250ms !important');
+    });
+    it('the "Play from" arrow focused: the pill shows its focus and the arrow\'s segment is tinted, as on Home (Michael: Neva)', () => {
+        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"] + [role="button"].gpfocus')).toContain('background: rgba(255, 255, 255, 0.28) !important');
+    });
     it('buildThemeCss with restyle adds the eyebrow, title and accent rules', () => {
         // accent: one per-game colour, animated over 500 ms, on Play, the HLTB goal value and bar
         expect(restyled).toContain("@property --glance-accent { syntax: '<color>'; inherits: true; initial-value: #5fd1ae; }");
         expect(rulesFor(restyled, '.ad_Inner')).toContain('--gg-accent: var(--glance-accent);');
         expect(rulesFor(restyled, '.ad_Inner')).toContain('transition: --glance-accent 500ms ease;');
-        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"]')).toContain('color: #0b0d10 !important');
         expect(rulesFor(restyled, '.rt_PlayBtn > div:has(> [role="button"].gpfocus)')).toContain('var(--glance-accent)');
         // handoff px scaled like Home: its 1440 canvas on 16:9, its 1280 canvas on 16:10
         expect(restyled).toContain(':root { --gg-d: calc(100vw / 1440); }');
@@ -591,27 +626,29 @@ describe('buildThemeCss restyle (Spotlight Home on)', () => {
         expect(extra(header({ SVGTitle: undefined }))).not.toContain('hd_Svg');
         expect(extra({ ...steam, root: { ...steam.root, PlaySection: undefined } })).not.toContain('--gg-side:');
         expect(extra({ ...steam, root: { ...steam.root, PlaySection: undefined } })).not.toContain('padding-left');
-        expect(extra({ ...steam, root: { ...steam.root, ActionButtonAndStatusPanel: undefined } })).not.toContain('#0b0d10');
+        expect(extra({ ...steam, root: { ...steam.root, ActionButtonAndStatusPanel: undefined } })).not.toContain('[role="button"]');
         const noInner = extra({ ...steam, details: { ...steam.details, InnerContainer: undefined } });
         expect(noInner).not.toContain('transition: --glance-accent');
         expect(noInner).not.toContain('> .gg-title');
         // Without the full-screen layout the title block stays hidden (see below) and the logo stays.
         const stacked = extra(header({ TopCapsule: undefined }));
         expect(stacked).not.toContain('visibility: hidden');
-        expect(stacked).not.toContain('::after');
+        // (the Play pill's hidden sheen is not layout: it holds in any layout)
+        expect(stacked.replace(/^.*\[role="button"\]::after \{[^}]*\}$/m, '')).not.toContain('::after');
         expect(stacked).not.toContain('> .gg-title');
         expect(stacked).toContain('.gg-title {');
 
-        // (display: only Steam's download bar is hidden)
+        // (display: only Steam's download bar is hidden; object-position: the hero's crop, which moves the picture, not the box)
         // Never layout: on Steam's elements the restyle sets colours, shadows, the scrim, the accent and the
-        // logo's visibility (its box stays), plus the Play row's side padding (the handoff's 56 px insets).
+        // logo's visibility (its box stays), plus the Play row's side padding (the handoff's 56 px insets), and the focused
+        // Play's scale (a transform: drawn bigger, nothing laid out again).
         const steamRules = [...extra(steam).matchAll(/^\s*([^{}\n]+)\{([^}]*)\}/gm)]
             .filter((m) => /\.(hd|ad|ov|rt|ps)_/.test(m[1]) && !/^\s*\.ad_Inner > \.gg-/.test(m[1]));
         expect(steamRules.length).toBeGreaterThan(0);
         for (const [, selector, body] of steamRules) {
             const props = body.split(';').map((d) => d.split(':')[0].trim()).filter(Boolean);
             for (const prop of props) {
-                expect([selector, prop]).toEqual([selector, expect.stringMatching(/^(--gg-accent|--gg-play-top|--gg-row-h|--gg-ok|--gg-warn|--gg-bad|--gg-off|transition|color|background|border|filter|box-shadow|visibility|padding-left|padding-right|padding-top|padding-bottom|font-size|font-weight|width|height|margin-right|top|min-width|flex|padding|backdrop-filter|display)$/)]);
+                expect([selector, prop]).toEqual([selector, expect.stringMatching(/^(--gg-accent|--gg-play-top|--gg-row-h|--gg-ok|--gg-warn|--gg-bad|--gg-off|transition|color|background|border|filter|box-shadow|visibility|padding-left|padding-right|padding-top|padding-bottom|font-size|font-weight|width|height|margin-right|top|min-width|flex|padding|backdrop-filter|display|object-position|transform)$/)]);
             }
         }
         // (100vh only in the Play row's anchor variable, which the 1.1.1 layout rules read: the default and the TV's)
@@ -677,5 +714,215 @@ describe('buildDownloadCss (restyled Play pill fill)', () => {
         expect(buildThemeCss(full, { restyle: true })).toContain('.rt_PlayBtn [role="progressbar"] { display: none !important; }');
         expect(buildThemeCss(full)).not.toContain('progressbar');
         expect(buildThemeCss({ ...full, root: undefined }, { restyle: true })).not.toContain('progressbar');
+    });
+});
+
+describe('the page layout constants', () => {
+    it('pageDUnit follows --gg-d: a 1440 wide canvas on 16:9, 1280 on 16:10 and narrower', () => {
+        expect(pageDUnit(1500, 844)).toBeCloseTo(1500 / 1440);
+        expect(pageDUnit(1280, 800)).toBeCloseTo(1);
+        expect(pageDUnit(828, 466)).toBeCloseTo(828 / 1440);
+    });
+    it('the restyled theme is built from them', () => {
+        const css = buildThemeCss(full, { restyle: true });
+        expect(css).toContain(`--gg-play-top: calc(100vh - calc(${PAGE_LAYOUT.playTop.spotlight} * var(--gg-d)))`);
+        for (const layer of PAGE_SCRIM_LAYERS) expect(css).toContain(layer);
+        expect(PAGE_SCRIMS).toBe(PAGE_SCRIM_LAYERS.join(', '));
+    });
+});
+
+describe('the page arriving after the open transition', () => {
+    const play = full.play as Record<string, string>;
+    it("'parts' hides only what Home had no counterpart for (Spotlight)", () => {
+        const css = buildArrivingCss(full, 'spotlight', 'parts');
+        for (const sel of ['.gg-desc', '.gg-hltb > .gg-label', '.gg-hltb [data-stat="mainExtras"]', '.gg-hltb [data-stat="completionist"]', '.gg-caption', '.gg-muted', '.gg-hltb .gg-bar', '.gg-family', '[data-stat="size"]']) {
+            expect(css, sel).toContain(sel);
+        }
+        // Home's cloud button moves into the page's: the page's own is there at once (it blinked when hidden).
+        expect(css).not.toContain(`.${play.CloudStatusRow}`);
+        expect(css).toContain('opacity: 0 !important');
+        expect(css).not.toContain('.gg-titleblock');
+    });
+    it("'parts' on Clean: the size column, family pill, cloud and the bars", () => {
+        const css = buildArrivingCss(full, 'clean', 'parts');
+        for (const sel of ['[data-stat="size"]', '.gg-family', '.gg-clean-info .gg-bar']) expect(css, sel).toContain(sel);
+        expect(css).not.toContain(`.${play.CloudStatusRow}`);
+        expect(css).not.toContain('.gg-desc');
+    });
+    it("the page's cloud arrives with the new parts when Home showed none (its state was not known yet)", () => {
+        for (const look of ['spotlight', 'clean'] as const) {
+            expect(buildArrivingCss(full, look, 'parts', false, { cloud: true }), look).toContain(`.${play.CloudStatusRow}`);
+            expect(buildArrivingCss(full, look, 'parts', true, { cloud: true }), look).toMatch(new RegExp(`\\.${play.CloudStatusRow}[^{]*\\{ opacity: 1`));
+        }
+    });
+    it("Clean: only the bars Home did not bring arrive (Home's chip bars moved onto the others)", () => {
+        const css = buildArrivingCss(full, 'clean', 'parts', false, { bars: ['achievements', 'hltb'] });
+        expect(css).toContain('.gg-clean-info > [data-stat]:not([data-stat="achievements"]):not([data-stat="hltb"]) .gg-bar');
+        expect(css).not.toContain('.gg-clean-info .gg-bar');
+    });
+    it("Steam's focus fade on Play is off while the page arrives (Home's copy shows Play focused; the page's lit up over 200 ms after the hand-over)", () => {
+        const root = full.root as Record<string, string>;
+        for (const mode of ['parts', 'all'] as const) {
+            expect(buildArrivingCss(full, 'clean', mode), mode).toContain(`.${root.ActionButtonAndStatusPanel} [role="button"], .${root.ActionButtonAndStatusPanel} > div:has(> [role="button"]) { transition: none !important; }`);
+        }
+    });
+    it("the page's glass arrives unblurred, as Home's copy is, and grows its blur once revealed (Michael: the blur, cinematic)", () => {
+        for (const look of ['spotlight', 'clean'] as const) {
+            expect(buildArrivingCss(full, look, 'parts'), look).toContain('.gg-clean-info, .gg-card { backdrop-filter: blur(0px) !important; }');
+            expect(buildArrivingCss(full, look, 'parts', true), look).toContain('.gg-clean-info, .gg-card { backdrop-filter: blur(calc(16 * var(--gg-d))) !important; transition: backdrop-filter 600ms cubic-bezier(.25,.1,.25,1) !important; }');
+        }
+    });
+    it('Spotlight: the description and the HowLongToBeat card are there at once when Home drew them as it opened', () => {
+        const hltbParts = ['.gg-hltb > .gg-label', '.gg-hltb [data-stat="hltb"] > .gg-label', '.gg-hltb [data-stat="mainExtras"]', '.gg-hltb [data-stat="completionist"]', '.gg-caption', '.gg-hltb .gg-bar'];
+        const desc = buildArrivingCss(full, 'spotlight', 'parts', false, { desc: true });
+        expect(desc).not.toContain('.gg-desc');
+        for (const sel of hltbParts) expect(desc, sel).toContain(sel);
+        const hltb = buildArrivingCss(full, 'spotlight', 'parts', false, { hltb: true });
+        expect(hltb).toContain('.gg-desc');
+        for (const sel of hltbParts) expect(hltb, sel).not.toContain(sel);
+        // The other new parts still arrive.
+        for (const sel of ['.gg-family', '[data-stat="size"]']) expect(buildArrivingCss(full, 'spotlight', 'parts', false, { desc: true, hltb: true }), sel).toContain(sel);
+    });
+    it("a stat column Home did not show arrives with the new parts (a new game's Play time: Home had its Added chip)", () => {
+        for (const look of ['spotlight', 'clean'] as const) {
+            const css = buildArrivingCss(full, look, 'parts', false, { missing: ['played'] });
+            expect(css, look).toContain('[data-stat="played"]');
+            expect(buildArrivingCss(full, look, 'parts', false), look).not.toContain('[data-stat="played"]');
+        }
+        expect(buildArrivingCss(full, 'clean', 'parts', false, { missing: ['bad key"]'] })).not.toContain('bad key');
+    });
+    it("Unifideck's Uninstall circle (an installed game's fourth button; Home has none) arrives with the new parts (Michael: fade it in)", () => {
+        const buttons = `.${full.root!.AppButtons}`;
+        for (const look of ['spotlight', 'clean'] as const) {
+            expect(buildArrivingCss(full, look, 'parts', false), look).toContain(`.unifideck-hide-native-play ${buttons}:has(> :nth-child(4)) > :nth-child(n+4)`);
+        }
+    });
+    it('a Unifideck size column Home drew (extras) is there at once; otherwise it arrives with the new parts', () => {
+        for (const look of ['spotlight', 'clean'] as const) {
+            expect(buildArrivingCss(full, look, 'parts', false), look).toContain('[data-stat="size"]');
+            expect(buildArrivingCss(full, look, 'parts', false, { size: true }), look).not.toContain('[data-stat="size"]');
+        }
+    });
+    it("Unifideck's store version dropdown (Steam's DialogDropDown) arrives with the new parts instead of popping in", () => {
+        for (const look of ['spotlight', 'clean'] as const) {
+            expect(buildArrivingCss(full, look, 'parts'), look).toContain(':has(> .DialogDropDown_CurrentDisplay)');
+        }
+    });
+    it('the family pill is there at once when Home showed one (it moves with the store pill), and arrives otherwise', () => {
+        for (const look of ['spotlight', 'clean'] as const) {
+            expect(buildArrivingCss(full, look, 'parts', false, { family: true }), look).not.toContain('.gg-family');
+            expect(buildArrivingCss(full, look, 'parts', false), look).toContain('.gg-family');
+        }
+    });
+    it("revealing 'parts' fades opacity only: a part placed by its own transform keeps it (the family pill's translateY(-50%) next to the store pill)", () => {
+        for (const look of ['spotlight', 'clean'] as const) {
+            const css = buildArrivingCss(full, look, 'parts', true);
+            const body = new RegExp(`\\.gg-family[^{]*\\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+            expect(body, look).toContain('opacity: 1 !important');
+            expect(body, look).not.toContain('transform');
+        }
+        // 'all' still lowers the whole page by the rise and lifts it back.
+        expect(buildArrivingCss(full, 'spotlight', 'all', true)).toContain('transform: none !important');
+    });
+    it("Spotlight: the HowLongToBeat card's Main label arrives (Home's 'HLTB main' fades as it moves)", () => {
+        expect(buildArrivingCss(full, 'spotlight', 'parts')).toContain('.gg-hltb [data-stat="hltb"] > .gg-label');
+        expect(buildArrivingCss(full, 'clean', 'parts')).not.toContain('[data-stat="hltb"] > .gg-label');
+    });
+    it("'all' hides the whole page but the art, lowered by the rise", () => {
+        const css = buildArrivingCss(full, 'spotlight', 'all');
+        for (const sel of ['.gg-titleblock', '.gg-hero', '.rt_Play']) expect(css, sel).toContain(sel);
+        expect(css).toContain('transform: translateY(14px) !important');
+    });
+    it('revealed: the same elements fade back in over the reveal time', () => {
+        const css = buildArrivingCss(full, 'spotlight', 'all', true);
+        expect(css).toContain('opacity: 1 !important');
+        expect(css).toContain('transform: none !important');
+        expect(css).toContain('transition: opacity 200ms ease, transform 200ms');
+    });
+    it('is empty without the layout classes', () => {
+        expect(buildArrivingCss({ ...full, header: {} }, 'spotlight', 'parts')).toBe('');
+    });
+    it("pins the page's hero to Home's crop (50% 30%) with the restyled layout", () => {
+        expect(buildThemeCss(full, { restyle: true })).toContain('.hd_Top img { object-position: 50% 30% !important; }');
+        expect(buildThemeCss(full)).not.toContain('object-position: 50% 30%');
+    });
+});
+
+describe("Steam's own page-enter fade while the page arrives", () => {
+    const withTransition = { ...full, transition: { TopLevelTransition: 'tl_Top', Enter: 'tl_Enter', EnterActive: 'tl_EnterActive' } };
+    const rule = '.tl_Top.tl_Enter, .tl_Top.tl_EnterActive { opacity: 1 !important; transform: none !important; transition: none !important; }';
+    it('is switched off in every arriving state, so the bridge never fades over a page Steam is still fading in', () => {
+        for (const mode of ['parts', 'all'] as const) {
+            for (const revealed of [false, true]) expect(buildArrivingCss(withTransition, 'spotlight', mode, revealed)).toContain(rule);
+        }
+    });
+    it('is left alone when Steam’s transition classes are unknown', () => {
+        expect(buildArrivingCss(full, 'spotlight', 'parts')).not.toContain('tl_');
+    });
+});
+
+describe('buildSteamEnterOffCss', () => {
+    it("is the page-enter switch-off alone (the open transition's bridge carries it, for Steam's own page too)", () => {
+        expect(buildSteamEnterOffCss({ ...full, transition: { TopLevelTransition: 'a', Enter: 'b', EnterActive: 'c' } }))
+            .toBe('.a.b, .a.c { opacity: 1 !important; transform: none !important; transition: none !important; }');
+        expect(buildSteamEnterOffCss(full)).toBe('');
+    });
+    it("hides the page leaving at once (Steam's exit animation drew Home, offset, under the fading bridge; probed on the Ally)", () => {
+        const css = buildSteamEnterOffCss({ ...full, transition: { TopLevelTransition: 'a', Enter: 'b', EnterActive: 'c', Exit: 'd', ExitActive: 'e' } });
+        // visibility, not opacity with the transition off: Steam unmounts the leaving page when its exit transition
+        // ends, so the transition must still run (without it Home stayed, hidden, and came back mid-open on B).
+        expect(css).toContain('.a.d, .a.e { visibility: hidden !important; }');
+        expect(css).not.toMatch(/\.a\.d[^{]*\{[^}]*transition/);
+    });
+});
+
+describe('steamFooterSelector', () => {
+    it("Steam's footer (BasicFooter, one element over every page): the open transition's bridge carries a copy", () => {
+        expect(steamFooterSelector({ ...full, footer: { BasicFooter: 'f1', FooterLegend: 'f2' } })).toBe('.f1');
+    });
+    it('null when Steam renamed it', () => {
+        expect(steamFooterSelector(full)).toBeNull();
+    });
+});
+
+describe('the store pill', () => {
+    it("is the same size on Home and the page: its height includes the border (the page's was 1.7 px taller at the hand-over)", () => {
+        expect(sourcePillLook((n) => `${n}px`)).toContain('box-sizing: border-box');
+    });
+});
+
+describe('the cloud button on the restyled page', () => {
+    it("draws its icon in the page's unit at Home's size (it was in another unit, so its ratio to Home's changed with the screen)", () => {
+        const css = buildThemeCss(full, { restyle: true });
+        const play = full.play as Record<string, string>;
+        expect(css).toContain(`.${play.CloudStatusRow} svg { width: calc(${PAGE_LAYOUT.cloudIcon} * var(--gg-d)) !important; height: calc(${PAGE_LAYOUT.cloudIcon} * var(--gg-d)) !important; }`);
+    });
+});
+
+describe('the Play pill\'s "Play from" arrow', () => {
+    it('is a 56 wide segment with a 14 px glyph at the pill\'s right end, in the page\'s d unit (Home draws the same, home/homeCss)', () => {
+        expect(PAGE_LAYOUT.playArrow).toEqual({ w: 56, glyph: 14 });
+    });
+});
+
+describe('pillFocusScale', () => {
+    it("a focused pill grows by what a focused circle grows (its height's share), not by 4% of its width: the gap to the circles stays (Michael)", () => {
+        const f = PAGE_LAYOUT.focusScale;
+        const pf = pillFocusScale(340, 60);
+        expect(pf.y).toBe(f);
+        expect((pf.x - 1) * 340).toBeCloseTo((f - 1) * 60, 2);
+        expect(pillFocusScale(250, 54).x).toBeCloseTo(1 + (0.04 * 54) / 250, 4);
+    });
+});
+
+describe('the Spotlight cards have one height', () => {
+    it("every game's cards are as tall as with three description lines (The Witcher's): a short description no longer shortens them after the open (Sonic)", () => {
+        const css = buildThemeCss(full, { restyle: true });
+        // The content's minimum (the card is content-box): the cards' height less padding and border, i.e. stats, gap and three lines.
+        const content = PAGE_LAYOUT.playTop.tvCards - 2 * PAGE_LAYOUT.cards.padY - 2;
+        const L = PAGE_LAYOUT;
+        expect(content).toBeCloseTo(L.stats.label * 1.5 + L.stats.rowGap + L.stats.value * 1.2 + L.cards.colGap + L.cardText.desc * L.cardText.descLine * L.cardText.descLines, 5);
+        expect(css).toContain(`min-height: calc(${content} * var(--gg-d))`);
+        expect(css).toMatch(/\.gg-card \{[^}]*min-height: calc\(/);
     });
 });

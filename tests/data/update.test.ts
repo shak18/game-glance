@@ -29,6 +29,10 @@ describe('versions', () => {
         expect(isNewer('2.1', '2.1.0')).toBe(false);
         expect(isNewer('1.9.9', '2.0.0')).toBe(false);
         expect(isNewer('nonsense', '2.0.0')).toBe(false);
+        // A pre-release (3.1.0-rc.1) is older than the release with the same numbers (3.1.0): its update is offered.
+        expect(isNewer('3.1.0', '3.1.0-rc.1')).toBe(true);
+        expect(isNewer('3.1.0-rc.1', '3.1.0')).toBe(false);
+        expect(isNewer('3.1.0-rc.1', '3.0.2')).toBe(true);
     });
 });
 

@@ -1,5 +1,5 @@
 import type { HltbResult } from '../data/hltb';
-import { formatHours, minutesToHours } from './format';
+import { formatAchievements, formatHours, minutesToHours } from './format';
 import type { SizeStat } from './sizeStat';
 import { tr } from '../i18n/steamText';
 
@@ -12,7 +12,7 @@ export interface CleanStat {
 }
 
 /**
- * The Clean look's info card (the Game Glance page's bottom row): a Unifideck game's size (when known), Played, Achievements (when the game has any) and
+ * The Clean look's info card (the Game Glance page's bottom row): Played, a Unifideck game's size (when known), Achievements (when the game has any) and
  * HowLongToBeat's main story with the played share of it. `hltb` undefined: still loading ('…'); not found or
  * unavailable: '—' without a bar. Pure.
  */
@@ -24,11 +24,11 @@ export function cleanStats(
 ): CleanStat[] {
     const played = minutesToHours(game.playedMinutes);
     const stats: CleanStat[] = [];
-    if (size) stats.push(size); // a Unifideck game's install or download size, ahead of Played
     stats.push({ key: 'played', label: tr('played'), value: formatHours(played, locale) });
+    if (size) stats.push(size); // a Unifideck game's install or download size, right after Played (Played stays first in every game)
     const a = game.achievements;
     if (a && a.total > 0) {
-        stats.push({ key: 'achievements', label: tr('achievements'), value: `${a.achieved} / ${a.total}`, progress: Math.min(1, Math.max(0, a.achieved / a.total)) });
+        stats.push({ key: 'achievements', label: tr('achievements'), value: formatAchievements(a), progress: Math.min(1, Math.max(0, a.achieved / a.total)) });
     }
     if (hltb === undefined) {
         stats.push({ key: 'hltb', label: 'HLTB main', value: '…' });

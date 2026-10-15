@@ -94,8 +94,7 @@ const DIR_RIGHT = 12;
 
 /**
  * What a button does on the game card row: Left/Right select the previous / next game (`{ select }`, the same step as
- * L1/R1: through the Library card, wrapping on a press, stopping at the ends while held, as Steam repeats a held
- * d-pad); L1/R1 are 'bumper' (focus goes to Play and the action row's bumper selection takes over); View/Menu are
+ * L1/R1: through the Library card, wrapping on a press, stopping at the ends while held); L1/R1 are 'bumper' (focus goes to Play and the action row's bumper selection takes over); View/Menu are
  * 'menu' (the selected game's menu). null: anything else, left to Steam (A, B, up and down). No games: null.
  */
 export function recentsButton(button: number, index: number, count: number, isRepeat = false): { select: number } | 'bumper' | 'menu' | null {
@@ -123,22 +122,22 @@ export function bumperRepeatDelay(repeats: number): number {
     return repeats <= 0 ? BUMPER_REPEAT_FIRST_MS : BUMPER_REPEAT_MS;
 }
 
-/** The last step of a held direction on the game cards: when it happened and how many repeats it has had. */
-export interface RepeatState {
-    at: number;
-    repeats: number;
+/**
+ * A held Left/Right on the game cards steps like a held bumper, on Home's own timer (bumperRepeatDelay), not on Steam's
+ * repeats: those come ~400 ms after the press, then every 33-73 ms (probed on the Ally), so stepping on the first one
+ * past each delay made the pace uneven (170-220 ms). A fresh press (or a repeat with nothing held: focus arrived
+ * mid-hold) starts a hold; a repeat during one only shows it is still held. Pure.
+ */
+export function heldEvent(isRepeat: boolean, holding: boolean): 'start' | 'alive' {
+    return isRepeat && holding ? 'alive' : 'start';
 }
 
-/**
- * Paces a held Left/Right on the game cards like a held bumper. Steam repeats a held stick or d-pad itself, much
- * faster than the cards can slide (Ally test: "it doesn't keep up"), so its repeat events are thinned out: a fresh press
- * always steps and starts over; a repeat steps only once bumperRepeatDelay(repeats) has passed since the last step
- * (400 ms for the first, then 170 ms), the rest are swallowed. `last` null: nothing held yet. Pure.
- */
-export function repeatStep(now: number, last: RepeatState | null, isRepeat: boolean): { step: boolean; next: RepeatState | null } {
-    if (!isRepeat || !last) return { step: true, next: { at: now, repeats: 0 } };
-    if (now - last.at < bumperRepeatDelay(last.repeats)) return { step: false, next: last };
-    return { step: true, next: { at: now, repeats: last.repeats + 1 } };
+/** No event from Steam for this long: the direction was let go, even if its release never reached Home. */
+export const HELD_SILENCE_MS = 450;
+
+/** Whether a held direction whose last event from Steam came at `lastEvent` is still held at `now`. Pure. */
+export function stillHeld(now: number, lastEvent: number): boolean {
+    return now - lastEvent < HELD_SILENCE_MS;
 }
 
 /**

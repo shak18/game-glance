@@ -5,13 +5,14 @@ import { FeedSheet } from './FeedSheet';
 import { feedSpace, feedViewportInset } from './feedLayout';
 import { pillInset, rowInset, sideInset } from './insets';
 import { isTvScreen } from '../styles/screenScale';
-import { focusElement, focusElementSettled, gameOpenArt, openGame, openLibrary } from './homeNav';
+import { focusElement, focusElementSettled, openGame, openLibrary } from './homeNav';
 import { LOG_PREFIX } from '../constants';
 import { useSettings } from '../data/settings';
-import { recentsButton, repeatStep, RepeatState, selectionForButton, type Zone } from './focusZones';
+import { recentsButton, selectionForButton, type Zone } from './focusZones';
 import { HeroBackground } from './HeroBackground';
 import { neighbourIds } from './heroLayers';
-import { HERO_PRELOAD_DELAY_MS, HERO_PRELOAD_RADIUS } from './motion';
+import { HERO_PRELOAD_DELAY_MS, HERO_PRELOAD_RADIUS, RETURN_TIMINGS } from './motion';
+import { steamEnterOffCss } from '../styles/theme';
 import { legibleAccent } from './accent';
 import { solveRaiseDelta } from './raised';
 import { findLegendHeight, legendReserve } from './legend';
@@ -22,19 +23,25 @@ import { FamilyPill, SourcePill } from '../components/SourcePill';
 import { familyPillLabel } from '../data/family';
 import { GameStatusBar } from '../components/GameStatusBar';
 import { RecentsRow } from './RecentsRow';
-import { CARD_SCALE_HANDHELD, cardScaleFor, clampFocus, isLibraryFocus, recentsGeometry } from './recentsLayout';
-import { homeCanvas } from './scale';
+import { CARD_SCALE_HANDHELD, cardScaleFor, clampFocus, heroIndex, isLibraryFocus, recentsGeometry } from './recentsLayout';
+import { useFastCycle } from './fastCycle';
+import { noteDisplay } from './artShrink';
+import { canvasStyle, homeCanvas } from './scale';
+import { OpenExtras } from './OpenExtras';
+import { useUnifideckInstalled } from '../hooks/useUnifideckInstalled';
+import { useUnifideckSize } from '../hooks/useUnifideckSize';
+import { knownSizeLabel, sizeStat } from '../logic/sizeStat';
 import { TitleBlock } from './TitleBlock';
-import { useBumperSelect } from './useBumperSelect';
-import { gameStepSound, playNavSound } from './navSound';
+import { useBumperSelect, useDirectionSelect } from './useBumperSelect';
 import { useCloud } from './useCloud';
 import { useHomeData } from './useHomeData';
 import { collectionEyebrow } from './collections';
 import { preloadLogos } from './logoArt';
+import { playNavSound } from './navSound';
 import { tr } from '../i18n/steamText';
 
-/** Hero dim (handoff heroDim): .15 at rest, +.30 while the feed sheet is up. */
-const DIM_REST = 0.15;
+/** Hero dim: none at rest (the art is shaded as on the game page, homeCss .gh-scrim-page), .45 while the feed sheet is up. */
+const DIM_REST = 0;
 const DIM_SHEET = 0.45;
 
 interface Size {
@@ -129,9 +136,29 @@ export function SpotlightHome() {
     const hasFeed = homeWhatsNew || homeFriends || homeRecommended || homeCollections;
     const [resolved, setResolved] = useState(restore === null);
     const [restoring, setRestoring] = useState(restore !== null);
+    // Back from a page (B): Home is just there (motion.RETURN_TIMINGS): Steam's page fades are off for a moment and its UI fades in.
+    const [back, setBack] = useState(restore !== null);
+    useEffect(() => {
+        if (!back) return undefined;
+        const timer = setTimeout(() => setBack(false), RETURN_TIMINGS.hold);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const enterOff = useMemo(() => (back ? steamEnterOffCss() : ''), [back]);
     const data = useHomeData(recentIndex);
     const focusIndex = clampFocus(data.games.length, recentIndex);
     const onLibrary = isLibraryFocus(data.games.length, focusIndex);
+    // A fast run of L1/R1 or Left/Right (home/fastCycle): the hero, the accent and the wide card hold what they showed
+    // while only the selection moves along the narrow cards; the run ends on the selection, shown at once.
+    // A held L1/R1, d-pad or stick that is repeating (useBumperSelect): the run lasts until it is let go.
+    const [bumperRepeating, setBumperRepeating] = useState(false);
+    const [directionRepeating, setDirectionRepeating] = useState(false);
+    const cycle = useFastCycle(focusIndex, bumperRepeating || directionRepeating);
+    const shownAt = heroIndex(data.games.length, cycle.shown);
+    const shownGame = shownAt === null ? null : data.games[shownAt] ?? null;
+    const heldAccent = useRef(data.accent);
+    if (!cycle.holding) heldAccent.current = data.accent;
+    const accent = heldAccent.current;
     // The zone holding gamepad focus, as reported by each zone's focus events; tabs/feed raise the sheet.
     const [zone, setZone] = useState<Zone>('recents');
     // Set once Home has had focus in this mount: until then the game cards claim Steam's preferred focus (Home opens on
@@ -140,7 +167,8 @@ export function SpotlightHome() {
     const sheetUp = zone === 'tabs' || zone === 'feed';
     const gameIds = useMemo(() => data.games.map((g) => g.appId), [data.games]);
     // The games either side of the selection, whose hero art is pre-loaded so L1/R1 crossfade at once.
-    const heroNeighbours = useMemo(() => neighbourIds(gameIds, focusIndex, HERO_PRELOAD_RADIUS), [gameIds, focusIndex]);
+    // Not while a fast run holds the screen: their loads would land on the run's end, as its card widens.
+    const heroNeighbours = useMemo(() => (cycle.holding ? [] : neighbourIds(gameIds, focusIndex, HERO_PRELOAD_RADIUS)), [gameIds, focusIndex, cycle.holding]);
     // With the logo option, their logos too (home/logoArt), on the same rest as the art, so L1/R1 draw the next logo on the step.
     const neighbourKey = heroNeighbours.join(',');
     useEffect(() => {
@@ -189,12 +217,12 @@ export function SpotlightHome() {
         setRecentIndex(next);
         playNavSound();
     };
-    const bumpers = useBumperSelect(actionsRef, focusIndex, data.games.length, select);
+    const bumpers = useBumperSelect(actionsRef, focusIndex, data.games.length, select, setBumperRepeating);
     // The game cards (focusZones.recentsButton): Left/Right select the previous / next game and focus stays on the
     // cards; L1/R1 move focus to the Play pill first, then select as on the action row (its held-bumper repeat goes on
     // there); View/Menu open the selected game's menu at its card.
-    // A held Left/Right steps at a held bumper's pace (focusZones.repeatStep), not at Steam's own faster repeat.
-    const heldDirection = useRef<RepeatState | null>(null);
+    // Left/Right on the cards, held: Home's own timer at a held bumper's pace (useBumperSelect.useDirectionSelect).
+    const directions = useDirectionSelect(recentsRef, focusIndex, data.games.length, setRecentIndex, setDirectionRepeating);
     const onRecentsButtonDown = (evt: GamepadEvent) => {
         try {
             const btn = Number(evt?.detail?.button);
@@ -207,30 +235,30 @@ export function SpotlightHome() {
             const what = recentsButton(btn, focusIndex, data.games.length, isRepeat);
             if (what === null) return;
             if (what === 'bumper') {
+                directions.stop();
                 focusElement(actionButtons()[0], 'the Play pill');
                 bumpers.onButtonDown(evt);
                 return;
             }
-            evt.preventDefault?.();
-            evt.stopPropagation?.();
             if (what === 'menu') {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
                 if (!evt?.detail?.is_repeat && !onLibrary && data.focused) openGameActions(data.focused.appId, selectedCard());
                 return;
             }
-            const paced = repeatStep(Date.now(), heldDirection.current, isRepeat);
-            heldDirection.current = paced.next;
-            if (paced.step) {
-                setRecentIndex(what.select);
-                // Home took the press, so Steam plays no move sound for it: play its own (navSound.gameStepSound).
-                const sound = gameStepSound(focusIndex, what.select, 'dpad');
-                if (sound) playNavSound(sound);
-            }
+            directions.onButtonDown(evt);
         } catch (error) {
             console.warn(`${LOG_PREFIX} Home: game card navigation failed`, error);
         }
     };
-    // The expanded (selected) card: the open transition's source and the menu's anchor; the row itself if not found.
-    const selectedCard = () => (recentsRef.current?.querySelector<HTMLElement>('.gh-cap-wide') ?? recentsRef.current);
+    // The expanded (selected) card: the open transition's source and the menu's anchor (narrow during a fast run); the row itself if not found.
+    const selectedCard = () => (recentsRef.current?.querySelector<HTMLElement>('.gh-cap-wide') ?? recentsRef.current?.querySelector<HTMLElement>('.gh-cap-sel') ?? recentsRef.current);
+    // After the next frames in Big Picture's window (a run just ended: the wide card and the hero first have to be up).
+    const afterFrames = (run: () => void) => {
+        const view = rootRef.current?.ownerDocument?.defaultView;
+        if (view?.requestAnimationFrame) view.requestAnimationFrame(() => view.requestAnimationFrame(run));
+        else setTimeout(run, 50);
+    };
     // A on the cards: the selected game's page (expanding from its card), or the Library on the Library card. One
     // action per press (A and a touch can both arrive).
     const lastOpen = useRef(0);
@@ -240,7 +268,14 @@ export function SpotlightHome() {
         lastOpen.current = now;
         try {
             if (onLibrary || !data.focused) return openLibrary();
-            openGame(data.focused.appId, selectedCard(), gameOpenArt(data.focused.appId));
+            const appId = data.focused.appId;
+            // In a fast run Home still shows another game: it shows the selected one first, then opens it from there.
+            if (cycle.holding) {
+                cycle.settle();
+                afterFrames(() => openGame(appId, selectedCard()));
+                return;
+            }
+            openGame(appId, selectedCard());
         } catch (error) {
             console.warn(`${LOG_PREFIX} Home: opening the selected game failed`, error);
         }
@@ -267,6 +302,7 @@ export function SpotlightHome() {
             setFocusedOnce(true);
         },
         onButtonDown: onRecentsButtonDown,
+        onButtonUp: directions.onButtonUp,
         onActivate: onRecentsActivate,
         onSelect: (next: number) => {
             focusGames();
@@ -304,6 +340,10 @@ export function SpotlightHome() {
     }, [resolved, zone, focusIndex, gameIds]);
     const size = useBoxSize(rootRef);
     const canvas = homeCanvas(size?.width ?? 0, size?.height ?? 0);
+    // The screen in device px, for the size art is loaded at (home/artShrink).
+    useLayoutEffect(() => {
+        if (size) noteDisplay(size.width, size.height, rootRef.current?.ownerDocument?.defaultView?.devicePixelRatio ?? 1, canvas.scale);
+    }, [size, canvas.scale]);
     // Width is the authored one; height follows the real screen so the reserved bars sit on Steam's bars, and the
     // whole stack moves down into the slack under the tab strip (homeCss.stackShift), or with the bottom section hidden
     // into the tab strip's place too.
@@ -323,9 +363,15 @@ export function SpotlightHome() {
     const geometry = useMemo(() => recentsGeometry(scale), [scale]);
     const css = useMemo(() => homeCss(scale), [scale]);
     const game = data.focused;
-    // A game from the family library: "Family Sharing · Grave" beside the store pill (data/family).
+    // A game from the family library: "Family Sharing · Lender" beside the store pill (data/family).
     const family = game ? familyPillLabel(game.appId) : null;
     const contentUp = measuredScale !== null && resolved;
+    // A Unifideck game's size, as its page shows it right after Played (not during a fast run): the open draws that column
+    // (OpenExtras), in Unifideck's own word once a page has shown it, so nothing shifts or pops in at the hand-over.
+    const uniShortcut = !!game && !onLibrary && game.gameId !== undefined && !cycle.holding;
+    const uniInstalled = useUnifideckInstalled(game?.appId ?? null, uniShortcut);
+    const uniBytes = useUnifideckSize(game?.appId ?? null, uniShortcut && typeof uniInstalled === 'boolean', uniInstalled === true, uniShortcut);
+    const sizeColumn = uniShortcut && typeof uniInstalled === 'boolean' ? sizeStat(uniBytes, uniInstalled, data.locale, knownSizeLabel(uniInstalled)) : null;
     // Once the content is up: focus what was focused. The game cards or the actions here; the tabs and the feed are
     // the feed sheet's (their cards may still be loading), which says when it is done. Without a restore (a cold start
     // or a fresh visit) Home opens on the first game card, as Steam's own Home does.
@@ -352,25 +398,25 @@ export function SpotlightHome() {
     }, [contentUp, restoring, hasFeed]);
 
     return (
-        <div ref={rootRef} className="gh-root" style={{ '--glance-accent': data.accent, '--glance-accent-text': legibleAccent(data.accent), '--gh-dim': sheetUp ? DIM_SHEET : DIM_REST, '--gh-side': `${side}px`, '--gh-row': `${rowInset(side, tv)}px`, '--gh-pill': `${pillInset(tv)}px`, '--gh-bottom': `${legend}px`, '--gh-shift': `${stackShift(logicalHeight, legend, false)}px`, '--gh-raise': `${FEED_SHEET.raise + raiseDelta}px` } as CSSProperties}>
+        <div ref={rootRef} className={`gh-root${back ? ' gh-back' : ''}`} style={{ '--glance-accent': accent, '--glance-accent-text': legibleAccent(accent), '--gh-dim': sheetUp ? DIM_SHEET : DIM_REST, '--gh-side': `${side}px`, '--gh-row': `${rowInset(side, tv)}px`, '--gh-pill': `${pillInset(tv)}px`, '--gh-bottom': `${legend}px`, '--gh-shift': `${stackShift(logicalHeight, legend, false)}px`, '--gh-raise': `${FEED_SHEET.raise + raiseDelta}px` } as CSSProperties}>
             <style>{css}</style>
-            <HeroBackground appId={game?.appId ?? null} detailsVersion={data.detailsVersion} neighbours={heroNeighbours} />
+            {enterOff && <style>{enterOff}</style>}
+            {/* No game until the restore is applied (Home back on B): the first game's art would flash before the selected one's. */}
+            <HeroBackground appId={resolved ? shownGame?.appId ?? null : null} detailsVersion={data.detailsVersion} neighbours={heroNeighbours} />
+            {/* The opened game's hero (a feed card's, homeCss.openingRules), the feed sheet's dim, and the page's shading. */}
+            <div className="gh-hero-open" />
             <div className="gh-scrim gh-scrim-dim" />
-            <div className="gh-scrim gh-scrim-v" />
-            <div className="gh-scrim gh-scrim-l" />
+            <div className="gh-scrim gh-scrim-page" />
             <div
                 className="gh-canvas"
-                style={{
-                    width: `${canvas.logicalWidth}px`,
-                    height: `${logicalHeight}px`,
-                    transform: `scale(${canvas.scale})`,
-                    // Not shown until the box has a real size, so it never flashes at the wrong scale.
-                    visibility: size ? 'visible' : 'hidden',
-                }}
+                style={canvasStyle(canvas, logicalHeight, Boolean(size))}
             >
                 {/* In Steam's top strip, above the safe area: clock, battery, connection and your online status. */}
                 {/* The status bar is drawn above Steam's menu layers, outside this root (components/GameStatusBar): the menus blur everything under them. */}
                 {homeStatusBar && contentUp && <GameStatusBar hidden={sheetUp} />}
+                {/* Open transition: the glass panels the chips grow into, one per page card (hidden until opening). */}
+                <div className="gh-open-shell" data-i="0" />
+                <div className="gh-open-shell" data-i="1" />
                 {/* Between Steam's top bar (52) and button legend (46); Home draws neither. */}
                 <div className="gh-safe">
                     {/* The page container: moved down by the stack shift (homeCss.stackShift); raised while focus is in the tabs or feed. */}
@@ -381,7 +427,7 @@ export function SpotlightHome() {
                                     {onLibrary ? (
                                         <TitleBlock eyebrow={eyebrowText(null, true)} title={tr('viewLibrary')} chips={data.libraryChips} />
                                     ) : (
-                                        <TitleBlock eyebrow={collectionEyebrow(data.rowCollection, eyebrowText(data.lastPlayedLabel, false, data.focusedIsNew, data.rowCollection !== null))} title={game.name} chips={data.chips} appId={game.appId} logo={gameLogo} version={data.detailsVersion} />
+                                        <TitleBlock eyebrow={collectionEyebrow(data.rowCollection, eyebrowText(data.lastPlayedLabel, false, data.focusedIsNew, data.rowCollection !== null))} title={game.name} chips={data.chips} appId={game.appId} logo={gameLogo} version={data.detailsVersion} resolve={!cycle.holding} />
                                     )}
                                     <ActionRow
                                         game={onLibrary ? null : game}
@@ -392,6 +438,7 @@ export function SpotlightHome() {
                                         buttons={actionRowButtons}
                                         cloud={onLibrary ? null : cloud}
                                         onBack={focusGames}
+                                        unifideck={!onLibrary && typeof uniInstalled === 'boolean' ? { installed: uniInstalled } : null}
                                     />
                                 </section>
                                 {/* The selected game's store, as the game page's pill; not on the Library card. */}
@@ -400,7 +447,7 @@ export function SpotlightHome() {
                                         {family && <FamilyPill label={family} className="gh-family" iconClassName="gh-family-icon" />}
                                     </SourcePill>
                                 )}
-                                <RecentsRow games={data.games} selected={focusIndex} geometry={geometry} nav={recentsNav} />
+                                <RecentsRow games={data.games} selected={focusIndex} geometry={geometry} nav={recentsNav} expand={!cycle.narrow} snap={cycle.holding} />
                                 {hasFeed && (
                                     <FeedSheet
                                         data={data}
@@ -424,6 +471,8 @@ export function SpotlightHome() {
                     </div>
                 </div>
             </div>
+            {/* Open transition: the page's parts Home draws as it turns into the page (hidden until opening; not built during a fast run). */}
+            {game && !cycle.holding && <OpenExtras description={data.description} hltb={data.hltb} playedMinutes={data.playedMinutes} locale={data.locale} source={data.source} family={family} playedMissing={!data.chips.some((c) => c.key === 'played')} size={sizeColumn} />}
         </div>
     );
 }

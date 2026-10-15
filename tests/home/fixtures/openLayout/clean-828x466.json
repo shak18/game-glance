@@ -1,0 +1,139 @@
+{
+  "screen": {
+    "width": 828,
+    "height": 466
+  },
+  "rects": {
+    "header": {
+      "x": 0,
+      "y": 0,
+      "w": 828.02,
+      "h": 466.38
+    },
+    "headerImgBox": {
+      "x": 0,
+      "y": 0,
+      "w": 828.02,
+      "h": 466.38
+    },
+    "titleblock": {
+      "x": 32.2,
+      "y": 238.85,
+      "w": 368,
+      "h": 115.92
+    },
+    "title": {
+      "x": 32.2,
+      "y": 238.85,
+      "w": 185.84,
+      "h": 99.59
+    },
+    "eyebrow": {
+      "x": 32.2,
+      "y": 346.49,
+      "w": 368,
+      "h": 8.28
+    },
+    "play": {
+      "x": 32.2,
+      "y": 370.88,
+      "w": 195.5,
+      "h": 34.5
+    },
+    "circle0": {
+      "x": 235.75,
+      "y": 370.88,
+      "w": 34.5,
+      "h": 34.5
+    },
+    "circle1": {
+      "x": 278.29,
+      "y": 370.88,
+      "w": 34.5,
+      "h": 34.5
+    },
+    "circle2": {
+      "x": 320.85,
+      "y": 370.88,
+      "w": 34.5,
+      "h": 34.5
+    },
+    "store": {
+      "x": 738.15,
+      "y": 339.26,
+      "w": 57.66,
+      "h": 20.12
+    },
+    "clean": {
+      "x": 573.57,
+      "y": 362.87,
+      "w": 222.25,
+      "h": 50.51
+    },
+    "stat:col0:label": {
+      "x": 588.23,
+      "y": 371.78,
+      "w": 42.74,
+      "h": 9.48
+    },
+    "stat:col0:value": {
+      "x": 588.23,
+      "y": 383.56,
+      "w": 42.74,
+      "h": 15.17
+    },
+    "stat:col1:label": {
+      "x": 647.07,
+      "y": 371.78,
+      "w": 62.79,
+      "h": 9.48
+    },
+    "stat:col1:value": {
+      "x": 647.07,
+      "y": 383.56,
+      "w": 62.79,
+      "h": 15.17
+    },
+    "stat:col1:bar": {
+      "x": 647.07,
+      "y": 402.18,
+      "w": 55.2,
+      "h": 2.3
+    },
+    "stat:col2:label": {
+      "x": 725.96,
+      "y": 371.78,
+      "w": 55.2,
+      "h": 9.48
+    },
+    "stat:col2:value": {
+      "x": 725.96,
+      "y": 383.56,
+      "w": 55.2,
+      "h": 15.17
+    },
+    "stat:col2:bar": {
+      "x": 725.96,
+      "y": 402.18,
+      "w": 55.2,
+      "h": 2.3
+    }
+  },
+  "texts": {
+    "eyebrow": "Last Played · Today",
+    "store": "Steam",
+    "stat:col0:label": "Play Time",
+    "stat:col0:value": "1.9 h",
+    "stat:col1:label": "Achievements",
+    "stat:col1:value": "0 / 49",
+    "stat:col2:label": "HLTB main",
+    "stat:col2:value": "9.1 h"
+  },
+  "headerImg": {
+    "src": "assets/286690/library_hero.jpg?c=780105480",
+    "objectFit": "cover",
+    "objectPosition": "50% 50%",
+    "naturalWidth": 1920,
+    "naturalHeight": 620
+  }
+}

@@ -25,9 +25,9 @@ describe('labelOfItem (Unifideck’s own word for its size item)', () => {
 
 describe('sizeStat with Unifideck’s own label', () => {
     const GB = 1024 ** 3;
-    it('uses it when known; otherwise our English', () => {
+    it("uses it when known; otherwise Unifideck's English", () => {
         expect(sizeStat(3.2 * GB, false, 'es-ES', 'Espacio requerido')).toEqual({ key: 'size', label: 'Espacio requerido', value: '3,2 GB' });
         expect(sizeStat(3.2 * GB, true, 'en-US', null)?.label).toBe('Installed size');
-        expect(sizeStat(3.2 * GB, false, 'en-US', '')?.label).toBe('Install size');
+        expect(sizeStat(3.2 * GB, false, 'en-US', '')?.label).toBe('Space required');
     });
 });

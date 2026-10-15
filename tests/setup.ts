@@ -10,7 +10,9 @@ vi.mock('@decky/api', () => ({
 
 // @decky/ui reads Steam's webpack chunks from `window` on import; Home components import it, and the
 // Home route patch test reaches them through HomeGate. Components are not rendered in node tests.
-vi.mock('@decky/ui', () => ({
+// afterPatch is Decky's real one (its module has no imports): the Home route patch and its tests chain through it.
+vi.mock('@decky/ui', async () => ({
+    afterPatch: (await import('@decky/ui/dist/utils/patcher.js')).afterPatch,
     Focusable: () => null,
     Navigation: { Navigate: vi.fn(), NavigateToExternalWeb: vi.fn(), NavigateToSteamWeb: vi.fn() },
 }));

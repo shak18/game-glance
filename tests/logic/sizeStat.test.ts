@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatBytes } from '../../src/logic/format';
-import { sizeStat } from '../../src/logic/sizeStat';
+import { knownSizeLabel, rememberSizeLabel, resetSizeLabels, sizeStat, steamSpaceStat } from '../../src/logic/sizeStat';
 
 const GB = 1024 ** 3;
 
@@ -21,13 +21,38 @@ describe('formatBytes', () => {
 });
 
 describe('sizeStat', () => {
-    it('labels Installed size when installed and Install size when not', () => {
+    it("labels as Unifideck's English does: Installed size when installed, Space required when not", () => {
         expect(sizeStat(3.2 * GB, true, 'en-US')).toEqual({ key: 'size', label: 'Installed size', value: '3.2 GB' });
-        expect(sizeStat(3.2 * GB, false, 'en-US')).toEqual({ key: 'size', label: 'Install size', value: '3.2 GB' });
+        expect(sizeStat(3.2 * GB, false, 'en-US')).toEqual({ key: 'size', label: 'Space required', value: '3.2 GB' });
     });
     it('is null with no known size', () => {
         expect(sizeStat(null, true, 'en-US')).toBeNull();
         expect(sizeStat(undefined, false, 'en-US')).toBeNull();
         expect(sizeStat(0, true, 'en-US')).toBeNull();
+    });
+});
+
+describe('the size label memo', () => {
+    it("remembers Unifideck's own word (read from its row on the page) per install state, for Home's open", () => {
+        resetSizeLabels();
+        expect(knownSizeLabel(false)).toBeNull();
+        rememberSizeLabel(false, 'Espacio requerido');
+        rememberSizeLabel(true, 'Tamaño instalado');
+        expect(knownSizeLabel(false)).toBe('Espacio requerido');
+        expect(knownSizeLabel(true)).toBe('Tamaño instalado');
+        rememberSizeLabel(true, '  ');
+        expect(knownSizeLabel(true)).toBe('Tamaño instalado');
+    });
+});
+
+describe("a Steam game that is not installed: its space required", () => {
+    it("shows Steam's own 'Space Required' label (in its language) when Steam reports no size on disk", () => {
+        expect(steamSpaceStat({ appid: 1455840 }, 691079517, 'en', 'Space Required')).toEqual({ key: 'size', label: 'Space Required', value: formatBytes(691079517, 'en') });
+        expect(steamSpaceStat({ size_on_disk: 0 }, 691079517, 'es', 'Espacio necesario')?.label).toBe('Espacio necesario');
+    });
+    it('shows nothing for an installed game, or when the space is not known', () => {
+        expect(steamSpaceStat({ size_on_disk: '11058189790' }, 691079517, 'en', 'Space Required')).toBeNull();
+        expect(steamSpaceStat({ appid: 1455840 }, undefined, 'en', 'Space Required')).toBeNull();
+        expect(steamSpaceStat({ appid: 1455840 }, null, 'en', 'Space Required')).toBeNull();
     });
 });

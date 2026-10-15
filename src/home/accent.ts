@@ -43,12 +43,25 @@ function isEntry(value: unknown): value is AccentEntry {
     return color === null || (typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color));
 }
 
-/** Per-game accent; always resolves (default colour on any failure). */
+const attemptSync = (read: () => number): number => {
+    try {
+        return read();
+    } catch {
+        return 0;
+    }
+};
+
+/** A game's accent in the cache: under its custom art's version once it has one (#32), so changed art is sampled again. */
+export function accentKey(appId: number, version = 0): string {
+    return version > 0 ? `accent:${appId}:${version}` : `accent:${appId}`;
+}
+
+/** Per-game accent; always resolves (default colour on any failure). `version`: the game's custom art version (artwork.customArtVersion). */
 export async function accentFor(
     appId: number,
-    deps: { cache: Cache; sample(appId: number): Promise<string | null> },
+    deps: { cache: Cache; sample(appId: number): Promise<string | null>; version?(appId: number): number },
 ): Promise<string> {
-    const key = `accent:${appId}`;
+    const key = accentKey(appId, attemptSync(() => deps.version?.(appId) ?? 0));
     const cached = await attempt('accent cache read', () => deps.cache.get<unknown>(key), null);
     if (isEntry(cached)) return cached.color ?? DEFAULT_ACCENT;
     const color = await attempt('accent sample', () => deps.sample(appId), null);

@@ -1,136 +1,168 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createOpenTransition, TIMINGS } from '../../src/home/openTransition';
+import { createOpenTransition, OpenDeps } from '../../src/home/openTransition';
 
-const RECT = { left: 44, top: 495, width: 311, height: 175 };
-const ART = 'url("https://steamloopback.host/assets/620/header.jpg")';
-
-function setup(navigate: (path: string) => void = () => undefined) {
-    const remove = vi.fn();
-    const mount = vi.fn((_rect: unknown, _art: string) => remove);
-    const nav = vi.fn(navigate);
-    const transition = createOpenTransition({
-        navigate: nav,
-        mount,
+/** Fake deps that log every call with the fake clock's time. */
+function setup(over: Partial<OpenDeps> = {}) {
+    const log: string[] = [];
+    const at = (what: string) => log.push(`${what}@${Date.now()}`);
+    let ready: (() => void) | null = null;
+    const bridge = { fadeIn: vi.fn((ms: number) => at(`fadeIn(${ms})`)), fadeOut: vi.fn((ms: number) => at(`fadeOut(${ms})`)), remove: vi.fn(() => at('remove')) };
+    const undo = vi.fn(() => at('undoHome'));
+    const deps: OpenDeps = {
+        navigate: vi.fn((path: string) => at(`navigate ${path}`)),
+        startHome: vi.fn(() => (at('startHome'), undo)),
+        mountBridge: vi.fn(() => (at('mountBridge'), bridge)),
+        markOpen: vi.fn(() => at('markOpen')),
+        onReady: vi.fn((cb: () => void) => {
+            ready = cb;
+            return () => {
+                ready = null;
+            };
+        }),
         setTimer: (fn, ms) => setTimeout(fn, ms),
         clearTimer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
-    });
-    return { transition, mount, remove, nav };
+        ...over,
+    };
+    return { t: createOpenTransition(deps), deps, log, bridge, undo, fireReady: () => ready?.() };
 }
 
 describe('openTransition', () => {
     beforeEach(() => {
         vi.useFakeTimers();
+        vi.setSystemTime(0);
     });
     afterEach(() => {
         vi.useRealTimers();
     });
 
-    it('keeps the handoff timings', () => {
-        expect(TIMINGS).toEqual({ expand: 480, homeFade: 300, navigateAt: 520, overlayFade: 450, removeAt: 1000 });
-    });
-
-    it('open navigates to the app page at 520 ms and removes the overlay at 1000 ms', () => {
-        const { transition, mount, remove, nav } = setup();
-        transition.open(620, RECT, ART);
-        expect(mount).toHaveBeenCalledTimes(1);
-        expect(mount).toHaveBeenCalledWith(RECT, ART);
-        vi.advanceTimersByTime(519);
-        expect(nav).not.toHaveBeenCalled();
+    it('morph: Home moves at once; at 450 the bridge fades in over it (150 ms), then the intent is marked and the page opens', () => {
+        // Live Home's moved text and logo are drawn soft (raster of an animated layer); the copy is drawn crisp: it fades in
+        // over Home instead of replacing it in one frame (Michael: a pop at the end of the open).
+        const { t, log } = setup();
+        t.open(620, 'morph');
+        expect(log).toEqual(['startHome@0']);
+        vi.advanceTimersByTime(449);
+        expect(log).toHaveLength(1);
         vi.advanceTimersByTime(1);
-        expect(nav).toHaveBeenCalledTimes(1);
-        expect(nav).toHaveBeenCalledWith('/library/app/620');
-        vi.advanceTimersByTime(479);
-        expect(remove).not.toHaveBeenCalled();
+        expect(log).toEqual(['startHome@0', 'mountBridge@450', 'fadeIn(150)@450']);
+        vi.advanceTimersByTime(150);
+        expect(log).toEqual(['startHome@0', 'mountBridge@450', 'fadeIn(150)@450', 'markOpen@600', 'navigate /library/app/620@600']);
+    });
+
+    it('the hand-over comes at 300 for a feed card (heroFade) and 220 for a plain fade', () => {
+        const a = setup();
+        a.t.open(1, 'heroFade');
+        vi.advanceTimersByTime(300);
+        expect(a.log).toContain('navigate /library/app/1@300');
+        const b = setup();
+        b.t.open(2, 'fade');
+        vi.advanceTimersByTime(220);
+        expect(b.log).toContain('navigate /library/app/2@520');
+    });
+
+    it('ready before the cap fades the bridge at once, then removes it', () => {
+        const { t, log, fireReady } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(650);
+        fireReady();
+        expect(log).toContain('fadeOut(300)@650');
+        vi.advanceTimersByTime(300);
+        expect(log).toContain('remove@950');
+    });
+
+    it("once the bridge is gone Home's opening state is undone (Steam may keep Home, or bring it back on B: it was left mid-open)", () => {
+        const { t, undo, fireReady } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(650);
+        fireReady();
+        expect(undo).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(300);
+        expect(undo).toHaveBeenCalledTimes(1);
+    });
+
+    it('no ready: the bridge leaves at the cap (500 ms after the page opened)', () => {
+        const { t, log } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(1099);
+        expect(log.some((l) => l.startsWith('fadeOut'))).toBe(false);
         vi.advanceTimersByTime(1);
-        expect(remove).toHaveBeenCalledTimes(1);
-        vi.advanceTimersByTime(5000);
-        expect(nav).toHaveBeenCalledTimes(1);
-        expect(remove).toHaveBeenCalledTimes(1);
+        expect(log).toContain('fadeOut(300)@1100');
+        vi.advanceTimersByTime(300);
+        expect(log).toContain('remove@1400');
     });
 
-    it('open removes the overlay immediately when navigate throws and Home stays usable', () => {
-        const { transition, mount, remove, nav } = setup(() => {
-            throw new Error('router gone');
-        });
-        transition.open(620, RECT, ART);
-        expect(() => vi.advanceTimersByTime(520)).not.toThrow();
-        expect(nav).toHaveBeenCalledTimes(1);
-        expect(remove).toHaveBeenCalledTimes(1);
-        vi.advanceTimersByTime(5000);
-        expect(remove).toHaveBeenCalledTimes(1);
-        // Usable again: a new press starts a new transition.
-        transition.open(730, RECT, ART);
-        expect(mount).toHaveBeenCalledTimes(2);
+    it('Home cannot be measured: the page opens at once, nothing mounted', () => {
+        const { t, deps, log } = setup({ startHome: vi.fn(() => null) });
+        t.open(620, 'morph');
+        expect(log).toEqual(['navigate /library/app/620@0']);
+        vi.advanceTimersByTime(2000);
+        expect(deps.mountBridge).not.toHaveBeenCalled();
     });
 
-    it('open ignores a second call while running', () => {
-        const { transition, mount, remove, nav } = setup();
-        transition.open(620, RECT, ART);
-        transition.open(730, RECT, ART);
-        vi.advanceTimersByTime(600);
-        transition.open(840, RECT, ART);
-        vi.advanceTimersByTime(5000);
-        expect(mount).toHaveBeenCalledTimes(1);
-        expect(nav).toHaveBeenCalledTimes(1);
-        expect(nav).toHaveBeenCalledWith('/library/app/620');
-        expect(remove).toHaveBeenCalledTimes(1);
-        // Once the first has finished, A works again.
-        transition.open(730, RECT, ART);
-        expect(mount).toHaveBeenCalledTimes(2);
+    it('a plain fade or a feed card hands over without the fade-in (nothing of Home was scaled)', () => {
+        const { t, log } = setup();
+        t.open(1, 'heroFade');
+        vi.advanceTimersByTime(300);
+        expect(log).toEqual(['startHome@0', 'mountBridge@300', 'markOpen@300', 'navigate /library/app/1@300']);
     });
 
-    it('cancel removes the overlay and stops pending timers', () => {
-        const { transition, mount, remove, nav } = setup();
-        transition.open(620, RECT, ART);
+    it('cancel while the bridge fades in: it goes, Home is restored, and the page never opens', () => {
+        const { t, deps, bridge, undo } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(500);
+        t.cancel();
+        vi.advanceTimersByTime(2000);
+        expect(bridge.remove).toHaveBeenCalledTimes(1);
+        expect(undo).toHaveBeenCalledTimes(1);
+        expect(deps.navigate).not.toHaveBeenCalled();
+    });
+
+    it('a bridge that cannot be mounted still lets the page open at the hand-over', () => {
+        const { t, log } = setup({ mountBridge: vi.fn(() => { throw new Error('no body'); }) });
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(450);
+        expect(log).toContain('navigate /library/app/620@450');
+    });
+
+    it('a second open while one runs is ignored', () => {
+        const { t, deps } = setup();
+        t.open(620, 'morph');
+        t.open(700, 'morph');
+        vi.advanceTimersByTime(2000);
+        expect(deps.navigate).toHaveBeenCalledTimes(1);
+        expect(deps.navigate).toHaveBeenCalledWith('/library/app/620');
+    });
+
+    it('cancel before the hand-over undoes Home and never opens the page', () => {
+        const { t, deps, undo } = setup();
+        t.open(620, 'morph');
         vi.advanceTimersByTime(200);
-        transition.cancel();
-        expect(remove).toHaveBeenCalledTimes(1);
-        vi.advanceTimersByTime(5000);
-        expect(nav).not.toHaveBeenCalled();
-        expect(remove).toHaveBeenCalledTimes(1);
-        expect(vi.getTimerCount()).toBe(0);
-        transition.cancel();
-        expect(remove).toHaveBeenCalledTimes(1);
-        transition.open(730, RECT, ART);
-        expect(mount).toHaveBeenCalledTimes(2);
+        t.cancel();
+        vi.advanceTimersByTime(2000);
+        expect(undo).toHaveBeenCalledTimes(1);
+        expect(deps.navigate).not.toHaveBeenCalled();
+        expect(deps.mountBridge).not.toHaveBeenCalled();
     });
 
-    it('open navigates at once without an overlay when the rect is unusable', () => {
-        for (const rect of [{ left: 0, top: 0, width: 0, height: 175 }, { left: Number.NaN, top: 0, width: 10, height: 10 }, null]) {
-            const { transition, mount, nav } = setup();
-            transition.open(620, rect as never, ART);
-            expect(mount).not.toHaveBeenCalled();
-            expect(nav).toHaveBeenCalledWith('/library/app/620');
-            expect(vi.getTimerCount()).toBe(0);
-        }
+    it('cancel after the hand-over removes the bridge and restores Home; a later ready does nothing', () => {
+        const { t, bridge, undo, fireReady } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(650);
+        t.cancel();
+        expect(bridge.remove).toHaveBeenCalledTimes(1);
+        expect(undo).toHaveBeenCalledTimes(1);
+        fireReady();
+        vi.advanceTimersByTime(2000);
+        expect(bridge.fadeOut).not.toHaveBeenCalled();
+        expect(bridge.remove).toHaveBeenCalledTimes(1);
     });
 
-    it('open navigates at once when mount throws', () => {
-        const nav = vi.fn();
-        const transition = createOpenTransition({
-            navigate: nav,
-            mount: () => {
-                throw new Error('no document');
-            },
-            setTimer: (fn, ms) => setTimeout(fn, ms),
-            clearTimer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
-        });
-        expect(() => transition.open(620, RECT, ART)).not.toThrow();
-        expect(nav).toHaveBeenCalledWith('/library/app/620');
-        expect(vi.getTimerCount()).toBe(0);
-    });
-
-    it('open never throws when navigate throws on the fallback path', () => {
-        const transition = createOpenTransition({
-            navigate: () => {
-                throw new Error('router gone');
-            },
-            mount: () => {
-                throw new Error('no document');
-            },
-            setTimer: (fn, ms) => setTimeout(fn, ms),
-            clearTimer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
-        });
-        expect(() => transition.open(620, RECT, ART)).not.toThrow();
+    it('after it finishes, a new open runs', () => {
+        const { t, deps } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(2000);
+        t.open(700, 'fade');
+        vi.advanceTimersByTime(2000);
+        expect(deps.navigate).toHaveBeenCalledTimes(2);
     });
 });

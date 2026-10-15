@@ -186,3 +186,18 @@ describe('recentsLayout (docked x1.6)', () => {
         expect(rest.ghosts.map((g) => g.left)).toEqual([0, 1, 2, 3, 4, 5, 6, 7].map((j) => rest.ghostStart + j * 168));
     });
 });
+
+describe('recentsLayout without the wide card (a fast L1/R1 run)', () => {
+    const g = recentsGeometry(1);
+    it('every card stays narrow and none is pushed aside; the row still scrolls to the selection', () => {
+        const l = recentsLayout(5, 2, g, false);
+        expect(l.items.map((i) => i.width)).toEqual(Array(6).fill(g.capsuleW));
+        expect(l.items.map((i) => i.left)).toEqual([0, 1, 2, 3, 4, 5].map((i) => i * g.step));
+        expect(l.scrollX).toBe(recentsLayout(5, 2, g).scrollX);
+        expect(l.ghostStart).toBe(6 * g.step + g.ghostGap);
+        expect(l.ghosts.map((x) => x.opacity)).toEqual(recentsLayout(5, 2, g).ghosts.map((x) => x.opacity));
+    });
+    it('expanded by default, as before', () => {
+        expect(recentsLayout(5, 2, g).items[2].width).toBe(g.wideW);
+    });
+});

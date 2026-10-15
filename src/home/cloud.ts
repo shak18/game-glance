@@ -33,6 +33,16 @@ export interface CloudState {
     action: CloudAction;
     /** Words for the button's label. */
     label: string;
+    /** A Unifideck game: its own cloud button's look (data/unifideckCloud), drawn instead of Steam's icon and colours. */
+    unifideck?: UnifideckCloudLook;
+}
+
+/** Unifideck's cloud button: its icon (Font Awesome cloud, turning arrows, download cloud, or cloud with a check), its inset ring, dimmed, breathing. */
+export interface UnifideckCloudLook {
+    icon: 'cloud' | 'sync' | 'download' | 'insync';
+    ring: string | null;
+    dim: boolean;
+    breathe: boolean;
 }
 
 export interface CloudDetails {

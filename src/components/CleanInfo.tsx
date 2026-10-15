@@ -8,7 +8,7 @@ export function CleanInfo({ game, hltb, locale, size = null }: { game: GameInfo;
     return (
         <div className="gg-clean-info">
             {cleanStats(game, hltb, locale, size).map((s) => (
-                <div key={s.key}>
+                <div key={s.key} data-stat={s.key}>
                     <div className="gg-label">{s.label}</div>
                     <div className="gg-value">{s.value}</div>
                     {s.progress !== undefined && <div className="gg-bar"><div style={{ width: `${Math.round(s.progress * 100)}%` }} /></div>}

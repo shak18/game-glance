@@ -16,11 +16,23 @@ export interface ThemeClasses {
     play: ClassMap; // playSectionClasses: StatusAndStats, MenuButton, CloudStatus*, OfflineMode
     launch?: ClassMap; // Steam's launch overlay module: Container, ConfigurationHeader, ControlOverviewContainer, LaunchStatus
     shared?: ClassMap; // the Play section's family library line module: Row, SharedLibrary
+    transition?: ClassMap; // Steam's top-level page transition module: TopLevelTransition, Enter, EnterActive (its page-enter fade)
+    footer?: ClassMap; // Steam's footer module: BasicFooter, FooterLegend (the button legend along the bottom of every page)
 }
 
 function cls(map: ClassMap, key: string): string | null {
     const name = map?.[key];
     return typeof name === 'string' && name.length > 0 ? `.${name}` : null;
+}
+
+/**
+ * A focused pill's scale: 4% taller as a focused circle, but only as much wider as a circle grows (its height's share), not
+ * 4% of its width: a 340 wide pill grew 6.8 px each side and halved its gap to the circles (Michael: too narrow). Same on
+ * Home's pill, the page's and Unifideck's. Pure.
+ */
+export function pillFocusScale(width: number, height: number): { x: number; y: number } {
+    const f = PAGE_LAYOUT.focusScale;
+    return { x: Math.round((1 + (height * (f - 1)) / width) * 100000) / 100000, y: f };
 }
 
 /** One CSS rule, or nothing if any Steam class it needs is missing (so a Steam update skips it). */
@@ -50,6 +62,69 @@ const SCRIM_LEFT = 'linear-gradient(90deg, rgba(8, 11, 15, 0.45) 0%, transparent
 // The handoff's details scrims (scrim base rgb(5,7,10)), laid over the 1.1.1 ones when restyled.
 const HANDOFF_SCRIM_LEFT = 'linear-gradient(90deg, rgba(5, 7, 10, 0.6) 0%, rgba(5, 7, 10, 0.1) 55%, rgba(5, 7, 10, 0) 75%)';
 const HANDOFF_SCRIM_BOTTOM = 'linear-gradient(180deg, rgba(5, 7, 10, 0) 55%, rgba(5, 7, 10, 0.6) 100%)';
+/** The restyled header's scrim layers, top to bottom (the handoff's over the 1.1.1 ones); also Home's page scrim in the open transition. */
+export const PAGE_SCRIM_LAYERS = [HANDOFF_SCRIM_LEFT, HANDOFF_SCRIM_BOTTOM, SCRIM_BOTTOM, SCRIM_LEFT] as const;
+/**
+ * Steam's own shadow along the top of the game page (its header module's TopGradient: 75 px, black .5 to clear;
+ * probed on the Ally). Steam draws it on the page itself; Spotlight Home draws it too (homeCss .gh-scrim-page).
+ */
+export const STEAM_TOP_GRADIENT = 'linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0px, rgba(0, 0, 0, 0) 75px)';
+/** The same layers as one CSS background value. */
+export const PAGE_SCRIMS = PAGE_SCRIM_LAYERS.join(', ');
+
+/**
+ * The restyled page's layout in the handoff's px (`d`, --gg-d), one source for the theme below and for the open
+ * transition's targets (home/openTargets). Values in px are CSS px; everything else is in d units.
+ */
+export const PAGE_LAYOUT = {
+    /** --gg-d = 100vw / canvas: the 1440 wide canvas, or 1280 at an aspect of 17/10 or narrower. */
+    canvas: { wide: 1440, deck: 1280, deckMaxAspect: 1.7 },
+    /** The TV media query (CSS px). */
+    tvQuery: { minWidth: 1408, minHeight: 793 },
+    side: { base: 56, tv: 24 },
+    playW: 340,
+    icon: 60,
+    gap: 14,
+    /** The Play row: the pill (icon) and the gap under it. */
+    rowH: 96,
+    /** Play row top: H - spotlight; on a TV H - legend - (rowH + tvCards + tvGap). */
+    playTop: { spotlight: 386, tvCards: 178, tvGap: 24 },
+    /** The Clean look: the row ends max(bottom, minBelowRow px - (rowH - icon)) above the bottom; title and store pill gaps above the row. */
+    clean: { bottom: 36, minBelowRow: 61, gap: 28, storeGap: 20 },
+    /** The title block's bottom above the Play row (Spotlight look). */
+    titleGap: 36,
+    cards: { gridGap: 18, padX: 24, padY: 20, colGap: 12, hltbGap: 10, split: [1.1, 1] as const },
+    stats: { label: 11, value: 30, colGapInfo: 40, colGapHltb: 36, rowGap: 4 },
+    /** The title block: the gap between title and eyebrow, and the eyebrow's type size. */
+    titleBlock: { gap: 14, eyebrow: 12, title: 64 },
+    /** Inside the Play pill: its glyph's inset, the glyph, the gap to the label, the label's type size. */
+    pill: { padX: 24, icon: 20, iconGap: 14, font: 22 },
+    /** The Play pill's "Play from" arrow (a game on more than one device): its segment's width and glyph, at the pill's right end. */
+    playArrow: { w: 56, glyph: 14 },
+    /** The glyph in the controller and gear circles. */
+    circleIcon: 24,
+    /** A focused button grows by this about its centre (Home's buttons and the page's Play, alike). */
+    focusScale: 1.04,
+    /** The cloud circle's glyph (Home's size; the page's was in another unit, so its ratio to Home's changed with the screen). */
+    cloudIcon: 26,
+    cleanInfo: { padX: 24, padY: 14, colGap: 28, value: 22, barW: 96, barH: 4, barTop: 2 },
+    /** Inside the Spotlight cards: the description's type size, line height and lines (clamped), the caption's type size, the HowLongToBeat bar's height. */
+    cardText: { desc: 15, descLine: 1.5, descLines: 3, caption: 15, bar: 6 },
+    /** The store pill's top above the cards block (.gg-hero), Spotlight look. */
+    storePillTop: 82,
+} as const;
+
+/** The page's Play pill focused (pillFocusScale on the pill's size). */
+const PILL_FOCUS = pillFocusScale(PAGE_LAYOUT.playW, PAGE_LAYOUT.icon);
+
+/** The TV media query as CSS. */
+const TV_QUERY = `@media (min-width: ${PAGE_LAYOUT.tvQuery.minWidth}px) and (min-height: ${PAGE_LAYOUT.tvQuery.minHeight}px)`;
+
+/** The page's d unit (CSS px per handoff px) for a Big Picture window of `width` x `height` CSS px, as --gg-d. */
+export function pageDUnit(width: number, height: number): number {
+    const { wide, deck, deckMaxAspect } = PAGE_LAYOUT.canvas;
+    return width / (width / height > deckMaxAspect ? wide : deck);
+}
 
 export interface ThemeOptions {
     /** Spotlight Home's look (both toggles on, homeMode().restyleDetails): only appends rules to the 1.1.1 theme. */
@@ -261,13 +336,20 @@ export function buildUnifideckCss({ header, details, root }: ThemeClasses, optio
         // Spotlight Home's look: Steam's Play row has no top padding and a 36 one below (see the playSection rule above), so the buttons start
         // at --gg-play-top; the same here, or Unifideck's pill sits lower than Steam's.
         options.restyle ? rule(`${inner}${UNIFIDECK_PAGE} > div:has(${UNIFIDECK_PRIMARY.join(', ')})`, ` padding-top: 0 !important; padding-bottom: ${d(36)} !important; `) : '',
-        // And the handoff's pill type, dark text on the accent, as on our own Play pill.
-        options.restyle ? rule(primary, ` font-size: ${d(22)} !important; font-weight: 700 !important; color: #0b0d10 !important; `) : '',
+        // And the handoff's pill type, white on the accent and focused as our own Play pill (ring, glow, focus scale).
+        options.restyle ? rule(primary, ` font-size: ${d(22)} !important; font-weight: 700 !important; color: #ffffff !important; transition: transform 250ms, box-shadow 250ms !important; `) : '',
+        // Read and laid out as Home's pill and Steam's (consistent on Home and every page): the word as written, not in
+        // Unifideck's capitals, and glyph and word from the left at the page pill's inset, glyph size and gap.
+        options.restyle ? rule(primary, ` text-transform: none !important; justify-content: flex-start !important; gap: 0 !important; padding: 0 ${d(PAGE_LAYOUT.pill.padX)} !important; `) : '',
+        // Its cloud button's in-sync check badge at Unifideck's proportion to the 24 glyph (the circles' rule sizes every svg 24).
+        options.restyle ? rule('.unifideck-icon-btn svg.unifideck-cloud-badge', ` width: ${d(13)} !important; height: ${d(13)} !important; `) : '',
+        options.restyle ? rule(primary.map((p) => `${p} svg`), ` width: ${d(PAGE_LAYOUT.pill.icon)} !important; height: ${d(PAGE_LAYOUT.pill.icon)} !important; margin: 0 ${d(PAGE_LAYOUT.pill.iconGap)} 0 0 !important; flex: 0 0 auto !important; `) : '',
+        options.restyle ? rule(focused, ` box-shadow: 0 0 0 ${d(2)} rgba(255, 255, 255, 0.9), 0 ${d(14)} ${d(40)} calc(-1 * ${d(8)}) var(--gg-accent) !important; transform: scale(${PILL_FOCUS.x}, ${PILL_FOCUS.y}) !important; `) : '',
     ].filter((r) => r.length > 0).join('\n');
 }
 
 /** The Clean look's bottom margin under the Play row (room for Steam's button legend), and the gaps around the row. */
-const CLEAN_BOTTOM = 36;
+const CLEAN_BOTTOM = PAGE_LAYOUT.clean.bottom;
 /**
  * The least space, in CSS px, from the Play pill's bottom to the screen's bottom: Steam's button legend is a fixed ~41 px strip (measured
  * on the Ally at 828x466 and 1500x844), so on the small handheld screen the scaled 2 x 36 would put the pill under it. Docked it is exceeded (75).
@@ -275,11 +357,11 @@ const CLEAN_BOTTOM = 36;
 /** Steam's bottom button legend (MENU / SELECT / BACK): a fixed css height at every screen size (measured on the Ally, handheld and docked). */
 export const STEAM_LEGEND_PX = 41;
 /** The restyled cards' height with three description lines, in canvas px (measured docked: 185 css px at 1500 wide). */
-const TV_CARDS_H = 178;
+const TV_CARDS_H = PAGE_LAYOUT.playTop.tvCards;
 /** On a TV the cards end this far above Steam's legend: the TV's side inset (home/insets.SIDE_INSET.tv). */
-const TV_CARDS_GAP = 24;
-const CLEAN_MIN_BELOW_ROW = 61;
-const CLEAN_GAP = 28;
+const TV_CARDS_GAP = PAGE_LAYOUT.playTop.tvGap;
+const CLEAN_MIN_BELOW_ROW = PAGE_LAYOUT.clean.minBelowRow;
+const CLEAN_GAP = PAGE_LAYOUT.clean.gap;
 
 /**
  * The Game Glance page's Clean look (homeMode().cleanDetails, on top of the restyled page): the art takes the screen;
@@ -295,20 +377,20 @@ export function buildCleanCss({ header, details, root }: ThemeClasses): string {
     return [
         // The Play row moves down to the bottom: the row (pill 60 + 36 gap, --gg-row-h) ends CLEAN_BOTTOM above the screen's
         // bottom. Steam's tabs still start at 100vh (their margin follows --gg-play-top), so nothing else moves.
-        `:root { --gg-play-top: calc(100vh - ${d(96)} - max(${d(CLEAN_BOTTOM)}, calc(${CLEAN_MIN_BELOW_ROW}px - ${d(36)}))); }`,
+        `:root { --gg-play-top: calc(100vh - ${d(PAGE_LAYOUT.rowH)} - max(${d(CLEAN_BOTTOM)}, calc(${CLEAN_MIN_BELOW_ROW}px - ${d(PAGE_LAYOUT.rowH - PAGE_LAYOUT.icon)}))); }`,
         // Our block sits on the Play row itself (not under it), clicks go through to Steam's buttons.
         rule(`${inner} > .gg-hero`, ` top: var(--gg-play-top) !important; height: var(--gg-icon) !important; pointer-events: none; `),
         // No description or HowLongToBeat cards in this look.
         `.gg-cards { display: none !important; }`,
         // The info card at the right end of the row, vertically centred on the Play pill; the glass of the other cards.
-        `.gg-clean-info { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: flex-start; gap: ${d(28)};
-            padding: ${d(14)} ${d(24)}; border-radius: ${d(16)}; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(12, 16, 22, 0.38);
+        `.gg-clean-info { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: flex-start; gap: ${d(PAGE_LAYOUT.cleanInfo.colGap)};
+            padding: ${d(PAGE_LAYOUT.cleanInfo.padY)} ${d(PAGE_LAYOUT.cleanInfo.padX)}; border-radius: ${d(16)}; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(12, 16, 22, 0.38);
             backdrop-filter: blur(${d(16)}); color: #fff; }`,
-        `.gg-clean-info > div { display: flex; flex-direction: column; gap: ${d(4)}; }`,
-        `.gg-clean-info .gg-value { font-size: ${d(22)}; line-height: 1.2; }`,
-        `.gg-clean-info .gg-bar { width: ${d(96)}; height: ${d(4)}; margin-top: ${d(2)}; }`,
+        `.gg-clean-info > div { display: flex; flex-direction: column; gap: ${d(PAGE_LAYOUT.stats.rowGap)}; }`,
+        `.gg-clean-info .gg-value { font-size: ${d(PAGE_LAYOUT.cleanInfo.value)}; line-height: 1.2; }`,
+        `.gg-clean-info .gg-bar { width: ${d(PAGE_LAYOUT.cleanInfo.barW)}; height: ${d(PAGE_LAYOUT.cleanInfo.barH)}; margin-top: ${d(PAGE_LAYOUT.cleanInfo.barTop)}; }`,
         // The store pill above the row, at its right edge.
-        `.gg-pill { top: auto; bottom: calc(100% + ${d(CLEAN_GAP - 8)}); }`,
+        `.gg-pill { top: auto; bottom: calc(100% + ${d(PAGE_LAYOUT.clean.storeGap)}); }`,
         // The eyebrow and title just above the row, at the left (their bottom CLEAN_GAP above the Play pill).
         rule(`${inner} > .gg-titleblock`, ` top: calc(var(--gg-play-top) - ${d(CLEAN_GAP)}) !important; transform: translateY(-100%); `),
     ].filter((r) => r.length > 0).join('\n');
@@ -374,35 +456,36 @@ function restyleRules({ header, details, root, play, shared }: ThemeClasses, lay
         // The game's accent (buildAccentCss sets it on the page container) becomes the theme's accent:
         // the Play pill, the HLTB goal value and bar. Registered so it can animate, as on Home.
         `@property --glance-accent { syntax: '<color>'; inherits: true; initial-value: ${DEFAULT_ACCENT}; }`,
-        `:root { --gg-d: calc(100vw / 1440); }`,
-        `@media (max-aspect-ratio: 17/10) { :root { --gg-d: calc(100vw / 1280); } }`,
+        `:root { --gg-d: calc(100vw / ${PAGE_LAYOUT.canvas.wide}); }`,
+        `@media (max-aspect-ratio: 17/10) { :root { --gg-d: calc(100vw / ${PAGE_LAYOUT.canvas.deck}); } }`,
         rule(inner, ` --gg-accent: var(--glance-accent); transition: --glance-accent ${ACCENT_MS}ms ease; `),
 
         // Side insets 56: Steam's Play row (2.8vw of its own) and everything placed by --gg-side move together,
         // so the cloud icon's position (counted from --gg-side) stays right.
-        playSection ? `:root { --gg-side: ${d(56)}; }` : '',
+        playSection ? `:root { --gg-side: ${d(PAGE_LAYOUT.side.base)}; }` : '',
         // A TV (screenScale.isTvScreen: 1.7x the handheld's 828x466 or more: 1408 x 793) takes the status dot's centre line (1.7vw, 24 canvas px) instead of 3.9vw:
         // 56 read too far from the edge on a big screen. The handheld and the Deck keep 56. (Home does the same: home/insets.)
-        playSection ? `@media (min-width: 1408px) and (min-height: 793px) { :root { --gg-side: ${d(24)}; } }` : '',
+        playSection ? `${TV_QUERY} { :root { --gg-side: ${d(PAGE_LAYOUT.side.tv)}; } }` : '',
         rule(playSection, ` padding-left: var(--gg-side) !important; padding-right: var(--gg-side) !important; `),
 
         // Handoff sizes (Play pill 340x60, 60px circles, gap 14), scaled like Home's. They feed the 1.1.1 rules
         // (Play button width, buttons, the cloud icon's position), which keep working unchanged.
-        `:root { --gg-play-w: ${d(340)}; --gg-icon: ${d(60)}; --gg-gap: ${d(14)}; }`,
+        `:root { --gg-play-w: ${d(PAGE_LAYOUT.playW)}; --gg-icon: ${d(PAGE_LAYOUT.icon)}; --gg-gap: ${d(PAGE_LAYOUT.gap)}; }`,
         // The row sits on a 36 gap above the cards: Play row top = H - 386, cards top = H - 290 (handoff).
-        rule(playSection, ` padding-top: 0 !important; padding-bottom: ${d(36)} !important; `),
+        rule(playSection, ` padding-top: 0 !important; padding-bottom: ${d(PAGE_LAYOUT.rowH - PAGE_LAYOUT.icon)} !important; `),
         rule(cloud, ` top: 0 !important; `),
         // Steam gives the pill group a fixed min-width in px (164, and 218 for games with a "Play from" arrow), which would
         // push the arrow segment past the slot into the circles. The group is exactly the slot; the arrow sits inside its right end.
         rule(playButton && `${playButton} > div:has(> [role="button"])`, ` min-width: 0 !important; `),
-        rule(playButton && `${playButton} [role="button"]`, ` font-size: ${d(22)} !important; font-weight: 700 !important; padding: ${d(8)} ${d(24)} !important; `),
-        rule(playButton && `${playButton} [role="button"] > div`, ` font-size: ${d(22)} !important; `),
-        rule(playButton && `${playButton} [role="button"] svg`, ` width: ${d(20)} !important; height: ${d(20)} !important; margin-right: ${d(14)} !important; `),
-        rule(playButton && `${playButton} [role="button"] + [role="button"]`, ` flex: 0 0 ${d(56)} !important; width: ${d(56)} !important; padding: 0 !important; `),
-        rule(playButton && `${playButton} [role="button"] + [role="button"] svg`, ` width: ${d(14)} !important; height: ${d(14)} !important; `),
+        rule(playButton && `${playButton} [role="button"]`, ` font-size: ${d(PAGE_LAYOUT.pill.font)} !important; font-weight: 700 !important; padding: ${d(8)} ${d(PAGE_LAYOUT.pill.padX)} !important; `),
+        // The label bold like Home's (Steam's own class sets 500), so nothing changes at the open transition's hand-over.
+        rule(playButton && `${playButton} [role="button"] > div`, ` font-size: ${d(PAGE_LAYOUT.pill.font)} !important; font-weight: 700 !important; color: #ffffff !important; `),
+        rule(playButton && `${playButton} [role="button"] svg`, ` width: ${d(PAGE_LAYOUT.pill.icon)} !important; height: ${d(PAGE_LAYOUT.pill.icon)} !important; margin-right: ${d(PAGE_LAYOUT.pill.iconGap)} !important; `),
+        rule(playButton && `${playButton} [role="button"] + [role="button"]`, ` flex: 0 0 ${d(PAGE_LAYOUT.playArrow.w)} !important; width: ${d(PAGE_LAYOUT.playArrow.w)} !important; padding: 0 !important; `),
+        rule(playButton && `${playButton} [role="button"] + [role="button"] svg`, ` width: ${d(PAGE_LAYOUT.playArrow.glyph)} !important; height: ${d(PAGE_LAYOUT.playArrow.glyph)} !important; `),
         rule(menuButton, ` background: rgba(12, 16, 22, 0.4) !important; backdrop-filter: blur(${d(12)}) !important; `),
         rule(menuButton && `${menuButton}.gpfocus`, ` background: #ffffff !important; `),
-        rule(menuButton && `${menuButton} svg`, ` width: ${d(24)} !important; height: ${d(24)} !important; `),
+        rule(menuButton && `${menuButton} svg`, ` width: ${d(PAGE_LAYOUT.circleIcon)} !important; height: ${d(PAGE_LAYOUT.circleIcon)} !important; `),
         // The cloud status is the same circle as the others (Steam's own row background, and the lighter 1.1.1 fill, gave it
         // a lighter tinted disc); its icon keeps the state colour, re-tuned for the dark fill (CLOUD_COLOURS, shared with
         // Home) with a dark halo for bright art. It only takes focus on a sync problem: white like the others, dark red icon.
@@ -410,19 +493,27 @@ function restyleRules({ header, details, root, play, shared }: ThemeClasses, lay
             backdrop-filter: blur(${d(12)}) !important; box-shadow: none !important;
             --gg-ok: ${CLOUD_COLOURS.ok}; --gg-warn: ${CLOUD_COLOURS.busy}; --gg-bad: ${CLOUD_COLOURS.bad}; --gg-off: ${CLOUD_COLOURS.off}; `),
         rule(cloud && `${cloud} svg`, ` filter: drop-shadow(0 0 ${d(1.5)} rgba(0, 0, 0, 0.7)) !important; `),
+        rule(cloud && `${cloud} svg`, ` width: ${d(PAGE_LAYOUT.cloudIcon)} !important; height: ${d(PAGE_LAYOUT.cloudIcon)} !important; `),
         rule(cloud && `${cloud}.gpfocus`, ` background: #ffffff !important; color: ${CLOUD_FOCUS_BAD} !important; `),
 
-        // Play: dark text on the accent pill (handoff "text on accent"), a white ring and accent glow when focused.
-        rule(playButton && `${playButton} [role="button"]`, ` color: #0b0d10 !important; `),
+        // Play: white words and glyph on the accent pill, as on Home. Focused as Home's Play: the fill stays the accent (no
+        // lighter overlay), a white ring and accent glow, and it grows by the focus scale.
+        rule(playButton && `${playButton} [role="button"]`, ` color: #ffffff !important; `),
+        rule(playButton && `${playButton} [role="button"].gpfocus`, ` background: transparent !important; `),
+        // The "Play from" arrow focused: the pill shows its focus (below) and the arrow's segment is tinted, as on Home.
+        rule(playButton && `${playButton} [role="button"] + [role="button"].gpfocus`, ` background: rgba(255, 255, 255, 0.28) !important; `),
+        // Steam's focus shine on Play (a green gradient on its ::after) would show over the accent pill.
+        rule(playButton && `${playButton} [role="button"]::after`, ` display: none !important; `),
+        rule(playButton && `${playButton} > div:has(> [role="button"])`, ` transition: transform 250ms, box-shadow 250ms !important; `),
         rule(playButton && `${playButton} > div:has(> [role="button"].gpfocus)`,
-            ` box-shadow: 0 0 0 ${d(2)} rgba(255, 255, 255, 0.9), 0 ${d(14)} ${d(40)} calc(-1 * ${d(8)}) var(--glance-accent) !important; `),
+            ` box-shadow: 0 0 0 ${d(2)} rgba(255, 255, 255, 0.9), 0 ${d(14)} ${d(40)} calc(-1 * ${d(8)}) var(--glance-accent) !important; transform: scale(${PILL_FOCUS.x}, ${PILL_FOCUS.y}) !important; `),
 
         // Eyebrow ("Last played · Today", accent) and the 64px/800 title, at most two lines. Hidden unless the
         // full-screen layout applies (below): all-or-nothing, like the rest of the layout.
-        `.gg-titleblock { display: none; flex-direction: column; gap: ${d(14)}; max-width: ${d(640)}; margin: 1vh var(--gg-side); color: #fff; font-family: inherit; }`,
-        `.gg-eyebrow { font-size: ${d(12)}; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; line-height: 1.2; color: var(--glance-accent-text); }`,
+        `.gg-titleblock { display: none; flex-direction: column; gap: ${d(PAGE_LAYOUT.titleBlock.gap)}; max-width: ${d(640)}; margin: 1vh var(--gg-side); color: #fff; font-family: inherit; }`,
+        `.gg-eyebrow { font-size: ${d(PAGE_LAYOUT.titleBlock.eyebrow)}; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; line-height: 1.2; color: var(--glance-accent-text); }`,
         // The clip gets a bleed for descenders and the shadow; equal negative margins keep the box at two lines.
-        `.gg-title { margin: calc(-1 * ${d(16)}); padding: ${d(16)}; font-size: ${d(64)}; line-height: 1; font-weight: 800; letter-spacing: -0.02em;
+        `.gg-title { margin: calc(-1 * ${d(16)}); padding: ${d(16)}; font-size: ${d(PAGE_LAYOUT.titleBlock.title)}; line-height: 1; font-weight: 800; letter-spacing: -0.02em;
             text-wrap: balance; text-shadow: 0 ${d(4)} ${d(30)} rgba(0, 0, 0, 0.4); overflow-wrap: anywhere;
             display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }`,
 
@@ -438,25 +529,29 @@ function restyleRules({ header, details, root, play, shared }: ThemeClasses, lay
         `.gg-collection-icon { font-size: ${d(10)}; color: var(--glance-accent-text, var(--gg-accent)); display: flex; align-items: center; }`,
 
         // Cards: grid 1.1fr / 1fr, gap 18; padding 20x24, radius 16, the handoff's glass; its type sizes.
-        `.gg-cards { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: ${d(18)}; }`,
-        `.gg-card { display: flex; flex-direction: column; gap: ${d(12)}; padding: ${d(20)} ${d(24)}; border-radius: ${d(16)};
-            background: rgba(12, 16, 22, 0.38); border-color: rgba(255, 255, 255, 0.12); backdrop-filter: blur(${d(16)}); }`,
-        `.gg-card.gg-hltb { gap: ${d(10)}; }`,
-        `.gg-label { font-size: ${d(11)}; letter-spacing: 0.18em; color: rgba(255, 255, 255, 0.62); }`,
-        `.gg-value { font-size: ${d(30)}; line-height: 1.2; }`,
-        `.gg-stats { gap: ${d(40)}; margin-top: 0; }`,
-        `.gg-hltb .gg-stats { gap: ${d(36)}; }`,
-        `.gg-stats > div { display: flex; flex-direction: column; gap: ${d(4)}; }`,
-        `.gg-desc { margin: 0; font-size: ${d(15)}; line-height: 1.5; color: rgba(255, 255, 255, 0.84); }`,
-        `.gg-bar { margin-top: 0; height: ${d(6)}; border-radius: ${d(3)}; }`,
+        `.gg-cards { display: grid; grid-template-columns: minmax(0, ${PAGE_LAYOUT.cards.split[0]}fr) minmax(0, ${PAGE_LAYOUT.cards.split[1]}fr); gap: ${d(PAGE_LAYOUT.cards.gridGap)}; }`,
+        `.gg-card { display: flex; flex-direction: column; gap: ${d(PAGE_LAYOUT.cards.colGap)}; padding: ${d(PAGE_LAYOUT.cards.padY)} ${d(PAGE_LAYOUT.cards.padX)}; border-radius: ${d(16)};
+            background: rgba(12, 16, 22, 0.38); border-color: rgba(255, 255, 255, 0.12); backdrop-filter: blur(${d(16)});
+            min-height: ${d(PAGE_LAYOUT.playTop.tvCards - 2 * PAGE_LAYOUT.cards.padY - 2)}; }`,
+        // (One height for every game: three description lines' worth, as The Witcher's (its content: stats, gap and three
+        // lines, 136 of the 178 the cards take with their padding and border; measured 179 on the Ally with Steam's border); a short description, or none, left
+        // them shorter, which the open transition's panels (openTargets, the same height) then shrank to after the hand-over.)
+        `.gg-card.gg-hltb { gap: ${d(PAGE_LAYOUT.cards.hltbGap)}; }`,
+        `.gg-label { font-size: ${d(PAGE_LAYOUT.stats.label)}; letter-spacing: 0.18em; color: rgba(255, 255, 255, 0.62); }`,
+        `.gg-value { font-size: ${d(PAGE_LAYOUT.stats.value)}; line-height: 1.2; }`,
+        `.gg-stats { gap: ${d(PAGE_LAYOUT.stats.colGapInfo)}; margin-top: 0; }`,
+        `.gg-hltb .gg-stats { gap: ${d(PAGE_LAYOUT.stats.colGapHltb)}; }`,
+        `.gg-stats > div { display: flex; flex-direction: column; gap: ${d(PAGE_LAYOUT.stats.rowGap)}; }`,
+        `.gg-desc { margin: 0; font-size: ${d(PAGE_LAYOUT.cardText.desc)}; line-height: ${PAGE_LAYOUT.cardText.descLine}; color: rgba(255, 255, 255, 0.84); }`,
+        `.gg-bar { margin-top: 0; height: ${d(PAGE_LAYOUT.cardText.bar)}; border-radius: ${d(3)}; }`,
         `.gg-bar > div { border-radius: ${d(3)}; }`,
-        `.gg-caption, .gg-muted { margin-top: 0; font-size: ${d(15)}; color: rgba(255, 255, 255, 0.72); }`,
+        `.gg-caption, .gg-muted { margin-top: 0; font-size: ${d(PAGE_LAYOUT.cardText.caption)}; color: rgba(255, 255, 255, 0.72); }`,
         // HLTB: MAIN is always the accent (handoff), not the tier the player is working toward.
         `.gg-hltb .gg-stats > div .gg-value { color: inherit; }`,
         `.gg-hltb .gg-stats > div:first-child .gg-value { color: var(--glance-accent-text, var(--gg-accent)); transition: color ${ACCENT_MS}ms; }`,
         // No chevron hint (handoff has none). The source pill stays, expanded, level with the Play row at the right.
         `.gg-more { display: none; }`,
-        `.gg-pill { top: calc(-1 * ${d(82)}); ${sourcePillLook(d)} }`,
+        `.gg-pill { top: calc(-1 * ${d(PAGE_LAYOUT.storePillTop)}); ${sourcePillLook(d)} }`,
         `.gg-pill-icon { ${sourcePillIcon(d)} }`,
         // A game from the family library: Steam's line under Play ("From your Steam Family's library") has no room between
         // the row and the cards; the family pill (data/family) says it beside the store pill instead, drawn like it. It sits
@@ -469,28 +564,132 @@ function restyleRules({ header, details, root, play, shared }: ThemeClasses, lay
 
     if (layout) {
         rules.push(
+            // Steam's header crops the hero at 50% 50%, Home at 50% 30%: the same image then sits the same on both screens,
+            // so the open transition's hand-over shows no jump (identical for standard heroes; taller custom art differs).
+            rule(topCapsule && `${topCapsule} img`, ` object-position: 50% 30% !important; `),
             // The title (or logo) and the eyebrow under it, at the left inset, their bottom the row-to-cards gap (36) above the
             // Play row on every screen (the row sits lower on a TV, --gg-play-top's media query): title, eyebrow, row and
             // cards stay one stack, the eyebrow always the same distance above the row, and a longer title grows upward.
-            rule(`${inner} > .gg-titleblock`, ` display: flex !important; position: absolute !important; top: calc(var(--gg-play-top) - ${d(36)}) !important;
+            rule(`${inner} > .gg-titleblock`, ` display: flex !important; position: absolute !important; top: calc(var(--gg-play-top) - ${d(PAGE_LAYOUT.titleGap)}) !important;
                 transform: translateY(-100%) !important; left: var(--gg-side) !important; right: var(--gg-side) !important; margin: 0 !important; `),
             // Steam's logo, and its text title for games without one, give way to our title (hidden in place), only
             // while our title is on the page: Steam's header is the first child of the page container.
             rule(titleImage && `${inner}:has(> .gg-titleblock) ${topCapsule} ${titleImage}`, ` visibility: hidden !important; `),
             rule(svgTitle && `${inner}:has(> .gg-titleblock) ${topCapsule} ${svgTitle}`, ` visibility: hidden !important; `),
             // Handoff: Play row top = H - 386 and row = pill 60 + 36 gap, so the cards (at the row's bottom) start at H - 290.
-            `:root { --gg-play-top: calc(100vh - ${d(386)}); --gg-row-h: ${d(96)}; }`,
+            `:root { --gg-play-top: calc(100vh - ${d(PAGE_LAYOUT.playTop.spotlight)}); --gg-row-h: ${d(PAGE_LAYOUT.rowH)}; }`,
             // A TV (the side inset's media query): Steam's legend is a fixed STEAM_LEGEND_PX at every size, so the handoff's
             // H - 386, made for the handheld (where the legend is a third of that space), left a wide band under the cards.
             // There the row and cards are set from the bottom: the cards (three description lines, TV_CARDS_H) end the TV's
             // side inset (24) above the legend. The handheld and the Deck keep H - 386.
-            `@media (min-width: 1408px) and (min-height: 793px) { :root { --gg-play-top: calc(100vh - ${STEAM_LEGEND_PX}px - ${d(96 + TV_CARDS_H + TV_CARDS_GAP)}); } }`,
+            `${TV_QUERY} { :root { --gg-play-top: calc(100vh - ${STEAM_LEGEND_PX}px - ${d(PAGE_LAYOUT.rowH + TV_CARDS_H + TV_CARDS_GAP)}); } }`,
             // The handoff's stronger scrims over the 1.1.1 ones.
             rule(`${topCapsule}::after`, ` background: ${HANDOFF_SCRIM_LEFT}, ${HANDOFF_SCRIM_BOTTOM},
                 ${SCRIM_BOTTOM}, ${SCRIM_LEFT}; `),
         );
     }
     return rules;
+}
+
+/** The page's new parts' fade-in after the open transition (motion.OPEN_TIMINGS.reveal, rise feedRise). */
+const ARRIVE_MS = 200;
+/** The page's glass growing its blur from none after the open transition (Michael: the blur coming in, cinematic). */
+export const ARRIVE_BLUR_MS = 600;
+const ARRIVE_BLUR_EASE = 'cubic-bezier(.25,.1,.25,1)';
+const ARRIVE_RISE_PX = 14;
+
+/**
+ * The game page arriving after Spotlight Home's open transition (data/openIntent). 'parts': Home morphed into the page,
+ * so only what Home had no counterpart for is hidden (Spotlight: the description, the HowLongToBeat title, its other
+ * tiers, caption and bar; both looks: a size column, the family pill; Clean: the bars). 'all': the
+ * whole page but its art (our title block and cards, Steam's Play row), lowered by the rise. `revealed`: the same
+ * elements back to visible over ARRIVE_MS. Its own stylesheet, only with the full-screen layout; '' otherwise.
+ */
+export function buildArrivingCss(
+    classes: ThemeClasses, look: 'spotlight' | 'clean', mode: 'parts' | 'all', revealed = false,
+    extra: { cloud?: boolean; bars?: string[]; desc?: boolean; hltb?: boolean; family?: boolean; missing?: string[]; size?: boolean } = {},
+): string {
+    const { header, details, root, play } = classes;
+    if (!(cls(header, 'TopCapsule') && cls(details, 'InnerContainer') && cls(details, 'AppDetailsOverviewPanel') && cls(root, 'AppDetailsContainer'))) return '';
+    // Not the cloud button: Home's moves into its place, so the page's own must be there at once. Unless Home showed
+    // none (`extra.cloud`: its state was not known yet), when the page's arrives like the other new parts.
+    const cloud = extra.cloud ? cls(play, 'CloudStatusRow') : null;
+    // Nor the family pill when Home showed one (`extra.family`): it moved in with Home's store pill.
+    // A stat column Home showed no chip for (`extra.missing`: a new game's Play time), and Unifideck's store version
+    // dropdown (Steam's DialogDropDown), arrive too instead of popping in.
+    const missing = (extra.missing ?? []).filter((key) => /^[a-z]+$/i.test(key)).map((key) => `[data-stat="${key}"]`);
+    // Unifideck's Uninstall circle (its installed row's fourth button: Home shows none) arrives too, not popping in.
+    const buttons = cls(root, 'AppButtons');
+    const uninstall = buttons ? [`${UNIFIDECK_PAGE} ${buttons}:has(> :nth-child(4)) > :nth-child(n+4)`] : [];
+    const shared = [...(extra.size ? [] : ['[data-stat="size"]']), ...uninstall, ...missing, ...(extra.family ? [] : ['.gg-family']), ...(cloud ? [cloud] : []), ':has(> .DialogDropDown_CurrentDisplay)'];
+    // Spotlight: the description and the HowLongToBeat card's rest, unless Home drew them as it opened (`extra.desc`,
+    // `extra.hltb`: home/OpenExtras), when the page's are there at once under Home's copy.
+    const desc = extra.desc ? [] : ['.gg-desc'];
+    const hltb = extra.hltb ? [] : ['.gg-hltb > .gg-label', '.gg-hltb [data-stat="hltb"] > .gg-label', '.gg-hltb [data-stat="mainExtras"]', '.gg-hltb [data-stat="completionist"]', '.gg-caption', '.gg-hltb .gg-bar'];
+    const parts = look === 'spotlight'
+        ? [...desc, ...hltb, '.gg-muted', ...shared]
+        : [...shared, cleanBarsArriving(extra.bars)];
+    const all = present(['.gg-titleblock', '.gg-hero', cls(root, 'PlaySection')]);
+    const list = mode === 'all' ? all : parts;
+    // Steam fades every page in by itself (TopLevelTransition: 200 ms delay, then 600 ms; probed on the Ally). Under the
+    // open transition's bridge that fade would show black; the arriving page is shown at once instead.
+    const steamFade = buildSteamEnterOffCss(classes);
+    // Revealed: 'all' lifts the whole page back from its rise; 'parts' only fades in, so a part placed by its own
+    // transform (the family pill's translateY(-50%) beside the store pill) keeps it.
+    const body = revealed
+        ? mode === 'all'
+            ? ` opacity: 1 !important; transform: none !important; transition: opacity ${ARRIVE_MS}ms ease, transform ${ARRIVE_MS}ms cubic-bezier(.2,.8,.2,1) !important; `
+            : ` opacity: 1 !important; transition: opacity ${ARRIVE_MS}ms ease !important; `
+        : mode === 'all'
+            ? ` opacity: 0 !important; transform: translateY(${ARRIVE_RISE_PX}px) !important; `
+            : ' opacity: 0 !important; ';
+    // Steam fades its focus look onto Play (background and colour, 200 ms) as it focuses it, after the page is ready;
+    // Home's copy already shows Play focused, so the page's must be lit at once.
+    const playButton = cls(root, 'ActionButtonAndStatusPanel');
+    const focusAtOnce = rule(playButton && [`${playButton} [role="button"]`, `${playButton} > div:has(> [role="button"])`], ' transition: none !important; ');
+    // The glass (Clean panel, Spotlight cards) arrives unblurred, as Home's copy draws it, and grows its blur once revealed.
+    const glass = rule('.gg-clean-info, .gg-card', revealed
+        ? ` backdrop-filter: blur(${d(16)}) !important; transition: backdrop-filter ${ARRIVE_BLUR_MS}ms ${ARRIVE_BLUR_EASE} !important; `
+        : ' backdrop-filter: blur(0px) !important; ');
+    return [steamFade, rule(list, body), focusAtOnce, glass].filter((r) => r.length > 0).join('\n');
+}
+
+/** Clean's bars that arrive: all of them, or (`brought`: the stats whose bar Home's morph moved into place) the others. */
+function cleanBarsArriving(brought: string[] | undefined): string {
+    if (!brought || brought.length === 0) return '.gg-clean-info .gg-bar';
+    return `.gg-clean-info > [data-stat]${brought.map((key) => `:not([data-stat="${key.replace(/[^a-z]/gi, '')}"])`).join('')} .gg-bar`;
+}
+
+/**
+ * Steam's own page-enter fade switched off (TopLevelTransition Enter/EnterActive: a 200 ms delay, then 600 ms of
+ * opacity and transform; probed on the Ally). The open transition's bridge carries it while it is up (so Steam's own
+ * page, too, is there at once under it) and the arriving Game Glance page repeats it; '' when the classes are unknown.
+ */
+export function buildSteamEnterOffCss({ transition }: ThemeClasses): string {
+    const top = cls(transition, 'TopLevelTransition');
+    const enter = cls(transition, 'Enter');
+    const enterActive = cls(transition, 'EnterActive');
+    if (!top || !enter || !enterActive) return '';
+    const exit = cls(transition, 'Exit');
+    const exitActive = cls(transition, 'ExitActive');
+    return [
+        rule([`${top}${enter}`, `${top}${enterActive}`], ' opacity: 1 !important; transform: none !important; transition: none !important; '),
+        // The page leaving (Home) is hidden at once: its exit animation drew it, offset, under the fading bridge. Only
+        // hidden: Steam unmounts it when that animation ends, so the animation itself must still run.
+        exit && exitActive ? rule([`${top}${exit}`, `${top}${exitActive}`], ' visibility: hidden !important; ') : '',
+    ].filter((r) => r.length > 0).join('\n');
+}
+
+/** What the page's "ready" check reads (styles/pageReady): Steam's hero image (not its blurred placeholder), our title block, Steam's Play row. */
+export function arrivalSelectors({ header, root }: ThemeClasses): { headerImg: string | null; titleblock: string; play: string | null; focus: string | null } {
+    const topCapsule = cls(header, 'TopCapsule');
+    const play = cls(root, 'PlaySection');
+    return { headerImg: topCapsule && `${topCapsule} img:not([src*="_blur"])`, titleblock: '.gg-titleblock', play, focus: play && `${play} .gpfocus` };
+}
+
+/** Steam's footer (one element over every page, Home's and the game page's alike), or null when its class is unknown. */
+export function steamFooterSelector({ footer }: ThemeClasses): string | null {
+    return cls(footer, 'BasicFooter');
 }
 
 /** The game's accent on Steam's page container (Play and our elements both inherit it); nothing for a non-#rrggbb value. */

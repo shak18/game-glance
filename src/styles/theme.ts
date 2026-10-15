@@ -1,6 +1,7 @@
 import { appDetailsClasses, appDetailsHeaderClasses, findClassModule, playSectionClasses } from '@decky/ui';
 import { LOG_PREFIX } from '../constants';
-import { buildAccentCss, buildCleanCss, buildDownloadCss, buildLaunchCss, buildThemeCss, buildUnifideckCss, ClassMap, launchTargets, ThemeClasses, ThemeOptions } from './themeCss';
+import { arrivalSelectors, buildAccentCss, steamFooterSelector, buildArrivingCss, buildSteamEnterOffCss, buildCleanCss, buildDownloadCss, buildLaunchCss, buildThemeCss, buildUnifideckCss, ClassMap, launchTargets, ThemeClasses, ThemeOptions } from './themeCss';
+import type { ReadySelectors } from './pageReady';
 
 let classes: ThemeClasses | null = null;
 
@@ -24,6 +25,8 @@ function themeClasses(): ThemeClasses {
             overview: safeFind((m) => Boolean(m.Backdrop && m.BackdropGlass)),
             launch: safeFind((m) => Boolean(m.Container && m.ConfigurationHeader && m.ControlOverviewContainer)),
             shared: safeFind((m) => Boolean(m.SharedLibrary && m.Row)),
+            transition: safeFind((m) => Boolean(m.TopLevelTransition && m.Enter && m.EnterActive)),
+            footer: safeFind((m) => Boolean(m.BasicFooter && m.FooterLegend)),
         };
     }
     return classes;
@@ -61,4 +64,24 @@ export function unifideckCss(options?: ThemeOptions): string {
 /** The Game Glance page's Clean look (themeCss.buildCleanCss); '' without the layout's classes. */
 export function cleanCss(): string {
     return buildCleanCss(themeClasses());
+}
+
+/** The page arriving after Spotlight Home's open transition (themeCss.buildArrivingCss); '' without the layout's classes. */
+export function arrivingCss(look: 'spotlight' | 'clean', mode: 'parts' | 'all', revealed = false, extra: Parameters<typeof buildArrivingCss>[4] = {}): string {
+    return buildArrivingCss(themeClasses(), look, mode, revealed, extra);
+}
+
+/** What the page's ready check reads (themeCss.arrivalSelectors). */
+export function pageArrivalSelectors(): ReadySelectors {
+    return arrivalSelectors(themeClasses());
+}
+
+/** Steam's page-enter fade switched off (themeCss.buildSteamEnterOffCss), for the open transition's bridge. */
+export function steamEnterOffCss(): string {
+    return buildSteamEnterOffCss(themeClasses());
+}
+
+/** Steam's footer (themeCss.steamFooterSelector), which the open transition's bridge copies. */
+export function steamFooter(): string | null {
+    return steamFooterSelector(themeClasses());
 }

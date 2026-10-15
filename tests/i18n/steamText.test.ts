@@ -52,3 +52,13 @@ describe('tr', () => {
         expect(new Set(all.map((x) => x.token)).size).toBe(all.length);
     });
 });
+
+describe('the "Play from" menu words', () => {
+    it("are Steam's own tokens (the game page's Play arrow)", () => {
+        const manager = { LocalizeString: (t: string) => ({ '#GameAction_PlayFrom': 'Jugar desde', '#StreamingClient_Menu_UnknownHardware': 'Este dispositivo', '#StreamingClient_StreamFrom': 'Transmitir desde: %1$s', '#Button_Cancel': 'Cancelar' } as Record<string, string>)[t] };
+        expect(tr('playFrom', [], manager)).toBe('Jugar desde');
+        expect(tr('thisDevice', [], manager)).toBe('Este dispositivo');
+        expect(tr('streamFrom', ['PC'], manager)).toBe('Transmitir desde: PC');
+        expect(tr('cancel', [], manager)).toBe('Cancelar');
+    });
+});

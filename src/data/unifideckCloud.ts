@@ -1,6 +1,6 @@
 import { LOG_PREFIX } from '../constants';
 import { PhraseKey, tr } from '../i18n/steamText';
-import type { CloudState } from '../home/cloud';
+import type { CloudState, UnifideckCloudLook } from '../home/cloud';
 import { PlaytimeDeps, unifideckKeyFor, UnifideckKey } from './unifideckPlaytime';
 
 /**
@@ -30,22 +30,29 @@ export const TS_SYNC_TOLERANCE_S = 2;
 const ts = (s: { timestamp?: unknown } | null | undefined): number => (typeof s?.timestamp === 'number' && Number.isFinite(s.timestamp) ? s.timestamp : 0);
 
 /**
- * The button's state, or null when Unifideck's own button would not show (store without cloud saves, or no cloud support
- * for the game). Pure.
+ * The button's state, with Unifideck's own look (`unifideck`: its icon, ring, dimming and breathing, as its CloudSaveButton
+ * draws them), or null when Unifideck's own button would not show (a store without cloud saves). Pure.
  */
 export function unifideckCloudState(status: UnifideckCloudStatus | null | undefined): CloudState | null {
-    if (!status || status.supported !== true || status.cloud_supported === false) return null;
+    if (!status || status.supported !== true) return null;
     const base = { status: 0, action: 'none' as const };
-    if (status.in_progress === true) return { ...base, tone: 'busy', icon: { save: true }, label: tr('cloudSyncing') };
-    if (status.save_path_resolved !== true) return { ...base, tone: 'bad', icon: { error: true }, label: cloudLabel('cloudSyncFailed') };
+    const look = (icon: UnifideckCloudLook['icon'], ring: string | null = null, extra: Partial<UnifideckCloudLook> = {}): UnifideckCloudLook => ({ icon, ring, dim: false, breathe: false, ...extra });
+    if (status.in_progress === true) return { ...base, tone: 'busy', icon: { save: true }, label: tr('cloudSyncing'), unifideck: look('sync', RING.blue) };
+    // A game without cloud support: Unifideck keeps its button, dimmed (and inert).
+    if (status.cloud_supported === false) return { ...base, tone: 'off', icon: {}, label: cloudLabel('cloudUnknown'), unifideck: look('cloud', null, { dim: true }) };
+    if (status.save_path_resolved !== true) return { ...base, tone: 'bad', icon: { error: true }, label: cloudLabel('cloudSyncFailed'), unifideck: look('cloud', RING.yellow) };
     const hasLocal = status.has_local_saves === true;
     const hasCloud = status.has_cloud_saves === true || !!status.remote_snapshot;
     const apart = hasCloud && hasLocal && ts(status.local_snapshot) > 0 && ts(status.remote_snapshot) > 0 && Math.abs(ts(status.local_snapshot) - ts(status.remote_snapshot)) > TS_SYNC_TOLERANCE_S;
-    if ((hasCloud && !hasLocal) || apart) return { ...base, tone: 'busy', icon: { save: true }, label: cloudLabel('cloudOutOfSync') };
-    if (!hasCloud && hasLocal) return { ...base, tone: 'busy', icon: { save: true }, label: cloudLabel('cloudOutOfSync') };
-    if (hasCloud && hasLocal) return { ...base, tone: 'ok', icon: { uploaded: true }, label: cloudLabel('cloudSynced') };
-    return { ...base, tone: 'off', icon: {}, label: cloudLabel('cloudUnknown') };
+    const outOfSync = { ...base, tone: 'busy' as const, icon: { save: true as const }, label: cloudLabel('cloudOutOfSync'), unifideck: look('download', null, { breathe: true }) };
+    if ((hasCloud && !hasLocal) || apart) return outOfSync;
+    if (!hasCloud && hasLocal) return outOfSync;
+    if (hasCloud && hasLocal) return { ...base, tone: 'ok', icon: { uploaded: true }, label: cloudLabel('cloudSynced'), unifideck: look('insync', RING.green) };
+    return { ...base, tone: 'off', icon: {}, label: cloudLabel('cloudUnknown'), unifideck: look('cloud') };
 }
+
+/** Unifideck's inset ring colours for its cloud button's states. */
+const RING = { blue: 'rgba(26, 159, 255, 0.55)', yellow: 'rgba(244, 180, 0, 0.55)', green: 'rgba(34, 197, 94, 0.55)' } as const;
 
 /** The usable status of Unifideck's reply; null for a failure or garbage. */
 export function parseCloudStatus(response: unknown): UnifideckCloudStatus | null {
@@ -103,4 +110,13 @@ export async function unifideckCloudForApp(
     } catch {
         return null;
     }
+}
+
+/**
+ * Whether a Unifideck game's page gets our cloud circle: Unifideck draws its own cloud-save button only for an installed
+ * game (read 2026-10-11: its not-installed row has the controller and settings buttons only), while Home shows the cloud
+ * state either way. `installed`: Unifideck's own record (undefined/null until it answers). Pure.
+ */
+export function pageCloudNeeded(installed: boolean | null | undefined, cloud: CloudState | null): boolean {
+    return installed === false && cloud !== null;
 }

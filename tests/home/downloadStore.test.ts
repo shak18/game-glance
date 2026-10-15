@@ -65,3 +65,26 @@ describe('download store lifecycle (ref counted)', () => {
         expect(() => acquireDownloads()()).not.toThrow();
     });
 });
+
+describe('activeDownload (#8: the transfer the status bar shows)', () => {
+    it('is the running transfer from the overview, and null once Steam is idle', async () => {
+        let onOverview: (raw: unknown) => void = () => undefined;
+        (globalThis as unknown as { SteamClient: unknown }).SteamClient = {
+            Downloads: {
+                RegisterForDownloadItems: vi.fn(() => ({ unregister: vi.fn() })),
+                RegisterForDownloadOverview: vi.fn((cb: (raw: unknown) => void) => {
+                    onOverview = cb;
+                    return { unregister: vi.fn() };
+                }),
+            },
+        };
+        const { acquireDownloads: acquire, activeDownload } = await import('../../src/home/downloadStore');
+        const release = acquire();
+        expect(activeDownload()).toBeNull();
+        onOverview({ update_appid: 42, update_state: 'Downloading', overall_percent_complete: 41.6, paused: false });
+        expect(activeDownload()).toMatchObject({ appId: 42, kind: 'downloading', percent: 42 });
+        onOverview({ update_appid: 0, update_state: 'None' });
+        expect(activeDownload()).toBeNull();
+        release();
+    });
+});

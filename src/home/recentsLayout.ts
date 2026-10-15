@@ -149,18 +149,20 @@ export function ghostOpacity(j: number, onLibrary: boolean): number {
     return Math.round((first + (GHOST_LAST - first) * t) * 1000) / 1000;
 }
 
-export function recentsLayout(count: number, focused: number, geometry: RecentsGeometry): RecentsLayout {
+/** `expand`: the selected game is the wide card (false during a fast L1/R1 run, home/fastCycle: every card stays narrow). */
+export function recentsLayout(count: number, focused: number, geometry: RecentsGeometry, expand = true): RecentsLayout {
     const { capsuleW, wideW, step, grow, ghostGap } = geometry;
     const n = safeCount(count);
     const f = clampFocus(n, focused);
     const onLibrary = f === n;
+    const wide = expand && !onLibrary;
     const items: RecentsItem[] = [];
     for (let i = 0; i <= n; i++) {
-        const expanded = !onLibrary && i === f;
-        const after = !onLibrary && i > f;
+        const expanded = wide && i === f;
+        const after = wide && i > f;
         items.push({ left: i * step + (after ? grow : 0), width: expanded ? wideW : capsuleW, dim: i < f });
     }
-    const ghostStart = (n + 1) * step + (onLibrary ? 0 : grow) + ghostGap;
+    const ghostStart = (n + 1) * step + (wide ? grow : 0) + ghostGap;
     const ghosts = Array.from({ length: ghostCount(n) }, (_, j) => ({ left: ghostStart + j * step, opacity: ghostOpacity(j, onLibrary) }));
     return { items, scrollX: 0 - f * step, ghostStart, ghosts };
 }

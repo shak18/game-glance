@@ -1,0 +1,166 @@
+{
+  "screen": {
+    "width": 828,
+    "height": 466
+  },
+  "canvasScale": 0.5749994913736979,
+  "rects": {
+    "root": {
+      "x": 0,
+      "y": 0,
+      "w": 828.02,
+      "h": 466.38
+    },
+    "titleSlot": {
+      "x": 32.2,
+      "y": 84.52,
+      "w": 356.5,
+      "h": 66.7
+    },
+    "title": {
+      "x": 32.2,
+      "y": 47.71,
+      "w": 214.97,
+      "h": 103.5
+    },
+    "eyebrow": {
+      "x": 32.2,
+      "y": 161.56,
+      "w": 356.5,
+      "h": 8.28
+    },
+    "chip:chip0": {
+      "x": 32.2,
+      "y": 180.19,
+      "w": 59.8,
+      "h": 39.67
+    },
+    "chip:chip0:label": {
+      "x": 40.74,
+      "y": 186.43,
+      "w": 42.71,
+      "h": 6.9
+    },
+    "chip:chip0:value": {
+      "x": 40.74,
+      "y": 195.63,
+      "w": 42.71,
+      "h": 13.8
+    },
+    "chip:chip1": {
+      "x": 97.74,
+      "y": 180.19,
+      "w": 74.19,
+      "h": 39.67
+    },
+    "chip:chip1:label": {
+      "x": 106.28,
+      "y": 186.43,
+      "w": 57.11,
+      "h": 6.9
+    },
+    "chip:chip1:value": {
+      "x": 106.28,
+      "y": 195.63,
+      "w": 57.11,
+      "h": 13.8
+    },
+    "chip:chip1:bar": {
+      "x": 106.28,
+      "y": 211.73,
+      "w": 57.11,
+      "h": 1.72
+    },
+    "chip:chip2": {
+      "x": 177.68,
+      "y": 180.19,
+      "w": 59.8,
+      "h": 39.67
+    },
+    "chip:chip2:label": {
+      "x": 186.22,
+      "y": 186.43,
+      "w": 42.71,
+      "h": 6.9
+    },
+    "chip:chip2:value": {
+      "x": 186.22,
+      "y": 195.63,
+      "w": 42.71,
+      "h": 13.8
+    },
+    "chip:chip2:bar": {
+      "x": 186.22,
+      "y": 211.73,
+      "w": 42.71,
+      "h": 1.72
+    },
+    "pill": {
+      "x": 32.2,
+      "y": 234.81,
+      "w": 143.75,
+      "h": 31.05
+    },
+    "circle0": {
+      "x": 182.84,
+      "y": 234.81,
+      "w": 31.05,
+      "h": 31.05
+    },
+    "circle1": {
+      "x": 220.79,
+      "y": 234.81,
+      "w": 31.05,
+      "h": 31.05
+    },
+    "circle2": {
+      "x": 258.73,
+      "y": 234.81,
+      "w": 31.05,
+      "h": 31.05
+    },
+    "circle3": {
+      "x": 296.67,
+      "y": 234.81,
+      "w": 31.05,
+      "h": 31.05
+    },
+    "store": {
+      "x": 738.87,
+      "y": 241.15,
+      "w": 56.93,
+      "h": 18.4
+    },
+    "recents": {
+      "x": 25.3,
+      "y": 283.46,
+      "w": 802.7,
+      "h": 128.8
+    },
+    "tabs": {
+      "x": 25.3,
+      "y": 419.17,
+      "w": 777.4,
+      "h": 19.31
+    }
+  },
+  "texts": {
+    "eyebrow": "Favorites · Last Played · 5 days ago",
+    "chip:chip0:label": "Play Time",
+    "chip:chip0:value": "1.9 h",
+    "chip:chip1:label": "Achievements",
+    "chip:chip1:value": "4 / 13",
+    "chip:chip2:label": "HLTB main",
+    "chip:chip2:value": "9.2 h",
+    "circle0": "Controller settings",
+    "circle1": "Manage",
+    "circle2": "Game Info",
+    "circle3": "Steam Cloud: Up to date",
+    "store": "Steam"
+  },
+  "hero": {
+    "backgroundPosition": "50% 30%",
+    "backgroundSize": "cover",
+    "url": ""
+  }
+}

@@ -3,21 +3,24 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOG_PREFIX } from '../constants';
 import { attempt } from '../data/attempt';
 import { cache, overrides, TTL } from '../data/cache';
-import { hltbCacheKey, lookupHltb } from '../data/hltb';
+import { hltbCacheKey, HltbResult, lookupHltb } from '../data/hltb';
 import { GAME_APP_TYPE, SHORTCUT_APP_TYPE } from '../data/installedGames';
 import { useSettings } from '../data/settings';
 import { getSourceLabel } from '../data/source';
 import { mergePlaytime } from '../data/unifideckPlaytime';
 import { useUnifideckPlaytime } from '../hooks/useUnifideckPlaytime';
-import { getSteamLanguage, peekSteamLanguage, readGameInfo } from '../data/steam';
+import { getDescription, getSteamLanguage, peekSteamLanguage, readGameInfo } from '../data/steam';
+import { getShortcutDescription } from '../data/shortcutDescription';
 import { useAsync } from '../hooks/useAsync';
 import { useOverrideVersion } from '../hooks/useOverrideVersion';
 import { useSettled } from '../hooks/useSettled';
 import { BUMPER_REPEAT_MS } from './focusZones';
+import { FAST_CYCLE_MS, SETTLE_WIDEN_MS } from './fastCycle';
 import { steamLanguageToLocale } from '../logic/format';
 import { heroicStoreLabel } from '../logic/heroic';
 import { accentFor, DEFAULT_ACCENT } from './accent';
-import { sampleAccent } from './accentSample';
+import { accentMemo } from './accentMemo';
+import { accentVersion, sampleAccent } from './accentSample';
 import { DownloadState } from './downloadProgress';
 import { useDownload } from './useDownload';
 import { Chip, gameChips, libraryChips, readLibraryCounts, readStorageBytes } from './chips';
@@ -33,10 +36,10 @@ import { HomeCollection, homeCollections, pickCollectionGames, RECENT_ROW, RowSo
 import { formatLastPlayed, mergeRecentSources, pickHomeRecents, pickRecents, RawApp, RecentGame } from './recents';
 import { getWishlistDeals } from './wishlist';
 import { pageHidden } from './pageVisible';
-import { memoAchievements, noteDetails } from './detailsMemo';
+import { memoSpaceRequired, noteDetails, withKnownAchievements } from './detailsMemo';
 import { neighbourIds } from './heroLayers';
 import { useWarmup, useWarmVersion } from './useWarmup';
-import { forgetHltb, peekHltb, rememberHltb } from './warmup';
+import { forgetHltb, peekDescription, peekHltb, rememberDescription, rememberHltb } from './warmup';
 import { HERO_PRELOAD_RADIUS } from './motion';
 
 export interface HomeGame extends RecentGame {
@@ -63,6 +66,12 @@ export interface HomeData {
     /** The collection the games row shows (Quick Access → Games row), null for the recent games. */
     rowCollection: string | null;
     chips: Chip[];
+    /** The focused game's HowLongToBeat result, once known (the open transition draws the page's card from it). */
+    hltb: HltbResult | undefined;
+    /** The focused game's play time in minutes (Steam's, or Unifideck's when it knows more), as the page counts it. */
+    playedMinutes: number;
+    /** The focused game's description in Steam's language, once fetched (null: none, or the Clean look, which shows none). */
+    description: string | null;
     /** The focused game's store ("Steam", "GOG", ...), once known; the same label as the details page's source pill. */
     source: string | undefined;
     libraryChips: Chip[];
@@ -110,9 +119,10 @@ const HLTB_READ_BATCH = 8;
 /**
  * How long the selection rests before the per-game work that only matters where the user stops starts (HLTB lookup,
  * accent sampling, Steam details for the neighbours). Longer than a held L1/R1's repeat (BUMPER_REPEAT_MS), so holding
- * a bumper through ten games does that work once, for the game it stops on.
+ * a bumper through ten games does that work once, for the game it stops on; and after a fast run's card has widened
+ * (home/fastCycle), so that work does not stutter the widen.
  */
-export const SELECTION_SETTLE_MS = Math.max(250, BUMPER_REPEAT_MS + 50);
+export const SELECTION_SETTLE_MS = Math.max(250, BUMPER_REPEAT_MS + 50, FAST_CYCLE_MS + SETTLE_WIDEN_MS + 40);
 /** Feed pills: accents sampled a few games at a time, repainting after each batch. */
 const CARD_ACCENT_BATCH = 4;
 
@@ -239,7 +249,7 @@ function readSteamId(): string | null {
 }
 
 // Session memory so a re-opened Home paints the last known values at once, then refreshes.
-const accentMemo = new Map<number, string>();
+// (The accents are in home/accentMemo, shared with the game page.)
 let recommendedMemo: RecommendedCard[] = [];
 /** The last wishlist deal cards, for an instant second row on the next Home open. */
 let dealsMemo: DealCard[] = [];
@@ -287,6 +297,11 @@ export function accentNow(appId: number | null, resting: number | null, memo: Ma
     return { fetch: resting === appId };
 }
 
+/** The accent Home shows: the selected game's known colour from the first frame, else the current one. Pure. */
+export function shownAccent(appId: number | null, memo: Map<number, string>, current: string): string {
+    return (appId !== null ? memo.get(appId) : undefined) ?? current;
+}
+
 function useAccent(appId: number | null, resting: number | null): string {
     const [accent, setAccent] = useState(() => (appId !== null ? accentMemo.get(appId) : undefined) ?? DEFAULT_ACCENT);
     useEffect(() => {
@@ -298,7 +313,7 @@ function useAccent(appId: number | null, resting: number | null): string {
         if (!now.fetch || appId === null) return undefined;
         let active = true;
         // accentFor never rejects, but a guard costs nothing and Home must not see an unhandled rejection.
-        accentFor(appId, { cache, sample: sampleAccent })
+        accentFor(appId, { cache, sample: sampleAccent, version: accentVersion })
             .then((color) => {
                 accentMemo.set(appId, color);
                 if (active) setAccent(color);
@@ -308,7 +323,8 @@ function useAccent(appId: number | null, resting: number | null): string {
             active = false;
         };
     }, [appId, resting]);
-    return accent;
+    // Known already: shown in this render (the state only catches up an effect later: Home came back on B in its default).
+    return shownAccent(appId, accentMemo, accent);
 }
 
 /** How long after the selection first rests the remaining recents' accents are looked up, in the background. */
@@ -321,7 +337,7 @@ const ACCENT_WARMUP_DELAY_MS = 1500;
  * sampled only for a game never seen. Stops on unmount; waits while the page is hidden.
  */
 function useAccentWarmup(ids: number[], neighbours: number[]) {
-    const lookup = (id: number) => accentFor(id, { cache, sample: sampleAccent });
+    const lookup = (id: number) => accentFor(id, { cache, sample: sampleAccent, version: accentVersion });
     const neighbourKey = neighbours.join(',');
     useEffect(() => {
         if (neighbours.length === 0) return;
@@ -434,7 +450,7 @@ export function useCardAccents(appIds: number[], enabled: boolean): (appId: numb
         const ids = key.split(',').map(Number).filter((id) => !accentMemo.has(id));
         (async () => {
             for (let i = 0; i < ids.length && active; i += CARD_ACCENT_BATCH) {
-                await fillMissing(ids.slice(i, i + CARD_ACCENT_BATCH), accentMemo, (id) => accentFor(id, { cache, sample: sampleAccent }), CARD_ACCENT_BATCH, DEFAULT_ACCENT);
+                await fillMissing(ids.slice(i, i + CARD_ACCENT_BATCH), accentMemo, (id) => accentFor(id, { cache, sample: sampleAccent, version: accentVersion }), CARD_ACCENT_BATCH, DEFAULT_ACCENT);
                 if (active) setVersion((v) => v + 1);
             }
         })().catch((error) => console.warn(`${LOG_PREFIX} Home: card accents failed`, error));
@@ -554,14 +570,15 @@ function useFriendLastGames(raw: RawFriend[]): LastGames {
  * `focusIndex` is the selected recents item (L1/R1, bumper navigation); an index past the end keeps the last game (the Library card).
  */
 export function useHomeData(focusIndex = 0): HomeData {
-    const { wishlistDeals, homeRow, homeRowSort } = useSettings();
+    const { wishlistDeals, homeRow, homeRowSort, cleanPage } = useSettings();
     const { games, collection: rowCollection, settled: recentsSettled } = useRowGames(homeRow, homeRowSort);
     const focused = games.length > 0 ? games[Math.min(Math.max(0, focusIndex), games.length - 1)] : null;
     const appId = focused?.appId ?? null;
 
     const knownLang = peekSteamLanguage();
     const loadedLang = useAsync(knownLang ? null : 'lang', getSteamLanguage);
-    const locale = steamLanguageToLocale(knownLang ?? loadedLang ?? 'english');
+    const lang = knownLang ?? loadedLang;
+    const locale = steamLanguageToLocale(lang ?? 'english');
 
     const detailsVersion = useAppDetailsVersion(appId);
     // What the background warm-up has learned (HowLongToBeat, achievement counts) for the games in the row: refreshes the chips.
@@ -576,7 +593,10 @@ export function useHomeData(focusIndex = 0): HomeData {
     useNeighbourDetails(restNeighbours);
     useAccentWarmup(gameIds, restNeighbours);
     const overrideVersion = useOverrideVersion();
-    useWarmup(games, focusIndex, recentsSettled && games.length > 0, (id) => readGameInfo(overview(id), undefined).isShortcut, bumpWarm);
+    useWarmup(games, focusIndex, recentsSettled && games.length > 0, (id) => {
+        const game = readGameInfo(overview(id), undefined);
+        return { isShortcut: game.isShortcut, heroic: game.heroic };
+    }, bumpWarm);
     // A new HowLongToBeat match for a game: what was remembered for the old one is dropped.
     const seenOverrides = useRef(overrideVersion);
     useEffect(() => {
@@ -588,9 +608,8 @@ export function useHomeData(focusIndex = 0): HomeData {
     }, [overrideVersion]);
     const info = useMemo(
         () => (appId === null ? null : guarded('game info', () => {
-            const read = readGameInfo(overview(appId), steam.appDetailsStore?.GetAppDetails?.(appId));
             // Steam's store has no achievement counts for a game it did not load itself; the details callback did carry them.
-            return read.achievements || read.isShortcut ? read : { ...read, achievements: memoAchievements(appId) ?? null };
+            return withKnownAchievements(readGameInfo(overview(appId), steam.appDetailsStore?.GetAppDetails?.(appId)));
         }, null)),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [appId, detailsVersion, warmVersion],
@@ -603,6 +622,21 @@ export function useHomeData(focusIndex = 0): HomeData {
         return result;
     });
     const hltb = warmedHltb ?? liveHltb;
+    // The selected game's description once it rests, for the open transition (Home draws it as it turns into the page's
+    // Spotlight look; the Clean look has none). Kept in the session memo, which the page reads on its first frame.
+    const warmedDescription = focused && lang ? peekDescription(focused.appId, lang) : undefined;
+    const liveDescription = useAsync(
+        !cleanPage && focused && info && lang && resting !== null && !warmedDescription ? `desc:${focused.appId}:${lang}` : null,
+        async () => {
+            if (!focused || !info || !lang) return null;
+            const text = info.isShortcut
+                ? await getShortcutDescription({ name: info.name || focused.name, heroic: info.heroic }, lang)
+                : await getDescription(focused.appId, lang);
+            if (text) rememberDescription(focused.appId, lang, text);
+            return text;
+        },
+    );
+    const description = cleanPage ? null : (warmedDescription ?? liveDescription ?? null);
     const source = useAsync(info ? `src:${info.appId}` : null, () =>
         getSourceLabel(info?.appId ?? 0, info?.isShortcut ?? false, undefined, heroicStoreLabel(info?.heroic ?? null)),
     );
@@ -612,6 +646,7 @@ export function useHomeData(focusIndex = 0): HomeData {
     // useAccentWarmup makes most of them known beforehand.
     const accent = useAccent(appId, resting);
 
+    const playedMinutes = focused ? mergePlaytime({ minutes: focused.playedMinutes, lastPlayed: focused.lastPlayed }, unifideck).minutes : 0;
     const nowSeconds = Math.floor(Date.now() / 1000);
     const chips = useMemo(() => {
         if (!focused) return [];
@@ -623,9 +658,11 @@ export function useHomeData(focusIndex = 0): HomeData {
             lastPlayed: merged.lastPlayed,
             hltbMainHours: hltb?.status === 'found' ? hltb.times.main : null,
             addedAt: isNew ? focused.addedAt : undefined,
+            installed: focused.installed,
+            spaceBytes: info?.isShortcut ? null : (memoSpaceRequired(focused.appId) ?? null),
         }, nowSeconds, locale), []);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [focused, info, hltb, locale, unifideck]);
+    }, [focused, info, hltb, locale, unifideck, detailsVersion]);
     // Unifideck knows a last played Steam does not: such a game is no longer "new to library".
     const focusedIsNew = focused?.isNew === true && !unifideck?.lastPlayed;
     const lastPlayedLabel = focused
@@ -660,5 +697,5 @@ export function useHomeData(focusIndex = 0): HomeData {
     const { download, installed: installedNow, status: pillStatus } = useDownload(appId, focused?.installed ?? false);
     const focusedLive = useMemo(() => (focused && focused.installed !== installedNow ? { ...focused, installed: installedNow } : focused), [focused, installedNow]);
 
-    return { games, recentsSettled, focused: focusedLive, focusedRunning, download, pillStatus, detailsVersion, locale, lastPlayedLabel, focusedIsNew, rowCollection, chips, source, libraryChips: library, accent, news, updated, friends, friendsOnline, trending, recommended, deals, collections };
+    return { games, recentsSettled, focused: focusedLive, focusedRunning, download, pillStatus, detailsVersion, locale, lastPlayedLabel, focusedIsNew, rowCollection, chips, hltb, description, playedMinutes, source, libraryChips: library, accent, news, updated, friends, friendsOnline, trending, recommended, deals, collections };
 }

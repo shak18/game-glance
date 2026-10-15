@@ -34,6 +34,39 @@ export function forgetHltb(appId?: number) {
     else hltbMemo.delete(appId);
 }
 
+// ---- Description ---------------------------------------------------------------------------------------------------
+
+/** At most this many descriptions are kept (the oldest goes first). */
+export const DESCRIPTION_MEMO_MAX = 64;
+const descriptionMemo = new Map<string, string>();
+const descriptionKey = (appId: number, lang: string) => `${appId}:${lang}`;
+
+/**
+ * The description Home fetched for a game this session, in Steam's language `lang`, or undefined. Home fetches it for the
+ * selected game so its open transition can draw it, and the game page reads it on its first render (no skeleton).
+ */
+export function peekDescription(appId: number, lang: string): string | undefined {
+    return descriptionMemo.get(descriptionKey(appId, lang));
+}
+
+/** Remembers a description for the session; an empty one is never kept. */
+export function rememberDescription(appId: number, lang: string, text: string) {
+    if (!text.trim()) return;
+    const key = descriptionKey(appId, lang);
+    descriptionMemo.delete(key);
+    descriptionMemo.set(key, text);
+    while (descriptionMemo.size > DESCRIPTION_MEMO_MAX) descriptionMemo.delete(descriptionMemo.keys().next().value as string);
+}
+
+/**
+ * The game page's description: the fetched one once its fetch answers (null: none), until then the one Home already
+ * fetched for the game in that language, so the page's first frame has it. Undefined while unknown (the skeleton).
+ */
+export function knownDescription(fetched: string | null | undefined, appId: number, lang: string | undefined): string | null | undefined {
+    if (fetched !== undefined) return fetched;
+    return lang === undefined ? undefined : peekDescription(appId, lang);
+}
+
 /** Pause after each lookup that went online, to stay gentle on HowLongToBeat (the same pace as the installed-games pre-load). */
 export const HLTB_WARM_DELAY_MS = 1500;
 
@@ -73,6 +106,91 @@ export async function warmHltb(games: HltbGame[], deps: HltbWarmDeps, isCancelle
     }
 }
 
+// ---- Descriptions --------------------------------------------------------------------------------------------------
+
+/** Pause after each description fetched online (the store), as the installed-games pre-load does. */
+export const DESCRIPTION_WARM_DELAY_MS = 1000;
+
+export interface DescriptionWarmGame {
+    appId: number;
+    name: string;
+    isShortcut: boolean;
+}
+
+export interface DescriptionWarmDeps {
+    /** A Steam game's description from the disk cache: the text, null for a cached "none", undefined when nothing is cached. */
+    readCached(appId: number, lang: string): Promise<string | null | undefined>;
+    /** Fetches (and caches) a game's description: the store, or for a non-Steam game Heroic's copy or the store. */
+    fetch(game: DescriptionWarmGame, lang: string): Promise<string | null>;
+    /** Whether going online is allowed (the "pre-load in the background" setting). */
+    allowNetwork(): boolean;
+    sleep(ms: number): Promise<void>;
+}
+
+/**
+ * Fills the description memo for `games` (in the order to do them), so the open transition can draw a game's description
+ * however soon it is opened: the disk cache first, which is instant; a game with nothing cached is fetched one at a time
+ * when the setting allows it, pausing after each. `onResult` is called for each game whose description it learned.
+ */
+export async function warmDescriptions(
+    games: DescriptionWarmGame[],
+    lang: string,
+    deps: DescriptionWarmDeps,
+    isCancelled: () => boolean,
+    onResult: (appId: number) => void = () => undefined,
+): Promise<void> {
+    for (const game of games) {
+        if (isCancelled()) return;
+        if (peekDescription(game.appId, lang) !== undefined) continue;
+        if (!game.isShortcut) {
+            const cached = await deps.readCached(game.appId, lang);
+            if (isCancelled()) return;
+            if (cached === null) continue;
+            if (typeof cached === 'string') {
+                rememberDescription(game.appId, lang, cached);
+                if (peekDescription(game.appId, lang) !== undefined) onResult(game.appId);
+                continue;
+            }
+        }
+        if (!deps.allowNetwork()) continue;
+        const text = await deps.fetch(game, lang);
+        if (isCancelled()) return;
+        if (text) {
+            rememberDescription(game.appId, lang, text);
+            onResult(game.appId);
+        }
+        await deps.sleep(DESCRIPTION_WARM_DELAY_MS);
+    }
+}
+
+// ---- Hero art ------------------------------------------------------------------------------------------------------
+
+/** Pause between two games' hero art (each a large image to load and decode), so they never arrive in a burst. */
+export const ART_WARM_GAP_MS = 250;
+
+export interface ArtWarmDeps {
+    /** Whether the game's art is already resolved this session. */
+    has(appId: number): boolean;
+    /** Resolves (loads and decodes) the game's art; never rejects. */
+    resolve(appId: number): Promise<unknown>;
+    sleep(ms: number): Promise<void>;
+}
+
+/**
+ * Resolves the hero art of every game in `ids` (in the order to do them), one at a time, so whichever is selected next, and
+ * opened, already has its art: Home shows it at once and the open transition morphs over it (only the games either side of
+ * the selection were ready before).
+ */
+export async function warmArt(ids: number[], deps: ArtWarmDeps, isCancelled: () => boolean): Promise<void> {
+    for (const id of ids) {
+        if (isCancelled()) return;
+        if (deps.has(id)) continue;
+        await deps.resolve(id);
+        if (isCancelled()) return;
+        await deps.sleep(ART_WARM_GAP_MS);
+    }
+}
+
 // ---- Achievements --------------------------------------------------------------------------------------------------
 
 /** How long to wait for Steam's details of one game before moving on (it answers in about 0.4 s when it has them). */
@@ -84,6 +202,7 @@ const detailsTried = new Set<number>();
 
 export function resetWarmup() {
     hltbMemo.clear();
+    descriptionMemo.clear();
     detailsTried.clear();
 }
 

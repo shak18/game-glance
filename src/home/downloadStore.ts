@@ -79,6 +79,14 @@ export function downloadFor(appId: number): DownloadState | null {
     return merged.get(appId) ?? null;
 }
 
+/** The transfer the status bar shows (a download, an update or an install that is running), or null when Steam is idle (#8). */
+export function activeDownload(): (DownloadState & { appId: number }) | null {
+    for (const [appId, state] of merged) {
+        if (['downloading', 'updating', 'installing'].includes(state.kind)) return { ...state, appId };
+    }
+    return null;
+}
+
 export function subscribeDownloads(listener: () => void): () => void {
     listeners.add(listener);
     return () => listeners.delete(listener);

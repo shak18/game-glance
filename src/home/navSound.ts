@@ -5,7 +5,7 @@ import { memoLookup } from './moduleLookup';
  * Steam's navigation sound names used here (its enum, probed on the Ally: ChangeTabs for L1/R1 tabs, FailedNav at an
  * end, BasicNav for a d-pad move).
  */
-export type NavSoundName = 'ChangeTabs' | 'FailedNav' | 'BasicNav';
+export type NavSoundName = 'ChangeTabs' | 'FailedNav' | 'BasicNav' | 'IntoGameDetail' | 'LaunchGame';
 
 interface NavSoundParts {
     player: { PlayNavSound(sound: number): void };

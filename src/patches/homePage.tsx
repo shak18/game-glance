@@ -1,31 +1,67 @@
 import { RoutePatch, routerHook } from '@decky/api';
+import { afterPatch } from '@decky/ui';
 import { LOG_PREFIX } from '../constants';
 import { settings } from '../data/settings';
-import { HOME_ROUTE, isKnownHomeShape } from '../home/guard';
+import { HOME_ROUTE, isKnownHomeShape, isMemoHome, isPatchableHomeType } from '../home/guard';
 import { HomeGate } from '../home/HomeGate';
+import { RouteGuard } from '../home/RouteGuard';
 import { cancelOpen } from '../home/homeNav';
 import { homeMode } from '../home/mode';
 import { createHomePatchManager } from './homePatchManager';
 
 const KEY = 'game-glance-home';
-let warned = false;
+const warned = new Set<string>();
+
+// Each kind of problem is logged once: Decky re-runs the patch on every router render.
+const warnOnce = (message: string, error?: unknown) => {
+    if (warned.has(message)) return;
+    warned.add(message);
+    console.warn(`${LOG_PREFIX} ${message}; leaving Steam's Home unchanged`, ...(error === undefined ? [] : [error]));
+};
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Steam's Home route has no renderFunc (verified on device), so instead of afterPatch we hand
-// Steam's own Home element to HomeGate as its fallback. Decky re-runs this on every router render,
-// so the guard is re-checked each time; an unknown shape leaves the route exactly as Steam built it.
+// One patched copy of each Steam Home memo type: the same type object every render, so React never remounts Home.
+const patchedMemos = new WeakMap<object, any>();
+
+function patchedMemo(memoType: any): any {
+    const cached = patchedMemos.get(memoType);
+    if (cached) return cached;
+    const copy = { ...memoType };
+    afterPatch(copy, 'type', (_: unknown[], nativeTree: any) => (
+        <RouteGuard key={KEY} fallback={nativeTree}>
+            <HomeGate>{nativeTree}</HomeGate>
+        </RouteGuard>
+    ));
+    patchedMemos.set(memoType, copy);
+    return copy;
+}
+
+// Steam's Home stays in place and Spotlight Home replaces only what it renders (issue #18). Other plugins patch this
+// route too: SteamGridDB calls the route child's type as a plain function and wraps the memo element it returns, so
+// every type we hand on must be a function or Steam's memo shape, never a class. Steam's own memo is never changed:
+// we render a patched copy. Decky re-runs this on every router render (rare: only when a plugin adds or removes a
+// route or patch, measured on device); an unknown shape leaves the route exactly as Steam built it.
 const homeRoutePatch: RoutePatch = (routeProps: any) => {
     try {
-        if (!isKnownHomeShape(routeProps)) {
-            if (!warned) {
-                warned = true;
-                console.warn(`${LOG_PREFIX} Home route shape changed; leaving Steam's Home unchanged`);
-            }
+        if (!isKnownHomeShape(routeProps) || !isPatchableHomeType(routeProps.children.type)) {
+            warnOnce("Home route shape changed");
             return routeProps;
         }
-        return { ...routeProps, children: <HomeGate key={KEY} fallback={routeProps.children} /> };
+        afterPatch(routeProps.children, 'type', (_: unknown[], element: any) => {
+            try {
+                if (!isMemoHome(element)) {
+                    warnOnce("Steam's Home element changed");
+                    return element;
+                }
+                return { ...element, type: patchedMemo(element.type) };
+            } catch (error) {
+                warnOnce('Home route patch failed', error);
+                return element;
+            }
+        });
+        return routeProps;
     } catch (error) {
-        console.warn(`${LOG_PREFIX} Home route patch failed; leaving Steam's Home unchanged`, error);
+        warnOnce('Home route patch failed', error);
         return routeProps;
     }
 };

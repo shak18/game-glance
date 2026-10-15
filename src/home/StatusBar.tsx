@@ -1,8 +1,10 @@
 import { CSSProperties, ReactElement, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { BatteryView, ConnectionKind, formatClock, msToNextMinute, PersonaDot, personaDot, prefers24Hour, readSelfPersona, SelfPersona, statusPlacement, statusScale } from './statusItems';
+import { avatarView, BatteryView, batteryColour, downloadStatus, statusAway, ConnectionKind, formatClock, msToNextMinute, PersonaDot, personaDot, prefers24Hour, readSelfPersona, SelfPersona, statusPlacement, statusScale } from './statusItems';
 import { COVER_CSS, useHideSteamBar } from './useHideSteamBar';
 import { startStatus, statusState, subscribeStatus } from './statusStore';
+import { acquireDownloads, activeDownload, subscribeDownloads } from './downloadStore';
 import { tr } from '../i18n/steamText';
+import { useSettings } from '../data/settings';
 
 /** Steam's clock setting, else the locale's. */
 function hours24(): boolean {
@@ -72,8 +74,9 @@ const CONNECTION: Record<ConnectionKind, { icon: () => ReactElement; label: () =
 /** The battery outline with its fill at the level; a bolt while charging. */
 function BatteryIcon({ battery }: { battery: BatteryView }) {
     const fill = Math.round(15 * battery.percent) / 100;
+    const colour = batteryColour(battery.charging);
     return (
-        <svg viewBox="0 0 24 18" fill="none" aria-hidden="true">
+        <svg viewBox="0 0 24 18" fill="none" aria-hidden="true" style={colour ? { color: colour } : undefined}>
             <rect x="1" y="3" width="19" height="12" rx="3" stroke="currentColor" strokeWidth={1.6} />
             <rect x="21" y="7" width="2" height="4" rx="1" fill="currentColor" />
             <rect x="3" y="5" width={fill} height="8" rx="1.5" fill="currentColor" />
@@ -98,6 +101,18 @@ function useSelfPersona(): SelfPersona | null {
     return self;
 }
 
+/** The running transfer's percent (a primitive, so React sees a change only when it moves), or null (#8). */
+const downloadPercent = () => downloadStatus(activeDownload());
+
+/** A download arrow, as Steam's own bar draws its download item. */
+function DownloadIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
 const DOT_LABEL: Record<PersonaDot, () => string> = { online: () => tr('online'), away: () => tr('away'), off: () => `${tr('invisible')} / ${tr('offline')}` };
 
 /**
@@ -105,15 +120,35 @@ const DOT_LABEL: Record<PersonaDot, () => string> = { online: () => tr('online')
  * then a dot for your own online status. `away` fades it all out while focus is in Steam's own top bar. An item Steam
  * has not reported is left out.
  */
-export function StatusBar({ away, scale }: { away: boolean; scale: number }) {
+export function StatusBar({ away: topBarFocus, scale }: { away: boolean; scale: number }) {
     useEffect(() => startStatus(), []);
+    useEffect(() => acquireDownloads(), []);
     const { battery, connection } = useSyncExternalStore(subscribeStatus, statusState, statusState);
+    const percent = useSyncExternalStore(subscribeDownloads, downloadPercent, downloadPercent);
     const clock = useClock();
     const self = useSelfPersona();
     const dot = personaDot(self);
+    const { statusAvatar } = useSettings();
+    const avatar = avatarView(self, statusAvatar);
     const conn = connection ? CONNECTION[connection] : null;
     // Steam's own top bar is held hidden under ours (Steam hides it on Home itself, but forgets after sleep); the document is the one this bar is drawn in.
     const [doc, setDoc] = useState<Document | null>(null);
+    // Quick Access takes the window's focus while it is open (its window blurs, and focus returns when it closes), so
+    // focus is out of this window then: that is what keeps the bar on screen (#15).
+    const [focused, setFocused] = useState(true);
+    useEffect(() => {
+        const win = doc?.defaultView;
+        if (!doc || !win) return undefined;
+        const sync = () => setFocused(doc.hasFocus());
+        sync();
+        win.addEventListener('focus', sync);
+        win.addEventListener('blur', sync);
+        return () => {
+            win.removeEventListener('focus', sync);
+            win.removeEventListener('blur', sync);
+        };
+    }, [doc]);
+    const away = statusAway(topBarFocus, !focused);
     const marker = useCallback((el: HTMLSpanElement | null) => {
         if (el) setDoc(el.ownerDocument);
     }, []);
@@ -126,6 +161,12 @@ export function StatusBar({ away, scale }: { away: boolean; scale: number }) {
         <style>{COVER_CSS}</style>
         <div className={`gh-status${away ? ' gh-status-away' : ''}`} aria-hidden={away} style={style}>
             <div className="gh-status-pill">
+                {percent !== null && (
+                    <span className="gh-status-item gh-status-download" aria-label={`${tr('download')} ${percent}%`}>
+                        <DownloadIcon />
+                        {percent}%
+                    </span>
+                )}
                 {conn && (
                     <span className={`gh-status-item gh-status-${connection}`} aria-label={conn.label()}>
                         <conn.icon />
@@ -138,8 +179,11 @@ export function StatusBar({ away, scale }: { away: boolean; scale: number }) {
                     </span>
                 )}
                 <span className="gh-status-item">{clock}</span>
+                {avatar && dot && (
+                    <span className="gh-status-avatar" role="img" aria-label={DOT_LABEL[dot]()} style={{ backgroundImage: `url(${avatar.url})`, '--gh-avatar-ring': avatar.ring } as CSSProperties} />
+                )}
             </div>
-            {dot && <span className={`gh-status-dot gh-status-dot-${dot}`} role="img" aria-label={DOT_LABEL[dot]()} />}
+            {dot && !avatar && <span className={`gh-status-dot gh-status-dot-${dot}`} role="img" aria-label={DOT_LABEL[dot]()} />}
         </div>
         </>
     );

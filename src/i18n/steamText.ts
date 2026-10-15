@@ -19,6 +19,7 @@ const p = (token: string, en: string): Phrase => ({ token, en });
 
 export const PHRASES = {
     played: p('AppDetails_SectionTitle_PlayTime', 'Played'),
+    spaceRequired: p('AppDetails_SectionTitle_DiskSpaceRequired', 'Space Required'),
     lastPlayed: p('AppDetails_SectionTitle_LastPlayed', 'Last played'),
     achievements: p('AppDetails_SectionTitle_Achievements', 'Achievements'),
     added: p('Sale_AddedToLibrary', 'Added to library'),
@@ -32,6 +33,10 @@ export const PHRASES = {
     updated: p('LibraryHome_RecentlyCompleted_DownloadDate', 'Updated %1$s'),
     controllerSettings: p('AppOverlay_ControllerSettings', 'Controller settings'),
     manage: p('GameAction_Manage', 'Manage'),
+    // The Play pill's arrow (a game on more than one device): Steam's "Play from" menu.
+    playFrom: p('GameAction_PlayFrom', 'Play from'),
+    thisDevice: p('StreamingClient_Menu_UnknownHardware', 'This device'),
+    streamFrom: p('StreamingClient_StreamFrom', 'Stream from: %1$s'),
     gameDetails: p('AppDetails_GameInfo', 'Game details'),
     viewLibrary: p('GamepadHome_GoToLibrary', 'View more in your Library'),
     recentGames: p('LibraryHome_RecentGames', 'Recent games'),

@@ -15,12 +15,18 @@ export function minutesToHours(minutes: number): number {
     return Number.isFinite(minutes) && minutes > 0 ? minutes / 60 : 0;
 }
 
+/** Formatters by locale and decimals: building one costs far more than formatting (Home formats on every L1/R1 step). */
+const formatters = new Map<string, Intl.NumberFormat>();
+
 function formatNumber(value: number, locale: string, decimals: number): string {
     try {
-        return new Intl.NumberFormat(locale, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
-        }).format(value);
+        const key = `${locale}|${decimals}`;
+        let formatter = formatters.get(key);
+        if (!formatter) {
+            formatter = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+            formatters.set(key, formatter);
+        }
+        return formatter.format(value);
     } catch {
         return value.toFixed(decimals);
     }
@@ -45,4 +51,9 @@ export function formatBytes(bytes: unknown, locale: string): string | null {
         i++;
     }
     return `${formatNumber(v, locale, v >= 100 ? 0 : 1)} ${units[i]}`;
+}
+
+/** Achievement counts as Game Glance writes them everywhere (Home's chip, the Clean panel, the Spotlight card). */
+export function formatAchievements(a: { achieved: number; total: number }): string {
+    return `${a.achieved} / ${a.total}`;
 }

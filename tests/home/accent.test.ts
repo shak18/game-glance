@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { accentFor, DEFAULT_ACCENT, pickAccent } from '../../src/home/accent';
+import { accentFor, accentKey, DEFAULT_ACCENT, pickAccent } from '../../src/home/accent';
 import { Cache, DAY_MS, TTL } from '../../src/data/cache';
 
 function pixels(...groups: [number[], number][]): number[] {
@@ -71,6 +71,20 @@ describe('accentFor', () => {
     it('ignores a corrupt cache entry', async () => {
         const { cache } = fakeCache({ 'accent:7': 'garbage' });
         expect(await accentFor(7, { cache, sample: async () => '#abcdef' })).toBe('#abcdef');
+    });
+});
+
+describe('the accent of art changed with SteamGridDB (#32)', () => {
+    it("is kept under the art's version: a game without custom art keeps its old key", () => {
+        expect(accentKey(7)).toBe('accent:7');
+        expect(accentKey(7, 0)).toBe('accent:7');
+        expect(accentKey(7, 1791960041)).toBe('accent:7:1791960041');
+    });
+    it('samples again when the art changed, and keeps the new colour under the new version', async () => {
+        const { cache, store } = fakeCache({ 'accent:7': { color: '#112233' } });
+        expect(await accentFor(7, { cache, sample: async () => '#0040c0', version: () => 5 })).toBe('#0040c0');
+        expect(store.get('accent:7:5')?.v).toEqual({ color: '#0040c0' });
+        expect(await accentFor(7, { cache, sample: async () => '#ffffff', version: () => 5 })).toBe('#0040c0');
     });
 });
 

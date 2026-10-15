@@ -1,25 +1,34 @@
+import { OPEN_TIMINGS } from './motion';
+import type { OpenVariant } from './openHome';
+
 /**
- * The open-to-details transition's timeline (handoff "Interactions & motion", spec section 4). Pure: the
- * overlay, the router and the clock are injected, so the timing and every failure path are tested with fake
- * timers. The overlay itself (OpenOverlay) plays the motion in CSS from these same timings: placed over the
- * source, expanding to full screen over `expand` while Home fades over `homeFade`, then fading out over
- * `overlayFade` from `navigateAt`. This module decides when to navigate and when the overlay goes.
+ * The open transition's timeline (spec docs/superpowers/specs/2026-10-09-open-transition-design.md). Pure: Home's
+ * opening state, the bridge (a frozen copy of Home over the route change), the intent, the router and the clock are
+ * injected, so the timing and every failure path are tested with fake timers.
+ *
+ * Home starts moving at once (startHome). At the hand-over (the morph's end, or the feed card's hero fade, or the plain
+ * fade) the bridge goes up, the intent is marked and the page opens; the bridge then fades away as soon as the page
+ * reports ready, or after OPEN_TIMINGS.readyCap, and is removed. Anything that cannot be started still opens the
+ * page; a press while a transition runs is ignored; cancel() undoes whatever is up and never opens a page late.
  */
 
-export interface DOMRectLike {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
+export interface OpenBridge {
+    /** Fades the copy in over live Home (from transparent). */
+    fadeIn(ms: number): void;
+    fadeOut(ms: number): void;
+    remove(): void;
 }
 
-/** Handoff timings, ms. */
-export const TIMINGS = { expand: 480, homeFade: 300, navigateAt: 520, overlayFade: 450, removeAt: 1000 } as const;
-
-export interface OpenTransitionDeps {
+export interface OpenDeps {
     navigate(path: string): void;
-    /** Places the overlay over `rect` and starts its motion; returns its remover. May throw (no overlay then). */
-    mount(rect: DOMRectLike, art: string): () => void;
+    /** Puts Home in its opening state; returns its undo, or null when Home cannot be measured (the page opens at once). */
+    startHome(): (() => void) | null;
+    /** The frozen copy of Home over the route change; null (or a throw) for none. */
+    mountBridge(): OpenBridge | null;
+    /** Tells the page it is arriving (data/openIntent.markOpen). */
+    markOpen(): void;
+    /** Hears when the page is ready (data/openIntent.onOpenReady for this game); returns the unsubscribe. */
+    onReady(cb: () => void): () => void;
     setTimer(fn: () => void, ms: number): unknown;
     clearTimer(id: unknown): void;
     /** Optional diagnostics; the controller never throws. */
@@ -27,21 +36,25 @@ export interface OpenTransitionDeps {
 }
 
 export interface OpenTransition {
-    /** `art`: the clone's CSS background-image value (stacked layers; '' for the ink background only). */
-    open(appId: number, rect: DOMRectLike | null | undefined, art: string): void;
+    open(appId: number, variant: OpenVariant): void;
     cancel(): void;
 }
 
-/** A measured source worth animating from: finite, on-screen size (a 0x0 or missing rect is not). */
-export function usableRect(rect: DOMRectLike | null | undefined): rect is DOMRectLike {
-    if (!rect) return false;
-    const { left, top, width, height } = rect;
-    return [left, top, width, height].every(Number.isFinite) && width > 0 && height > 0;
+/** How long the copy fades in over live Home before the page opens: the morph's (its moved text is drawn soft live). */
+export function bridgeInFor(variant: OpenVariant): number {
+    return variant === 'morph' ? OPEN_TIMINGS.bridgeIn : 0;
 }
 
-export function createOpenTransition(deps: OpenTransitionDeps): OpenTransition {
+/** When Home hands over to the page, per variant (ms after the press). */
+export function handOverAt(variant: OpenVariant): number {
+    return variant === 'morph' ? OPEN_TIMINGS.morph : variant === 'heroFade' ? OPEN_TIMINGS.feedHero : OPEN_TIMINGS.feedUi;
+}
+
+export function createOpenTransition(deps: OpenDeps): OpenTransition {
     let running = false;
-    let remove: (() => void) | null = null;
+    let undoHome: (() => void) | null = null;
+    let bridge: OpenBridge | null = null;
+    let stopReady: (() => void) | null = null;
     let timers: unknown[] = [];
 
     const warn = (message: string, error: unknown) => {
@@ -51,29 +64,39 @@ export function createOpenTransition(deps: OpenTransitionDeps): OpenTransition {
             // diagnostics only
         }
     };
-
-    /** Clears pending timers and removes the overlay (once); Home is usable again. */
-    const finish = () => {
-        for (const id of timers) {
-            try {
-                deps.clearTimer(id);
-            } catch (error) {
-                warn('could not clear a transition timer', error);
-            }
-        }
-        timers = [];
-        const removeOverlay = remove;
-        remove = null;
-        running = false;
-        if (!removeOverlay) return;
+    const safely = (what: string, fn: () => void) => {
         try {
-            removeOverlay();
+            fn();
         } catch (error) {
-            warn('could not remove the open overlay', error);
+            warn(what, error);
+        }
+    };
+    const later = (fn: () => void, ms: number) => {
+        try {
+            timers.push(deps.setTimer(fn, ms));
+            return true;
+        } catch (error) {
+            warn('could not schedule the open transition', error);
+            return false;
         }
     };
 
-    /** Navigates; false when the router threw. */
+    /** Clears every timer and listener and takes the bridge down; Home is usable again. */
+    const finish = (undo: boolean) => {
+        for (const id of timers) safely('could not clear a transition timer', () => deps.clearTimer(id));
+        timers = [];
+        const stop = stopReady;
+        stopReady = null;
+        if (stop) safely('could not stop listening for the page', stop);
+        const b = bridge;
+        bridge = null;
+        if (b) safely('could not remove the bridge', () => b.remove());
+        const u = undoHome;
+        undoHome = null;
+        if (undo && u) safely("could not restore Home", u);
+        running = false;
+    };
+
     const navigate = (path: string): boolean => {
         try {
             deps.navigate(path);
@@ -84,37 +107,68 @@ export function createOpenTransition(deps: OpenTransitionDeps): OpenTransition {
         }
     };
 
+    /** The bridge fades away (once), then everything is cleared. */
+    let leaving = false;
+    const leave = () => {
+        if (leaving || !bridge) return;
+        leaving = true;
+        const b = bridge;
+        safely('could not fade the bridge', () => b.fadeOut(OPEN_TIMINGS.bridgeFade));
+        // Home's opening state goes too: Steam normally unmounts Home (hidden under the bridge while it leaves), but if it
+        // keeps it, or brings it back on B, Home must not be left mid-open.
+        if (!later(() => finish(true), OPEN_TIMINGS.bridgeFade)) finish(true);
+    };
+
+    const handOver = (path: string, fadeIn: number) => {
+        try {
+            bridge = deps.mountBridge();
+        } catch (error) {
+            warn('could not place the bridge', error);
+            bridge = null;
+        }
+        const b = bridge;
+        if (!b || fadeIn <= 0) return openPage(path);
+        safely('could not fade the bridge in', () => b.fadeIn(fadeIn));
+        if (!later(() => openPage(path), fadeIn)) openPage(path);
+    };
+
+    const openPage = (path: string) => {
+        safely('could not mark the open', () => deps.markOpen());
+        if (!navigate(path)) return finish(true);
+        if (!bridge) return finish(false);
+        try {
+            stopReady = deps.onReady(leave);
+        } catch (error) {
+            warn('could not listen for the page', error);
+        }
+        if (!later(leave, OPEN_TIMINGS.readyCap)) leave();
+    };
+
     return {
-        open(appId, rect, art) {
+        open(appId, variant) {
             if (running) return;
             const path = `/library/app/${appId}`;
-            // Without a usable source, or when the overlay cannot be placed, the page still opens, just without motion.
-            if (!usableRect(rect)) {
-                navigate(path);
-                return;
-            }
             running = true;
+            leaving = false;
             try {
-                remove = deps.mount(rect, art);
+                undoHome = deps.startHome();
             } catch (error) {
-                warn('could not place the open overlay', error);
-                finish();
+                warn('could not start the open transition', error);
+                undoHome = null;
+            }
+            // Without Home's opening state the page still opens, just without motion.
+            if (!undoHome) {
+                finish(false);
                 navigate(path);
                 return;
             }
-            try {
-                timers.push(deps.setTimer(() => {
-                    if (!navigate(path)) finish();
-                }, TIMINGS.navigateAt));
-                timers.push(deps.setTimer(finish, TIMINGS.removeAt));
-            } catch (error) {
-                warn('could not schedule the open transition', error);
-                finish();
+            if (!later(() => handOver(path, bridgeInFor(variant)), handOverAt(variant))) {
+                finish(true);
                 navigate(path);
             }
         },
         cancel() {
-            finish();
+            finish(true);
         },
     };
 }

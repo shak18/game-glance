@@ -75,6 +75,7 @@ export function SettingsPanel() {
         zoomTransition,
         dimUninstalledGames,
         homeStatusBar,
+        statusAvatar,
         gameLogo,
         homeRow,
         homeRowSort,
@@ -156,6 +157,14 @@ export function SettingsPanel() {
                         description="Clock, battery and connection at the top-right. Moving up to Steam's own top bar hides it."
                         checked={homeStatusBar}
                         onChange={(value) => settings.setHomeStatusBar(value)}
+                    />
+                </PanelSectionRow>
+                <PanelSectionRow>
+                    <ToggleField
+                        label="Profile picture in the status bar"
+                        description="Shows your avatar, round and ringed in your online colour, instead of the dot."
+                        checked={statusAvatar}
+                        onChange={(value) => settings.setStatusAvatar(value)}
                     />
                 </PanelSectionRow>
                 <PanelSectionRow>

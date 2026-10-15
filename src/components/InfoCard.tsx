@@ -1,5 +1,5 @@
 import { GameInfo } from '../data/steam';
-import { formatHours, minutesToHours } from '../logic/format';
+import { formatAchievements, formatHours, minutesToHours } from '../logic/format';
 import { descriptionState } from '../logic/infoCard';
 import type { SizeStat } from '../logic/sizeStat';
 import { tr } from '../i18n/steamText';
@@ -17,20 +17,21 @@ export function InfoCard({ game, locale, description, size = null }: Props) {
     return (
         <div className="gg-card">
             <div className="gg-stats">
+                <div data-stat="played">
+                    <div className="gg-label">{tr('played')}</div>
+                    <div className="gg-value">{formatHours(minutesToHours(game.playedMinutes), locale)}</div>
+                </div>
+                {/* Right after Played: Played stays first in every game (Home's open lands on it). */}
                 {size && (
-                    <div>
+                    <div data-stat="size">
                         <div className="gg-label">{size.label}</div>
                         <div className="gg-value">{size.value}</div>
                     </div>
                 )}
-                <div>
-                    <div className="gg-label">{tr('played')}</div>
-                    <div className="gg-value">{formatHours(minutesToHours(game.playedMinutes), locale)}</div>
-                </div>
                 {game.achievements && (
-                    <div>
+                    <div data-stat="achievements">
                         <div className="gg-label">{tr('achievements')}</div>
-                        <div className="gg-value">{game.achievements.achieved}/{game.achievements.total}</div>
+                        <div className="gg-value">{formatAchievements(game.achievements)}</div>
                     </div>
                 )}
             </div>

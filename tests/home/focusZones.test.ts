@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-    BUMPER_REPEAT_FIRST_MS, BUMPER_REPEAT_MS, bumperRepeatDelay, nextZone, onBack, opensGameMenu, recentsButton, repeatStep, selectionForButton, stepSelection, tabForButton,
+    BUMPER_REPEAT_FIRST_MS, BUMPER_REPEAT_MS, bumperRepeatDelay, nextZone, onBack, opensGameMenu, recentsButton, heldEvent, HELD_SILENCE_MS, stillHeld, selectionForButton, stepSelection, tabForButton,
 } from '../../src/home/focusZones';
 
 describe('focusZones', () => {
@@ -57,23 +57,23 @@ describe('focusZones', () => {
         });
     });
 
-    describe('repeatStep (a held Left/Right on the cards, at a held bumper\'s pace)', () => {
-        it('a fresh press always steps and starts over', () => {
-            expect(repeatStep(1000, null, false)).toEqual({ step: true, next: { at: 1000, repeats: 0 } });
-            expect(repeatStep(1050, { at: 1000, repeats: 5 }, false)).toEqual({ step: true, next: { at: 1050, repeats: 0 } });
+    describe('a held Left/Right on the cards (stepped by Home\'s own timer, as a held bumper)', () => {
+        it('a fresh press starts a hold; Steam\'s repeats during it only show it is still held', () => {
+            expect(heldEvent(false, false)).toBe('start');
+            expect(heldEvent(false, true)).toBe('start');
+            expect(heldEvent(true, true)).toBe('alive');
         });
-        it('Steam\'s fast repeats are swallowed until the bumper delay has passed: 400 ms first, then 170 ms', () => {
-            let last = repeatStep(0, null, false).next;
-            expect(repeatStep(100, last, true).step).toBe(false);
-            expect(repeatStep(399, last, true).step).toBe(false);
-            const first = repeatStep(400, last, true);
-            expect(first).toEqual({ step: true, next: { at: 400, repeats: 1 } });
-            last = first.next;
-            expect(repeatStep(500, last, true).step).toBe(false);
-            expect(repeatStep(570, last, true)).toEqual({ step: true, next: { at: 570, repeats: 2 } });
+        it('a repeat with nothing held starts one (focus arrived mid-hold)', () => {
+            expect(heldEvent(true, false)).toBe('start');
         });
-        it('a repeat with nothing held yet steps (focus arrived mid-hold)', () => {
-            expect(repeatStep(10, null, true)).toEqual({ step: true, next: { at: 10, repeats: 0 } });
+        it("still held while Steam's events keep coming: its first repeat ~400 ms after the press (the timer's first step), then ~every 50 ms", () => {
+            expect(stillHeld(BUMPER_REPEAT_FIRST_MS, 0)).toBe(true);
+            expect(stillHeld(1000, 1000 - 80)).toBe(true);
+        });
+        it('let go without the release reaching Home: no event for HELD_SILENCE_MS ends it', () => {
+            expect(stillHeld(1000, 1000 - HELD_SILENCE_MS)).toBe(false);
+            expect(HELD_SILENCE_MS).toBeGreaterThan(BUMPER_REPEAT_FIRST_MS);
+            expect(HELD_SILENCE_MS).toBeLessThanOrEqual(500);
         });
     });
 

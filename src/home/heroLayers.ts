@@ -9,6 +9,19 @@ export interface HeroLayer<A> {
     settled: boolean;
 }
 
+/** Home's layers when it mounts: the selected game's art at once, settled, when it is already known (Home coming back). */
+export function initialHeroLayers<A>(known: A | null, now: number): Array<HeroLayer<A>> {
+    return known === null ? [] : [{ id: 0, art: known, start: now, settled: true }];
+}
+
+/**
+ * When a game is selected with no art on screen yet (Home back on B, once its selection is restored): its art at once,
+ * settled, when already known; null otherwise (the art is on screen, so a switch fades; or it is not known, so it loads).
+ */
+export function settledHeroLayers<A>(shown: boolean, known: A | null, now: number): Array<HeroLayer<A>> | null {
+    return shown || known === null ? null : initialHeroLayers(known, now);
+}
+
 /**
  * The layers after a new art arrives at `now`: never more than two (the art under the fade and the new one). If the
  * top layer is still fading in (a quick run of L1/R1), it is settled, i.e. shown fully at once, and everything

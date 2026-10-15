@@ -21,6 +21,28 @@ export interface BatteryView {
 
 export type ConnectionKind = 'wifi' | 'wired' | 'offline';
 
+/**
+ * The percent the bar shows for a transfer that is running (a download, an update or an install), rounded; null when
+ * nothing runs (paused, queued, verifying or finishing) or the percent is unknown (#8). Pure.
+ */
+export function downloadStatus(state: { kind: string; percent: number | null } | null): number | null {
+    if (!state || state.percent === null || !Number.isFinite(state.percent)) return null;
+    return ['downloading', 'updating', 'installing'].includes(state.kind) ? Math.round(state.percent) : null;
+}
+
+/**
+ * Whether the bar fades out for Steam's top bar: only when focus is up there and Quick Access is closed (#15). Opening
+ * Quick Access moves focus to the top bar, so it must not hide the bar. Pure.
+ */
+export function statusAway(topBarFocus: boolean, quickAccessOpen: boolean): boolean {
+    return topBarFocus && !quickAccessOpen;
+}
+
+/** The battery's colour: Steam's online green while charging (#16); null keeps the bar's own colour. */
+export function batteryColour(charging: boolean): string | null {
+    return charging ? PERSONA_DOT_COLOURS.online : null;
+}
+
 /** "16:20" (24 h, hours padded) or "4:20 PM" (12 h). */
 export function formatClock(date: Date, hours24: boolean): string {
     const h = date.getHours();
@@ -256,6 +278,8 @@ export function statusPlacement(canvasScale: number): StatusPlacement {
 export interface SelfPersona {
     state: number;
     inGame: boolean;
+    /** Your avatar's hash (persona m_strAvatarHash), for the picture in the bar (#9); absent when Steam has none. */
+    avatarHash?: string;
 }
 
 /**
@@ -273,10 +297,22 @@ export function readSelfPersona(globals: unknown): SelfPersona | null {
         const chosen = ui?.m_eUserPersonaState ?? store?.m_eUserPersonaState;
         const state = typeof chosen === 'number' ? chosen : persona?.m_ePersonaState;
         if (typeof state !== 'number' || !Number.isFinite(state)) return null;
-        return { state, inGame: Number(persona?.m_unGamePlayedAppID) > 0 };
+        const hash = persona?.m_strAvatarHash;
+        return { state, inGame: Number(persona?.m_unGamePlayedAppID) > 0, ...(typeof hash === 'string' ? { avatarHash: hash } : {}) };
     } catch {
         return null;
     }
+}
+
+/**
+ * Your avatar in the bar (#9), when the setting is on and Steam has one: its picture, ringed in your status colour (the
+ * dot's colour). Null otherwise: the dot stays. Pure.
+ */
+export function avatarView(self: SelfPersona | null, enabled: boolean): { url: string; ring: string } | null {
+    const dot = personaDot(self);
+    const hash = self?.avatarHash;
+    if (!enabled || !dot || !hash || !/^[0-9a-f]{40}$/.test(hash) || /^0+$/.test(hash)) return null;
+    return { url: `https://avatars.steamstatic.com/${hash}_medium.jpg`, ring: PERSONA_DOT_COLOURS[dot] };
 }
 
 /** The dot for a persona, null when unknown (the dot is then left out). In a game counts as online, as on the Friends tab. */

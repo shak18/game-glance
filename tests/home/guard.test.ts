@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isKnownHomeShape } from '../../src/home/guard';
+import { isKnownHomeShape, isMemoHome, isPatchableHomeType } from '../../src/home/guard';
 import fixture from './fixtures/home-route.json';
 
 // Rebuilds the captured structure as a live object: symbols and functions cannot live in JSON.
@@ -97,5 +97,47 @@ describe('isKnownHomeShape', () => {
         );
         expect(() => isKnownHomeShape(throwingProxy)).not.toThrow();
         expect(isKnownHomeShape(throwingProxy)).toBe(false);
+    });
+});
+
+const MEMO = Symbol.for('react.memo');
+class ClassHome {
+    static isClass = true;
+}
+(ClassHome.prototype as { isReactComponent?: object }).isReactComponent = {};
+
+describe('isPatchableHomeType', () => {
+    it('accepts a plain function, the route child type Decky and SteamGridDB call directly', () => {
+        expect(isPatchableHomeType(() => null)).toBe(true);
+        expect(isPatchableHomeType(function wrapper() {
+            return null;
+        })).toBe(true);
+    });
+
+    it('rejects a React class, a memo object and anything that is not a function', () => {
+        expect(isPatchableHomeType(ClassHome)).toBe(false);
+        expect(isPatchableHomeType({ $$typeof: MEMO, type: () => null })).toBe(false);
+        expect(isPatchableHomeType(null)).toBe(false);
+        expect(isPatchableHomeType('home')).toBe(false);
+    });
+});
+
+describe('isMemoHome', () => {
+    const element = (type: unknown) => ({ $$typeof: Symbol.for('react.transitional.element'), type, props: {} });
+
+    it("accepts Steam's Home element: a memo around a function component", () => {
+        expect(isMemoHome(element({ $$typeof: MEMO, type: () => null, compare: null }))).toBe(true);
+    });
+
+    it('rejects a function type, a memo around a class, a memo without a function and garbage', () => {
+        expect(isMemoHome(element(() => null))).toBe(false);
+        expect(isMemoHome(element({ $$typeof: MEMO, type: ClassHome }))).toBe(false);
+        expect(isMemoHome(element({ $$typeof: MEMO }))).toBe(false);
+        expect(isMemoHome(element({ type: () => null }))).toBe(false);
+        expect(isMemoHome(null)).toBe(false);
+        expect(isMemoHome(undefined)).toBe(false);
+        const throwing = new Proxy({}, { get() { throw new Error('boom'); } });
+        expect(() => isMemoHome(throwing)).not.toThrow();
+        expect(isMemoHome(throwing)).toBe(false);
     });
 });

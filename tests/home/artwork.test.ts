@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { browserStores, capsuleUrls, guessedHeroUrls, heroUrls, landscapeUrls, soundtrackCoverUrls, SteamStores } from '../../src/home/artwork';
+import { accentHeroUrls, browserStores, capsuleUrls, customArtVersion, guessedHeroUrls, heroUrls, landscapeUrls, soundtrackCoverUrls, SteamStores } from '../../src/home/artwork';
 import { noteDetails, resetDetailsMemo } from '../../src/home/detailsMemo';
 
 const stores: SteamStores = {
@@ -314,4 +314,21 @@ describe('reloadArtworkCache and withArtworkVersion', () => {
     });
 });
 
+describe('a game changed with SteamGridDB (#32)', () => {
+    const host = 'https://steamloopback.host';
+    // Probed on the Ally: each change sets the overview's rt_custom_image_mtime, and Steam's urls carry it as ?v=.
+    const changed = (mtime: unknown): SteamStores => ({ ...stores, overview: () => ({ ...stores.overview(42), rt_custom_image_mtime: mtime as number }) });
 
+    it("the art's version is Steam's custom image time; 0 without custom art, or when the store fails", () => {
+        expect(customArtVersion(42, changed(1791960041))).toBe(1791960041);
+        expect(customArtVersion(42, stores)).toBe(0);
+        expect(customArtVersion(42, changed('soon'))).toBe(0);
+        expect(customArtVersion(42, { ...stores, overview: () => { throw new Error('nope'); } })).toBe(0);
+    });
+
+    it('the accent samples every custom hero Steam lists (a .png when the .jpg is missing), then the game\'s own hero', () => {
+        const custom: SteamStores = { ...stores, customHero: () => ['/customimages/42_hero.jpg?v=9', '/customimages/42_hero.png?v=9'] };
+        expect(accentHeroUrls(42, custom)).toEqual([`${host}/customimages/42_hero.jpg?v=9`, `${host}/customimages/42_hero.png?v=9`, `${base}/hero.jpg`]);
+        expect(accentHeroUrls(42, stores)).toEqual([`${base}/hero.jpg`]);
+    });
+});

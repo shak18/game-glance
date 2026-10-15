@@ -2,7 +2,8 @@ import { findModule } from '@decky/ui';
 import { memoLookup } from './moduleLookup';
 import type { ComponentType } from 'react';
 import { LOG_PREFIX } from '../constants';
-import { CloudAction, CloudState, cloudState } from './cloud';
+import { CloudAction, CloudDetails, CloudState, cloudState } from './cloud';
+import { memoCloud } from './detailsMemo';
 
 /**
  * Steam's own pieces behind the game page's cloud status, found by export names as the Play pill's are (probed on
@@ -74,7 +75,9 @@ export function readCloud(appId: number): CloudState | null {
         const g = globalThis as unknown as Globals;
         const overview = g.appStore?.GetAppOverviewByAppID?.(appId);
         const app = !overview ? 'missing' : overview.BIsModOrShortcut?.() ? 'shortcut' : 'game';
-        return cloudState(g.appDetailsStore?.GetAppDetails?.(appId) as never, app, offlineMode());
+        // Steam's store has no details for most games it did not load itself; the details callback Home registers for did carry them.
+        const details = (g.appDetailsStore?.GetAppDetails?.(appId) as CloudDetails | null | undefined) ?? memoCloud(appId);
+        return cloudState(details, app, offlineMode());
     } catch (error) {
         console.warn(`${LOG_PREFIX} Home: could not read the cloud state`, error);
         return null;
