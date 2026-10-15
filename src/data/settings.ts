@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { RECENT_ROW, RowSort, rowSortOf } from '../home/collections';
 import { backendKv, KvBackend } from './kv';
+import { resetTabMasterCache } from '../library/tabmaster';
 
 export interface Settings {
     enabled: boolean;
@@ -185,6 +186,9 @@ export function createSettingsStore(kv: KvBackend) {
             await kv.set(KEY, current);
         },
         async setTabMasterSync(tabMasterSync: boolean): Promise<void> {
+            try {
+                resetTabMasterCache();
+            } catch {}
             current = { ...current, tabMasterSync };
             emit();
             await kv.set(KEY, current);

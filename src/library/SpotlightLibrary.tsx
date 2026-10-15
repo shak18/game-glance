@@ -1,4 +1,4 @@
-import { RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Focusable, GamepadButton, GamepadEvent, Navigation } from '@decky/ui';
 import { LOG_PREFIX } from '../constants';
 import { cache } from '../data/cache';
@@ -27,7 +27,12 @@ import { LibraryInspector } from './LibraryInspector';
 import { LIBRARY_CSS } from './libraryCss';
 import { buildCategories, LibraryCategory, LibraryCollectionItem, LibraryGameItem } from './libraryData';
 import { markLeavingLibrary, noteLibrary, resetLibraryMemory, takeLibraryRestore } from './libraryMemory';
-import { fetchTabMasterSettings, getCachedTabMasterSettings, TabMasterSettingsResult } from './tabmaster';
+import {
+    extractTabsFromNativeTree,
+    fetchTabMasterSettings,
+    getCachedTabMasterSettings,
+    TabMasterSettingsResult,
+} from './tabmaster';
 
 interface BoxSize {
     width: number;
@@ -82,6 +87,7 @@ function useBoxSize(ref: RefObject<HTMLDivElement | null>): BoxSize | null {
 interface SpotlightLibraryProps {
     mockGames?: LibraryGameItem[];
     compact?: boolean;
+    fallbackTree?: ReactElement | null;
 }
 
 /** Launch source 100 is Steam's Big Picture library launch source */
@@ -255,25 +261,49 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
     }
 }
 
-export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) {
+export function SpotlightLibrary({ mockGames, compact, fallbackTree }: SpotlightLibraryProps) {
     const rootRef = useRef<HTMLDivElement | null>(null);
     const size = useBoxSize(rootRef);
     const canvas = homeCanvas(size?.width ?? 0, size?.height ?? 0);
     const currentSettings = useSettings();
-    const [tabMasterData, setTabMasterData] = useState<TabMasterSettingsResult | null>(() => getCachedTabMasterSettings());
+    const userSelectedTabRef = useRef(false);
+
+    const [tabMasterData, setTabMasterData] = useState<TabMasterSettingsResult | null>(() => {
+        if (fallbackTree) {
+            const liveTabs = extractTabsFromNativeTree(fallbackTree);
+            if (liveTabs && liveTabs.length > 0) {
+                return { found: true, tabs: liveTabs };
+            }
+        }
+        return getCachedTabMasterSettings();
+    });
 
     useEffect(() => {
-        if (!currentSettings.tabMasterSync) return;
+        if (!currentSettings.tabMasterSync) {
+            setTabMasterData(null);
+            return;
+        }
         let active = true;
-        fetchTabMasterSettings().then((data) => {
+
+        if (fallbackTree) {
+            const liveTabs = extractTabsFromNativeTree(fallbackTree);
+            if (liveTabs && liveTabs.length > 0) {
+                console.log(`${LOG_PREFIX} TabMaster: sync from nativeTree (${liveTabs.length} tabs)`);
+                setTabMasterData({ found: true, tabs: liveTabs });
+                return;
+            }
+        }
+
+        fetchTabMasterSettings(true).then((data) => {
             if (active && data) {
+                console.log(`${LOG_PREFIX} TabMaster: sync from disk (${data.tabs?.length ?? 0} tabs, found=${data.found})`);
                 setTabMasterData(data);
             }
         });
         return () => {
             active = false;
         };
-    }, [currentSettings.tabMasterSync]);
+    }, [currentSettings.tabMasterSync, fallbackTree]);
 
     const effectiveTabMasterData = currentSettings.tabMasterSync ? tabMasterData : null;
     const categories: LibraryCategory[] = useMemo(
@@ -303,6 +333,17 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
 
     const [activeCategoryId, setActiveCategoryId] = useState<string>(initialCatId);
     const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(initialRestore?.subCollectionId ?? null);
+
+    // Synchronize activeCategoryId if categories change (e.g. TabMaster async load)
+    useEffect(() => {
+        if (categories.length === 0) return;
+        const currentExists = categories.some((c) => c.id === activeCategoryId);
+        if (!currentExists) {
+            setActiveCategoryId(categories[0].id);
+        } else if (!userSelectedTabRef.current && !initialRestore && categories[0]?.id && activeCategoryId !== categories[0].id) {
+            setActiveCategoryId(categories[0].id);
+        }
+    }, [categories, activeCategoryId, initialRestore]);
 
     const activeCategory = useMemo(() => {
         return categories.find((c) => c.id === activeCategoryId) ?? categories[0];
@@ -360,6 +401,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
 
     // Reset game index when category changes
     const selectCategory = useCallback((id: string) => {
+        userSelectedTabRef.current = true;
         setActiveCategoryId(id);
         setSelectedCollectionId(null);
         setSelectedGameIdx(0);

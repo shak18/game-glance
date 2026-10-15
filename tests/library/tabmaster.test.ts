@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
     applyTabMasterCategories,
+    evaluateTabMasterFilters,
+    extractTabsFromNativeTree,
     getCachedTabMasterSettings,
     normalizeTabMasterId,
     resetTabMasterCache,
@@ -128,6 +130,142 @@ describe('tabmaster: applyTabMasterCategories', () => {
         expect(result[0].name).toBe('RPGS ONLY');
         expect(result[0].count).toBe(1);
         expect(result[0].games[0].name).toBe('Chrono Trigger');
+    });
+    it('adds custom filter game groups (whitelist, deck compatibility, regex) into the categories ribbon', () => {
+        const pool: LibraryGameItem[] = [
+            { ...dummyGame(101, 'Elden Ring'), compat: 3, installed: true, isShortcut: false },
+            { ...dummyGame(102, 'Cyberpunk 2077'), compat: 3, installed: false, isShortcut: false },
+            { ...dummyGame(103, 'Emulated Zelda'), compat: 0, installed: true, isShortcut: true },
+        ];
+
+        const tmData: TabMasterSettingsResult = {
+            found: true,
+            tabs: [
+                {
+                    id: 'verified-games',
+                    title: 'Deck Verified',
+                    position: 0,
+                    filters: [{ type: 'deck compatibility', params: { category: 3 } }],
+                },
+                {
+                    id: 'whitelist-group',
+                    title: 'Favorites Whitelist',
+                    position: 1,
+                    filters: [{ type: 'whitelist', params: { games: [103] } }],
+                },
+                {
+                    id: 'regex-group',
+                    title: 'Cyber Games',
+                    position: 2,
+                    filters: [{ type: 'regex', params: { regex: 'cyber' } }],
+                },
+            ],
+        };
+
+        const result = applyTabMasterCategories(baseCategories, mockCollections, tmData, pool);
+        const verifiedCat = result.find((c) => c.id === 'tm-verified-games');
+        expect(verifiedCat).toBeDefined();
+        expect(verifiedCat?.name).toBe('DECK VERIFIED');
+        expect(verifiedCat?.count).toBe(2);
+        expect(verifiedCat?.games.map((g) => g.name)).toEqual(['Elden Ring', 'Cyberpunk 2077']);
+
+        const whitelistCat = result.find((c) => c.id === 'tm-whitelist-group');
+        expect(whitelistCat).toBeDefined();
+        expect(whitelistCat?.count).toBe(1);
+        expect(whitelistCat?.games[0].name).toBe('Emulated Zelda');
+
+        const regexCat = result.find((c) => c.id === 'tm-regex-group');
+        expect(regexCat).toBeDefined();
+        expect(regexCat?.count).toBe(1);
+        expect(regexCat?.games[0].name).toBe('Cyberpunk 2077');
+    });
+
+    it('evaluates filters applied on existing standard categories', () => {
+        const tmData: TabMasterSettingsResult = {
+            found: true,
+            tabs: [
+                {
+                    id: 'Installed',
+                    title: 'Installed Hades Only',
+                    position: 0,
+                    filters: [{ type: 'whitelist', params: { games: [1] } }],
+                },
+            ],
+        };
+
+        const result = applyTabMasterCategories(baseCategories, mockCollections, tmData);
+        const instCat = result.find((c) => c.id === 'installed');
+        expect(instCat).toBeDefined();
+        expect(instCat?.count).toBe(1);
+        expect(instCat?.games[0].name).toBe('Hades');
+    });
+});
+
+describe('tabmaster: evaluateTabMasterFilters', () => {
+    const testGames: LibraryGameItem[] = [
+        { ...dummyGame(1, 'Hades'), compat: 3, installed: true, isShortcut: false, playedMinutes: 300 },
+        { ...dummyGame(2, 'Celeste'), compat: 2, installed: false, isShortcut: false, playedMinutes: 30 },
+        { ...dummyGame(3, 'RetroArch'), compat: 0, installed: true, isShortcut: true, playedMinutes: 1200 },
+    ];
+
+    it('filters installed vs uninstalled games', () => {
+        const installed = evaluateTabMasterFilters(testGames, [{ type: 'installed', params: { installed: true } }]);
+        expect(installed.map((g) => g.appId)).toEqual([1, 3]);
+
+        const uninstalled = evaluateTabMasterFilters(testGames, [{ type: 'installed', params: { installed: false } }]);
+        expect(uninstalled.map((g) => g.appId)).toEqual([2]);
+    });
+
+    it('filters platform (non-steam vs steam)', () => {
+        const nonSteam = evaluateTabMasterFilters(testGames, [{ type: 'platform', params: { platform: 'non-steam' } }]);
+        expect(nonSteam.map((g) => g.appId)).toEqual([3]);
+
+        const steamOnly = evaluateTabMasterFilters(testGames, [{ type: 'platform', params: { platform: 'steam' } }]);
+        expect(steamOnly.map((g) => g.appId)).toEqual([1, 2]);
+    });
+
+    it('filters by time played', () => {
+        // Over 1 hour (60 min)
+        const playedOverHour = evaluateTabMasterFilters(testGames, [
+            { type: 'time played', params: { timeThreshold: 1, units: 'hours', condition: 'above' } },
+        ]);
+        expect(playedOverHour.map((g) => g.appId)).toEqual([1, 3]);
+    });
+});
+
+describe('tabmaster: extractTabsFromNativeTree', () => {
+    it('returns null if tree is not patched by TabMaster', () => {
+        expect(extractTabsFromNativeTree(null)).toBeNull();
+        expect(extractTabsFromNativeTree({})).toBeNull();
+        // Standard unpatched Steam element
+        const standardTree = {
+            props: {
+                tabs: [{ id: '1', title: 'Home' }, { id: '2', title: 'Library' }],
+            },
+        };
+        expect(extractTabsFromNativeTree(standardTree)).toBeNull();
+    });
+
+    it('extracts live tabs if tree was patched by TabMaster', () => {
+        const patchedTree = {
+            props: {
+                children: {
+                    props: {
+                        tabs: [
+                            { id: 'tabmaster-rpg', title: 'RPG Vault', position: 0, tabMasterType: 'custom', filters: [] },
+                            { id: 'Installed', title: 'Ready to Play', position: 1, customTitle: 'Ready to Play' },
+                        ],
+                    },
+                },
+            },
+        };
+
+        const liveTabs = extractTabsFromNativeTree(patchedTree);
+        expect(liveTabs).not.toBeNull();
+        expect(liveTabs?.length).toBe(2);
+        expect(liveTabs?.[0].id).toBe('tabmaster-rpg');
+        expect(liveTabs?.[0].title).toBe('RPG Vault');
+        expect(liveTabs?.[1].title).toBe('Ready to Play');
     });
 });
 

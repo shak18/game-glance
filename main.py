@@ -58,7 +58,12 @@ class Plugin:
 
     async def get_tabmaster_settings(self):
         try:
-            return get_tabmaster_data(decky.DECKY_PLUGIN_SETTINGS_DIR, decky.DECKY_USER_HOME)
+            res = get_tabmaster_data(decky.DECKY_PLUGIN_SETTINGS_DIR, decky.DECKY_USER_HOME)
+            decky.logger.info(
+                f"[game-glance] get_tabmaster_settings: found={res.get('found')}, "
+                f"path={res.get('path')}, tabs={len(res.get('tabs', []))}"
+            )
+            return res
         except Exception:
             decky.logger.exception("[game-glance] get_tabmaster_settings failed")
             return {"found": False, "tabs": []}

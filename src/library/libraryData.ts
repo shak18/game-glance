@@ -16,6 +16,7 @@ export interface LibraryGameItem {
     heroic: HeroicRef | null;
     source: string;
     accent?: string;
+    compat?: number;
     lastPlayed?: number;
     sizeOnDisk?: number;
     // Pre-filled URLs if known (e.g. mock data or fast paths)
@@ -618,6 +619,8 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
                         ? Boolean((overviewRec?.local_per_client_data as Record<string, unknown>).installed)
                         : false;
 
+    const compat = (app.steam_deck_compat_category ?? (overviewRec?.steam_deck_compat_category as number | undefined)) ?? 0;
+
     return {
         appId: app.appid,
         name: info.name || app.display_name || `App ${app.appid}`,
@@ -630,6 +633,7 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
         achievements: isSoundtrack ? null : info.achievements,
         heroic: info.heroic,
         source,
+        compat,
         lastPlayed: app.rt_last_time_played,
         sizeOnDisk: size,
     };
@@ -669,7 +673,7 @@ export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: T
         if (soundtracks.length > 0) {
             baseCategories.push({ id: 'soundtracks', name: 'SOUNDTRACKS', count: soundtracks.length, games: soundtracks });
         }
-        return tabMasterData ? applyTabMasterCategories(baseCategories, mockCollections, tabMasterData) : baseCategories;
+        return tabMasterData ? applyTabMasterCategories(baseCategories, mockCollections, tabMasterData, regularGames) : baseCategories;
     }
 
     const { installed, installedAppIds, deckCompat, all, favorites, shortcuts, soundtracks, soundtrackAppIds, userCollections, runningAppIds } = readRawApps();
@@ -756,5 +760,15 @@ export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: T
     }
 
     const base = categories.filter((c) => c.count > 0 || c.id === 'installed' || c.id === 'all');
-    return tabMasterData ? applyTabMasterCategories(base, collectionItems, tabMasterData) : base;
+    // Combine all steam games and shortcuts for TabMaster filter evaluation
+    const combinedAllApps: RawApp[] = [];
+    const poolSeen = new Set<number>();
+    for (const a of [...all, ...shortcuts, ...installed, ...deckCompat, ...favorites]) {
+        if (!poolSeen.has(a.appid) && isGameOrShortcutApp(a) && !isOst(a)) {
+            poolSeen.add(a.appid);
+            combinedAllApps.push(a);
+        }
+    }
+    const allGamesPool = toItems(combinedAllApps);
+    return tabMasterData ? applyTabMasterCategories(base, collectionItems, tabMasterData, allGamesPool) : base;
 }
