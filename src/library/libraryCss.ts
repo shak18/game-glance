@@ -55,25 +55,197 @@ export const LIBRARY_CSS = `
     z-index: 1 !important;
 }
 
+/* Frozen copy in bridge should never re-animate or transition */
+.gh-bridge,
+.gh-bridge *,
+.gh-bridge *::before,
+.gh-bridge *::after {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Exit animations: stylishly zoom/slide out of screen when leaving to Home or Game Detail */
+.sgl-root.sgl-leaving,
+.sgl-root[data-sgl-leaving="true"],
 .sgl-root[data-gh-leaving] {
-    opacity: 0 !important;
     pointer-events: none !important;
-    transition: opacity 300ms ease !important;
 }
 
-.sgl-root.sgl-back .sgl-body,
-.sgl-root.sgl-back .sgl-header {
-    animation: sglFadeIn 220ms cubic-bezier(.2,.65,.3,1) both;
+.sgl-root.sgl-leaving .sgl-header,
+.sgl-root[data-sgl-leaving="true"] .sgl-header,
+.sgl-root[data-gh-leaving] .sgl-header {
+    animation: sglHeaderExit 200ms cubic-bezier(.25, 0, 0, 1) forwards !important;
+    will-change: transform, opacity;
 }
 
-@keyframes sglFadeIn {
-    from {
+.sgl-root.sgl-leaving .sgl-inspector,
+.sgl-root[data-sgl-leaving="true"] .sgl-inspector,
+.sgl-root[data-gh-leaving] .sgl-inspector {
+    animation: sglInspectorExit 200ms cubic-bezier(.25, 0, 0, 1) forwards !important;
+    will-change: transform, opacity;
+}
+
+.sgl-root.sgl-leaving .sgl-grid-panel,
+.sgl-root[data-sgl-leaving="true"] .sgl-grid-panel,
+.sgl-root[data-gh-leaving] .sgl-grid-panel {
+    animation: sglGridExit 200ms cubic-bezier(.25, 0, 0, 1) forwards !important;
+    will-change: transform, opacity;
+}
+
+.sgl-root.sgl-leaving .sgl-bg-container,
+.sgl-root[data-sgl-leaving="true"] .sgl-bg-container,
+.sgl-root[data-gh-leaving] .sgl-bg-container {
+    animation: sglBgExit 200ms ease forwards !important;
+    will-change: opacity;
+}
+
+/* Entrance animations: stylishly zoom/slide in from outside the viewport on enter or back */
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-header {
+    animation: sglHeaderEnter 280ms cubic-bezier(.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+}
+
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector {
+    animation: sglInspectorEnter 300ms cubic-bezier(.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+}
+
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-grid-panel {
+    animation: sglGridEnter 320ms cubic-bezier(.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+}
+
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-bg-container {
+    animation: sglBgEnter 340ms ease-out both;
+    will-change: opacity;
+}
+
+/* Cascading entrance for elements inside inspector (from left) */
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-poster-wrapper,
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector-col-fan {
+    animation: sglChildLeftEnter 260ms 40ms cubic-bezier(.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+}
+
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-title-box,
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-meta-row,
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-stats-grid,
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-inspector-actions {
+    animation: sglChildLeftEnter 260ms 80ms cubic-bezier(.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+}
+
+/* Cascading entrance for grid inside right panel (from right) */
+.sgl-root:not(.sgl-leaving):not([data-sgl-leaving="true"]):not([data-gh-leaving]) .sgl-grid {
+    animation: sglChildRightEnter 280ms 40ms cubic-bezier(.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+}
+
+/* Directional Entrance Keyframes */
+@keyframes sglHeaderEnter {
+    0% {
         opacity: 0;
-        transform: scale(0.995);
+        transform: translateY(-24px) scale(0.99);
     }
-    to {
+    100% {
         opacity: 1;
-        transform: scale(1);
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes sglInspectorEnter {
+    0% {
+        opacity: 0;
+        transform: translateX(-32px) scale(0.985);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes sglGridEnter {
+    0% {
+        opacity: 0;
+        transform: translateX(36px) scale(0.985);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes sglChildLeftEnter {
+    0% {
+        opacity: 0;
+        transform: translateX(-14px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes sglChildRightEnter {
+    0% {
+        opacity: 0;
+        transform: translateX(18px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes sglBgEnter {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Directional Exit Keyframes */
+@keyframes sglHeaderExit {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-24px) scale(0.99);
+    }
+}
+
+@keyframes sglInspectorExit {
+    0% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-32px) scale(0.985);
+    }
+}
+
+@keyframes sglGridExit {
+    0% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(36px) scale(0.985);
+    }
+}
+
+@keyframes sglBgExit {
+    0% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
     }
 }
 
@@ -1274,8 +1446,7 @@ export const LIBRARY_CSS = `
         padding: ${d(14)} !important;
         gap: 6px !important;
         overflow-y: hidden !important;
-        transform: translateZ(0) !important;
-        will-change: transform !important;
+        will-change: transform, opacity !important;
     }
 
     .sgl-poster-wrapper {
@@ -1571,8 +1742,7 @@ export const LIBRARY_CSS = `
     padding: ${d(14)} !important;
     gap: 6px !important;
     overflow-y: hidden !important;
-    transform: translateZ(0) !important;
-    will-change: transform !important;
+    will-change: transform, opacity !important;
 }
 .sgl-root.sgl-compact .sgl-poster-wrapper {
     flex: 0 0 auto !important;

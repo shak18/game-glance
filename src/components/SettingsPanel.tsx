@@ -73,7 +73,6 @@ export function SettingsPanel() {
         libraryCollectionColumns,
         wishlistDeals,
         cleanPage,
-        zoomTransition,
         dimUninstalledGames,
         homeStatusBar,
         statusAvatar,
@@ -301,14 +300,6 @@ export function SettingsPanel() {
                 )}
             </PanelSection>
             <PanelSection title="Visuals & Effects">
-                <PanelSectionRow>
-                    <ToggleField
-                        label="Zoom into full screen"
-                        description="Smoothly expands game art into full screen when opening game details from Home and Library. Off navigates directly."
-                        checked={zoomTransition}
-                        onChange={(value) => settings.setZoomTransition(value)}
-                    />
-                </PanelSectionRow>
                 <PanelSectionRow>
                     <ToggleField
                         label="Unhighlight uninstalled games"

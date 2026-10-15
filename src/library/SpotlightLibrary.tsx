@@ -160,6 +160,7 @@ export function cancelLibraryOpen() {
 }
 
 export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLElement | null) {
+    if (activeLibraryBridge) return;
     playNavSound('IntoGameDetail');
     markLeavingLibrary();
 
@@ -175,11 +176,16 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
     let bridge: OpenBridge | null = null;
     let stopReady: (() => void) | null = null;
     let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+    let navTimer: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = () => {
         if (safetyTimer) {
             clearTimeout(safetyTimer);
             safetyTimer = null;
+        }
+        if (navTimer) {
+            clearTimeout(navTimer);
+            navTimer = null;
         }
         if (stopReady) {
             stopReady();
@@ -196,7 +202,8 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
         const hasDoc = typeof document !== 'undefined';
         const root = (sourceEl?.closest?.('.sgl-root') ?? (hasDoc ? document.querySelector('.sgl-root') : null)) as HTMLElement | null;
         if (root) {
-            bridge = mountOpenBridge(root, steamEnterOffCss());
+            root.classList.add('sgl-leaving');
+            root.setAttribute('data-sgl-leaving', 'true');
         }
 
         const mode = homeMode(settings.get());
@@ -215,10 +222,22 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
             }
         });
 
-        safetyTimer = setTimeout(cleanup, OPEN_TIMINGS.readyCap + 300);
+        safetyTimer = setTimeout(cleanup, OPEN_TIMINGS.readyCap + 400);
         activeLibraryBridge = { cancel: cleanup };
 
-        Navigation.Navigate(`/library/app/${game.appId}`);
+        navTimer = setTimeout(() => {
+            navTimer = null;
+            try {
+                if (root) {
+                    bridge = mountOpenBridge(root, steamEnterOffCss());
+                }
+            } catch {}
+            try {
+                Navigation.Navigate(`/library/app/${game.appId}`);
+            } catch {
+                cleanup();
+            }
+        }, 160);
     } catch (error) {
         console.warn(`${LOG_PREFIX} SpotlightLibrary: open transition failed`, error);
         cleanup();
@@ -378,6 +397,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     }, [isInsideSubCollection, activeCategory, selectedCollectionId, categories, activeCategoryId, selectCategory]);
 
     const isExitingHomeRef = useRef(false);
+    const [isLeaving, setIsLeaving] = useState(false);
 
     // Save position whenever leaving or unmounting (so Steam sub-screens like Properties restore exact state)
     useEffect(() => {
@@ -389,23 +409,31 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     }, []);
 
     const navigateHome = useCallback(() => {
+        if (isExitingHomeRef.current) return;
         isExitingHomeRef.current = true;
+        setIsLeaving(true);
         resetLibraryMemory();
         markLeavingHome();
-        try {
-            if (rootRef.current) {
-                const bridge = mountOpenBridge(rootRef.current, steamEnterOffCss());
-                bridge.fadeOut(300);
-                setTimeout(() => bridge.remove(), 350);
-            }
-        } catch {}
-        try {
-            Navigation.Navigate('/library/home');
-        } catch {
-            try {
-                Navigation.Navigate('/');
-            } catch {}
+        if (rootRef.current) {
+            rootRef.current.classList.add('sgl-leaving');
+            rootRef.current.setAttribute('data-sgl-leaving', 'true');
         }
+        setTimeout(() => {
+            try {
+                if (rootRef.current) {
+                    const bridge = mountOpenBridge(rootRef.current, steamEnterOffCss());
+                    bridge.fadeOut(300);
+                    setTimeout(() => bridge.remove(), 350);
+                }
+            } catch {}
+            try {
+                Navigation.Navigate('/library/home');
+            } catch {
+                try {
+                    Navigation.Navigate('/');
+                } catch {}
+            }
+        }, 160);
     }, []);
 
     // Open a collection to view its games
@@ -522,7 +550,8 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     const handleDetails = useCallback((gameToShow: LibraryGameItem | null = selectedGame, sourceEl?: HTMLElement | null) => {
         const game = gameToShow ?? selectedGame;
         if (!game) return;
-        openLibraryGameDetails(game, sourceEl);
+        setIsLeaving(true);
+        openLibraryGameDetails(game, sourceEl ?? rootRef.current);
     }, [selectedGame]);
 
     // Secondary action: Play game (Y button)
@@ -603,6 +632,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     }, [onActivate]);
 
     const onCancel = useCallback(() => {
+        if (isLeaving || isExitingHomeRef.current) return;
         cancelLibraryOpen();
         if (isInsideSubCollection) {
             handleBackToCollections();
@@ -615,11 +645,16 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
         }
         // At root tabs level: nowhere else to go back inside Library -> take user to Home
         navigateHome();
-    }, [focusZone, handleBackToCollections, isInsideSubCollection, navigateHome]);
+    }, [focusZone, handleBackToCollections, isInsideSubCollection, navigateHome, isLeaving]);
 
     // Gamepad controller event handler for Decky's Focusable tree
     const onGamepadButtonDown = useCallback((evt: GamepadEvent) => {
         try {
+            if (isLeaving || isExitingHomeRef.current) {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                return;
+            }
             const btn = Number(evt?.detail?.button);
             const now = Date.now();
 
@@ -775,6 +810,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     // Keyboard handlers for browser preview and physical keyboards
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (isLeaving || isExitingHomeRef.current) return;
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
                 // When focused on Steam's top search bar, allow ArrowDown or Escape to return focus
                 // down into the Spotlight Library category tabs!
@@ -893,7 +929,7 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [focusZone, selectedGameIdx, totalItemsCount, columns, cycleCategory, handleSelectGame, onActivate, handlePlayGame, onCancel, isCollectionsTab, isInsideSubCollection, selectedGame]);
+    }, [focusZone, selectedGameIdx, totalItemsCount, columns, cycleCategory, handleSelectGame, onActivate, handlePlayGame, onCancel, isCollectionsTab, isInsideSubCollection, selectedGame, isLeaving]);
 
     const activeCategoryIdx = categories.findIndex((c) => c.id === activeCategoryId);
     const activeCollectionIdx = isInsideSubCollection
@@ -904,7 +940,8 @@ export function SpotlightLibrary({ mockGames, compact }: SpotlightLibraryProps) 
     return (
         <Focusable
             ref={rootRef as unknown as React.Ref<HTMLDivElement>}
-            className={`sgl-root${compact ? ' sgl-compact' : ''}${back ? ' sgl-back' : ''}`}
+            className={`sgl-root${compact ? ' sgl-compact' : ''}${back ? ' sgl-back' : ''}${isLeaving ? ' sgl-leaving' : ''}`}
+            data-sgl-leaving={isLeaving ? 'true' : undefined}
             preferredFocus={true}
             noFocusRing
             tabIndex={0}
