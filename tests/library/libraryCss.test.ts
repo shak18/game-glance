@@ -86,4 +86,13 @@ describe('libraryCss: Handheld and responsive layout rules with proportional fon
         expect(LIBRARY_CSS).toContain('filter: grayscale(1);');
         expect(LIBRARY_CSS).toContain('opacity: 0.55;');
     });
+
+    it('pins background container and layer to inset 0 and center 30% to match GameView hero framing exactly', () => {
+        expect(LIBRARY_CSS).toContain('.sgl-bg-container');
+        expect(LIBRARY_CSS).toContain('inset: 0 !important;');
+        expect(LIBRARY_CSS).toContain('.sgl-bg-layer');
+        expect(LIBRARY_CSS).toContain('background-position: center 30% !important;');
+        expect(LIBRARY_CSS).toContain('background-repeat: no-repeat !important;');
+    });
 });
+

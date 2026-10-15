@@ -251,29 +251,37 @@ export const LIBRARY_CSS = `
     }
 }
 
-/* Ambient Blurred Background */
+/* Ambient Blurred Background - pinned to exact viewport coordinates to match GameView hero positioning */
 .sgl-bg-container {
-    position: absolute;
-    inset: -30px;
-    pointer-events: none;
-    overflow: hidden;
-    z-index: 0;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    z-index: 0 !important;
 }
 
 .sgl-bg-layer {
-    position: absolute;
-    inset: 0;
-    background-size: cover;
-    background-position: center 30%;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-size: cover !important;
+    background-position: center 30% !important;
+    background-repeat: no-repeat !important;
     filter: brightness(0.36) saturate(1.18);
-    transform: none;
+    transform: none !important;
     transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
     will-change: opacity;
 }
 
 .sgl-bg-vignette {
-    position: absolute;
-    inset: 0;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
     background: radial-gradient(circle at 65% 50%, rgba(6, 9, 14, 0.20) 0%, rgba(6, 9, 14, 0.68) 75%, #06090e 100%);
 }
 
