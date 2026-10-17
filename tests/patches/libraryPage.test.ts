@@ -11,14 +11,17 @@ afterEach(async () => {
 });
 
 describe('patchLibraryPage', () => {
-    it('does not patch the Library route while Spotlight Library is off', () => {
+    it('does not patch the Library route while Spotlight Library is off', async () => {
+        await settings.setSpotlightLibrary(false);
         const unpatch = patchLibraryPage();
         expect(routerHook.addPatch).not.toHaveBeenCalled();
         unpatch();
     });
 
     it('patches library routes when turned on and removes them when turned off', async () => {
+        await settings.setSpotlightLibrary(false);
         const unpatch = patchLibraryPage();
+        expect(routerHook.addPatch).not.toHaveBeenCalled();
         await settings.setSpotlightLibrary(true);
         expect(routerHook.addPatch).toHaveBeenCalled();
         const routes = vi.mocked(routerHook.addPatch).mock.calls.map((c) => c[0]);

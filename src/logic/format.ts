@@ -57,3 +57,17 @@ export function formatBytes(bytes: unknown, locale: string): string | null {
 export function formatAchievements(a: { achieved: number; total: number }): string {
     return `${a.achieved} / ${a.total}`;
 }
+
+const DAY_SECONDS = 86400;
+const AGO_DAYS_MAX = 14;
+
+export function formatLastPlayed(lastPlayed: number, now: number, locale: string): string {
+    const days = Math.floor((now - lastPlayed) / DAY_SECONDS);
+    if (days < 1) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days <= AGO_DAYS_MAX) return `${days} days ago`;
+    const when = new Date(lastPlayed * 1000);
+    const thisYear = when.getFullYear() === new Date(now * 1000).getFullYear();
+    return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', ...(thisYear ? {} : { year: 'numeric' as const }) }).format(when);
+}
+

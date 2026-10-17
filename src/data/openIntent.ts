@@ -1,4 +1,4 @@
-import type { PageLook } from '../home/openTargets';
+export type PageLook = 'spotlight' | 'clean' | 'steam';
 
 /**
  * "Home is opening this game's page": Spotlight Home's open transition morphs Home into the page's layout, covers the

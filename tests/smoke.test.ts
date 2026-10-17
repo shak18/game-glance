@@ -3,6 +3,6 @@ import { PLUGIN_NAME } from '../src/constants';
 
 describe('scaffold', () => {
     it('exposes the plugin name', () => {
-        expect(PLUGIN_NAME).toBe('Game Glance');
+        expect(PLUGIN_NAME).toBe('Glance Library');
     });
 });

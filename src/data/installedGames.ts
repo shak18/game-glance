@@ -1,7 +1,16 @@
 import { callable } from '@decky/api';
 import { HeroicRef, parseHeroicLaunch } from '../logic/heroic';
 import type { HltbGame } from './hltb';
-import { unifideckInstalled } from './unifideckInstalled';
+async function unifideckInstalled(appId: number): Promise<boolean | null> {
+    try {
+        const backend = (globalThis as { DeckyBackend?: { call(route: string, ...args: unknown[]): Promise<unknown> } }).DeckyBackend;
+        if (!backend?.call) return null;
+        const res = (await backend.call('loader/call_plugin_method', 'Unifideck', 'get_game_info', appId)) as { success?: boolean; data?: { installed?: boolean } };
+        return typeof res?.data?.installed === 'boolean' ? res.data.installed : null;
+    } catch {
+        return null;
+    }
+}
 
 export const GAME_APP_TYPE = 1;
 export const DEMO_APP_TYPE = 8;

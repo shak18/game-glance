@@ -1,7 +1,7 @@
 {
-  "name": "game-glance",
-  "version": "3.4.0",
-  "description": "Immersive game page for Steam Game Mode: full-screen art, HowLongToBeat times, descriptions and store info",
+  "name": "glance-library",
+  "version": "1.0.0",
+  "description": "Pegasus-inspired Spotlight Library for Steam Game Mode with customizable grid density, collection views, and TabMaster sync",
   "type": "module",
   "scripts": {
     "dev": "vite",

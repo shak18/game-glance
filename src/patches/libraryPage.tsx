@@ -18,7 +18,7 @@ function patchedLibraryMemo(memoType: any): any {
     if (cached) return cached;
     const copy = { ...memoType };
     afterPatch(copy, 'type', (_: unknown[], nativeTree: any) => {
-        if (!settings.get().spotlightLibrary) return nativeTree;
+        if (!settings.get().enabled || !settings.get().spotlightLibrary) return nativeTree;
         return <LibraryGate key={KEY} fallback={nativeTree} />;
     });
     patchedLibraryMemos.set(memoType, copy);
@@ -75,7 +75,7 @@ const libraryRoutePatch: RoutePatch = (routeProps: any) => {
 
                                 if (typeof ret2.type === 'function') {
                                     afterPatch(ret2, 'type', (_3: unknown[], nativeTree: any) => {
-                                        if (!settings.get().spotlightLibrary) return nativeTree;
+                                        if (!settings.get().enabled || !settings.get().spotlightLibrary) return nativeTree;
                                         return <LibraryGate key={KEY} fallback={nativeTree} />;
                                     });
                                     return ret2;
@@ -143,7 +143,7 @@ export function patchLibraryPage(): () => void {
 
     const sync = () => {
         if (stopped) return;
-        const on = settings.get().spotlightLibrary;
+        const on = settings.get().enabled && settings.get().spotlightLibrary;
         if (on && !active) {
             addPatches();
         } else if (!on && active) {

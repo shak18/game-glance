@@ -5,23 +5,16 @@ import { cache } from '../data/cache';
 import { HltbResult, lookupHltb } from '../data/hltb';
 import { settings, useSettings } from '../data/settings';
 import { getDescription, peekSteamLanguage } from '../data/steam';
-import { openGameActions } from '../home/ActionRow';
-import { accentFor, DEFAULT_ACCENT, legibleAccent } from '../home/accent';
-import { sampleAccent } from '../home/accentSample';
-import { browserStores, guessedHeroUrls, heroUrls as getHeroUrls, useArtworkVersion } from '../home/artwork';
-import { playNavSound } from '../home/navSound';
+import { openGameActions } from './gameActions';
+import { accentFor, DEFAULT_ACCENT, legibleAccent } from './accent';
+import { sampleAccent } from './accentSample';
+import { browserStores, guessedHeroUrls, heroUrls as getHeroUrls, useArtworkVersion } from './artwork';
+import { playNavSound } from './navSound';
 import { LibraryBackground } from './LibraryBackground';
 import { LibraryCategoryBar } from './LibraryCategoryBar';
-import { mountOpenBridge } from '../home/openBridge';
-import type { OpenBridge } from '../home/openTransition';
+import { mountOpenBridge, OPEN_TIMINGS, RETURN_TIMINGS, steamEnterOffCss, type OpenBridge } from './libraryTransition';
 import { markOpen, onOpenReady } from '../data/openIntent';
-import { homeMode } from '../home/mode';
-import type { PageLook } from '../home/openTargets';
-import { steamEnterOffCss } from '../styles/theme';
-import { OPEN_TIMINGS, RETURN_TIMINGS } from '../home/motion';
-import { markLeaving as markLeavingHome } from '../home/homeMemory';
-import { usableSize } from '../home/homeView';
-import { homeCanvas } from '../home/scale';
+import { libraryCanvas, usableSize } from './libraryScale';
 import { cardArtMemo, LibraryGrid } from './LibraryGrid';
 import { LibraryInspector } from './LibraryInspector';
 import { LIBRARY_CSS } from './libraryCss';
@@ -220,12 +213,8 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
             root.setAttribute('data-sgl-leaving', 'true');
         }
 
-        const mode = homeMode(settings.get());
-        const look: PageLook = mode.cleanDetails ? 'clean' : 'spotlight';
-        const pageRestyled = mode.gamePage && mode.restyleDetails;
-
         markOpen(game.appId, {
-            look: pageRestyled ? look : 'steam',
+            look: 'spotlight',
             mode: 'all',
         });
 
@@ -264,7 +253,7 @@ export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLEle
 export function SpotlightLibrary({ mockGames, compact, fallbackTree }: SpotlightLibraryProps) {
     const rootRef = useRef<HTMLDivElement | null>(null);
     const size = useBoxSize(rootRef);
-    const canvas = homeCanvas(size?.width ?? 0, size?.height ?? 0);
+    const canvas = libraryCanvas(size?.width ?? 0, size?.height ?? 0);
     const currentSettings = useSettings();
     const userSelectedTabRef = useRef(false);
 
@@ -467,7 +456,6 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
         isExitingHomeRef.current = true;
         setIsLeaving(true);
         resetLibraryMemory();
-        markLeavingHome();
         if (rootRef.current) {
             rootRef.current.classList.add('sgl-leaving');
             rootRef.current.setAttribute('data-sgl-leaving', 'true');

@@ -9,7 +9,7 @@ import {
     registerArtworkCacheClearer,
     soundtrackCoverUrls as getSoundtrackCoverUrls,
     useArtworkVersion,
-} from '../home/artwork';
+} from './artwork';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
 
 interface LibraryGridProps {

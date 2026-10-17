@@ -10,10 +10,9 @@ import {
     setCachedCoverUrl,
     soundtrackCoverUrls as getSoundtrackCoverUrls,
     useArtworkVersion,
-} from '../home/artwork';
-import { Chip, gameChips } from '../home/chips';
-import { formatHours, minutesToHours, steamLanguageToLocale } from '../logic/format';
-import { formatLastPlayed } from '../home/recents';
+} from './artwork';
+import { Chip, gameChips } from './chips';
+import { formatHours, formatLastPlayed, minutesToHours, steamLanguageToLocale } from '../logic/format';
 import { peekSteamLanguage } from '../data/steam';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
 

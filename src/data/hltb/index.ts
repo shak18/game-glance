@@ -1,7 +1,12 @@
 import { fetchNoCors } from '@decky/api';
 import { cleanTitle } from '../../logic/names';
-import { HltbTimes } from '../../logic/progress';
 import { HLTBGameStats } from '../../vendor/hltb-for-deck/hooks/GameInfoData';
+
+export interface HltbTimes {
+    main: number | null;
+    mainExtras: number | null;
+    completionist: number | null;
+}
 import { fetchHltbGameStats } from '../../vendor/hltb-for-deck/hooks/HltbApi';
 import { attempt } from '../attempt';
 import { Cache, cache, Overrides, overrides, TTL } from '../cache';

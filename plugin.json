@@ -1,11 +1,11 @@
 {
-  "name": "Game Glance",
-  "author": "Michael Palma",
+  "name": "Glance Library",
+  "author": "GameGlance Community",
   "flags": [],
   "api_version": 1,
   "publish": {
-    "tags": ["theme", "hltb", "library"],
-    "description": "Immersive game page: full-screen art, HowLongToBeat times, descriptions and store info.",
+    "tags": ["library", "theme", "tabmaster"],
+    "description": "Pegasus-inspired Spotlight Library for Steam Game Mode with customizable grid density, collection views, and TabMaster sync.",
     "image": ""
   }
 }

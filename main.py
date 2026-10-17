@@ -12,7 +12,7 @@ from gameglance.tabmaster import get_tabmaster_data
 
 DATA_PATH = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "data.json")
 if carry_over(old_data_path(decky.DECKY_PLUGIN_SETTINGS_DIR), DATA_PATH):
-    decky.logger.info("[game-glance] carried over data from Ally Game Page")
+    decky.logger.info("[glance-library] carried over data from Ally Game Page")
 KV = KvStore(DATA_PATH)
 REGISTRY = RegistryCache(
     os.path.join(decky.DECKY_USER_HOME, ".local", "share", "unifideck", "shortcuts_registry.json")
@@ -38,7 +38,7 @@ class Plugin:
         try:
             return store_for_appid(REGISTRY.get(), int(appid))
         except Exception:
-            decky.logger.exception("[game-glance] get_store failed")
+            decky.logger.exception("[glance-library] get_store failed")
             return None
 
     async def get_unifideck_key(self, appid: int):
@@ -46,26 +46,26 @@ class Plugin:
         try:
             return key_for_appid(REGISTRY.get(), int(appid))
         except Exception:
-            decky.logger.exception("[game-glance] get_unifideck_key failed")
+            decky.logger.exception("[glance-library] get_unifideck_key failed")
             return None
 
     async def get_heroic_description(self, runner: str, app_name: str):
         try:
             return HEROIC.description(str(runner), str(app_name))
         except Exception:
-            decky.logger.exception("[game-glance] get_heroic_description failed")
+            decky.logger.exception("[glance-library] get_heroic_description failed")
             return None
 
     async def get_tabmaster_settings(self):
         try:
             res = get_tabmaster_data(decky.DECKY_PLUGIN_SETTINGS_DIR, decky.DECKY_USER_HOME)
             decky.logger.info(
-                f"[game-glance] get_tabmaster_settings: found={res.get('found')}, "
+                f"[glance-library] get_tabmaster_settings: found={res.get('found')}, "
                 f"path={res.get('path')}, tabs={len(res.get('tabs', []))}"
             )
             return res
         except Exception:
-            decky.logger.exception("[game-glance] get_tabmaster_settings failed")
+            decky.logger.exception("[glance-library] get_tabmaster_settings failed")
             return {"found": False, "tabs": []}
 
     async def log_home_error(self, entry: str) -> None:
@@ -73,21 +73,21 @@ class Plugin:
         try:
             append_log(decky.DECKY_PLUGIN_LOG_DIR, f"v{decky.DECKY_PLUGIN_VERSION} {entry}"[:8000])
         except Exception:
-            decky.logger.exception("[game-glance] log_home_error failed")
+            decky.logger.exception("[glance-library] log_home_error failed")
 
     async def get_version(self):
         # The installed version, from package.json at install time (Decky's environment); the updater compares it.
         return decky.DECKY_PLUGIN_VERSION
 
     async def _main(self):
-        decky.logger.info("[game-glance] backend started")
+        decky.logger.info("[glance-library] backend started")
         # Our own log records each start-up and where it is, so a report can show the location without an error.
         try:
             now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
             path = os.path.join(decky.DECKY_PLUGIN_LOG_DIR, FILE_NAME)
             append_log(decky.DECKY_PLUGIN_LOG_DIR, start_entry(decky.DECKY_PLUGIN_VERSION, now, path))
         except Exception:
-            decky.logger.exception("[game-glance] start-up log entry failed")
+            decky.logger.exception("[glance-library] start-up log entry failed")
 
     async def _unload(self):
-        decky.logger.info("[game-glance] backend stopped")
+        decky.logger.info("[glance-library] backend stopped")

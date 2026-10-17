@@ -34,7 +34,7 @@ export class LibraryGuard extends Component<LibraryErrorBoundaryProps, LibraryEr
 
 export function LibraryGate({ fallback }: { fallback: ReactElement }) {
     const settings = useSettings();
-    if (!settings.spotlightLibrary) return fallback;
+    if (!settings.enabled || !settings.spotlightLibrary) return fallback;
 
     return (
         <LibraryGuard fallback={fallback}>
