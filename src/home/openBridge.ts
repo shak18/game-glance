@@ -12,7 +12,7 @@ import type { OpenBridge } from './openTransition';
 /** The bridge's fade: most of it early (the page's new parts show through soon), a long soft tail. */
 export const BRIDGE_FADE_EASE = 'cubic-bezier(.2,.65,.3,1)';
 
-export function mountOpenBridge(root: HTMLElement, css = '', extras: Element[] = [], drop: string[] = []): OpenBridge {
+export function mountOpenBridge(root: HTMLElement, css = '', extras: Element[] = [], drop: string[] = [], settle?: (copy: HTMLElement) => void): OpenBridge {
     const doc = root.ownerDocument;
     const parent = doc?.body;
     if (!doc || !parent) throw new Error('Home has no document');
@@ -67,6 +67,9 @@ export function mountOpenBridge(root: HTMLElement, css = '', extras: Element[] =
             // in sub-pixel rendering, which a slow tail hides.
             box.style.transition = `opacity ${ms}ms ${BRIDGE_FADE_EASE}`;
             box.style.opacity = '0';
+        },
+        settle() {
+            if (!removed) settle?.(copy);
         },
         remove() {
             if (removed) return;

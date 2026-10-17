@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from 'react';
 import { RECENT_ROW, RowSort, rowSortOf } from '../home/collections';
+import { RowStyle, rowStyleOf } from '../home/recentsLayout';
 import { backendKv, KvBackend } from './kv';
 import { resetTabMasterCache } from '../library/tabmaster';
+import { readScreensaverOptions, SCREENSAVER_DEFAULTS, ScreensaverOptions } from '../screensaver/options';
 
 export interface Settings {
     enabled: boolean;
@@ -19,12 +21,14 @@ export interface Settings {
     gameLogo: boolean; // the game's logo instead of its name on Home and the game page (the name when it has none)
     homeRow: string; // Home's games row: 'recent' (Steam's recent games, with those new to the library) or a collection id
     homeRowSort: RowSort; // how a collection's games are sorted in the row
+    homeRowStyle: RowStyle; // how the row moves: 'steam' (Steam's Home: the first game wide) or 'spotlight' (the selected game wide, at the left)
     homeWhatsNew: boolean; // Spotlight Home feed: What's New tab
     homeFriends: boolean; // Spotlight Home feed: Friends tab
     homeRecommended: boolean; // Spotlight Home feed: Recommended tab
     homeCollections: boolean; // Spotlight Home feed: Collections tab
     tabMasterSync: boolean; // sync tab order, visibility, and custom tabs from TabMaster when installed
     pulsingBackground: boolean; // gentle breathing ambient motion on background images
+    screensaver: ScreensaverOptions; // Steam's screensaver drawn by Game Glance (screensaver/options)
 }
 
 const KEY = 'settings';
@@ -44,12 +48,14 @@ const DEFAULTS: Settings = {
     gameLogo: false,
     homeRow: RECENT_ROW,
     homeRowSort: 'lastPlayed',
+    homeRowStyle: 'steam',
     homeWhatsNew: true,
     homeFriends: true,
     homeRecommended: true,
     homeCollections: true,
     tabMasterSync: true,
     pulsingBackground: true,
+    screensaver: SCREENSAVER_DEFAULTS,
 };
 
 export function createSettingsStore(kv: KvBackend) {
@@ -83,12 +89,14 @@ export function createSettingsStore(kv: KvBackend) {
                 gameLogo: pick('gameLogo'),
                 homeRow: typeof raw?.homeRow === 'string' && raw.homeRow !== '' ? raw.homeRow : DEFAULTS.homeRow,
                 homeRowSort: rowSortOf(raw?.homeRowSort),
+                homeRowStyle: rowStyleOf(raw?.homeRowStyle),
                 homeWhatsNew: pick('homeWhatsNew'),
                 homeFriends: pick('homeFriends'),
                 homeRecommended: pick('homeRecommended'),
                 homeCollections: pick('homeCollections'),
                 tabMasterSync: pick('tabMasterSync'),
                 pulsingBackground: pick('pulsingBackground'),
+                screensaver: readScreensaverOptions(raw?.screensaver),
             };
             emit();
         },
@@ -140,6 +148,11 @@ export function createSettingsStore(kv: KvBackend) {
         },
         async setHomeRowSort(homeRowSort: RowSort): Promise<void> {
             current = { ...current, homeRowSort };
+            emit();
+            await kv.set(KEY, current);
+        },
+        async setHomeRowStyle(homeRowStyle: RowStyle): Promise<void> {
+            current = { ...current, homeRowStyle };
             emit();
             await kv.set(KEY, current);
         },
@@ -198,6 +211,12 @@ export function createSettingsStore(kv: KvBackend) {
         },
         async setPulsingBackground(pulsingBackground: boolean): Promise<void> {
             current = { ...current, pulsingBackground };
+            emit();
+            await kv.set(KEY, current);
+        },
+        /** One or more screensaver options. */
+        async setScreensaver(change: Partial<ScreensaverOptions>): Promise<void> {
+            current = { ...current, screensaver: { ...current.screensaver, ...change } };
             emit();
             await kv.set(KEY, current);
         },

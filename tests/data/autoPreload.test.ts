@@ -28,6 +28,17 @@ describe('startAutoPreload', () => {
         expect(run).toHaveBeenCalledTimes(1);
         stop();
     });
+    it("skips a run while a game is running (#48: it went on mid-game), and runs at the next one after", async () => {
+        let playing = true;
+        const run = vi.fn(async () => undefined);
+        const stop = startAutoPreload({ run, isEnabled: () => true, isGameRunning: () => playing });
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(run).not.toHaveBeenCalled();
+        playing = false;
+        await vi.advanceTimersByTimeAsync(30 * 60_000);
+        expect(run).toHaveBeenCalledTimes(1);
+        stop();
+    });
     it('stops when the plugin unloads', async () => {
         const run = vi.fn(async () => undefined);
         startAutoPreload({ run, isEnabled: () => true })();

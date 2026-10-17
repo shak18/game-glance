@@ -166,12 +166,42 @@ describe('createHltbLookup keeps found times', () => {
             expect(await lookup(W3)).toMatchObject({ status: 'found', times: { main: 51.7 } });
         }
     });
-    it('still retries "no match" after a day', async () => {
+    it('shows a day-old "no match" at once and rechecks it in the background; a match found then shows next time', async () => {
+        // (W3's first lookup asks twice: its name, then the cleaned title.)
         const fetchStats = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValue(STATS);
         const { lookup, clock } = clocked(fetchStats);
         expect(await lookup(W3)).toEqual({ status: 'notFound' });
         clock.t += DAY + 1;
-        expect(await lookup(W3)).toMatchObject({ status: 'found' });
+        expect(await lookup(W3)).toEqual({ status: 'notFound' });
+        await vi.waitFor(() => expect(fetchStats).toHaveBeenCalledTimes(3));
+        await vi.waitFor(async () => expect(await lookup(W3)).toMatchObject({ status: 'found', times: { main: 51.7 } }));
+    });
+    it('keeps "no match" however old (never a wait), and keeps it when the recheck can\'t reach HowLongToBeat', async () => {
+        const fetchStats = vi.fn().mockResolvedValue(null);
+        const reachable = { now: true };
+        const clock = { t: 1_000_000 };
+        const kv = memoryKv();
+        const lookup = createHltbLookup({ fetchStats, isReachable: async () => reachable.now, cache: createCache(kv, () => clock.t), overrides: createOverrides(kv), now: () => clock.t });
+        expect(await lookup(W3)).toEqual({ status: 'notFound' });
+        reachable.now = false;
+        clock.t += 400 * DAY;
+        expect(await lookup(W3)).toEqual({ status: 'notFound' });
+        await vi.waitFor(() => expect(fetchStats.mock.calls.length).toBeGreaterThanOrEqual(4));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(await lookup.cachedOnly(W3)).toEqual({ status: 'notFound' });
+    });
+    it('a recheck that finds nothing again waits another day before the next', async () => {
+        const fetchStats = vi.fn().mockResolvedValue(null);
+        const { lookup, clock } = clocked(fetchStats);
+        await lookup(W3);
+        clock.t += DAY + 1;
+        await lookup(W3);
+        await vi.waitFor(() => expect(fetchStats).toHaveBeenCalledTimes(4));
+        await new Promise((r) => setTimeout(r, 0));
+        clock.t += DAY / 2;
+        expect(await lookup(W3)).toEqual({ status: 'notFound' });
+        await new Promise((r) => setTimeout(r, 0));
+        expect(fetchStats).toHaveBeenCalledTimes(4);
     });
 });
 

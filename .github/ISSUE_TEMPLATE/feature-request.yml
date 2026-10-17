@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Check the README's Roadmap section first, in case it is already planned.
+
+        Do not include personal details or private account information.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to be able to do?
+      description: Describe the problem or the use case, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: How you imagine it working. Optional.
+    validations:
+      required: false
+  - type: input
+    id: device
+    attributes:
+      label: Device model (if relevant)
+      placeholder: For example, ROG Xbox Ally, Steam Deck, or a TV setup
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+    validations:
+      required: false

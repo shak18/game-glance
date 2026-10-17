@@ -18,6 +18,15 @@ describe('pickRecents', () => {
         expect(ids).not.toContain(3007);
     });
 
+    it('keeps demos (Steam\'s recent games list holds them, as Steam\'s Home shows them); drops tools', () => {
+        const apps = [
+            { appid: 1, display_name: 'Game', app_type: 1, rt_last_time_played: 300 },
+            { appid: 2, display_name: 'Demo', app_type: 8, rt_last_time_played: 200 },
+            { appid: 3, display_name: 'Proton', app_type: 4, rt_last_time_played: 400 },
+        ];
+        expect(pickRecents(apps).map((g) => g.appId)).toEqual([1, 2]);
+    });
+
     it('maps fields', () => {
         expect(pickRecents(fixture)[0]).toEqual({ appId: 3001, name: 'Game A', lastPlayed: 1791000000, playedMinutes: 50, isNew: false, addedAt: 0 });
     });
@@ -55,7 +64,15 @@ describe('formatLastPlayed', () => {
         expect(formatLastPlayed(now - 60, now, 'en')).toBe('Today');
         expect(formatLastPlayed(now - DAY, now, 'en')).toBe('Yesterday');
         expect(formatLastPlayed(now - 3 * DAY, now, 'en')).toBe('3 days ago');
-        expect(formatLastPlayed(now - 40 * DAY, now, 'en')).toBe(new Date((now - 40 * DAY) * 1000).toLocaleDateString('en'));
+        expect(formatLastPlayed(now - 40 * DAY, now, 'en-US')).toBe('Aug 24');
+    });
+    it("a date names its month, in the language's own order, so it can't be misread (#57: 10/12 is October to some, 12 December to others)", () => {
+        expect(formatLastPlayed(now - 40 * DAY, now, 'en-GB')).toBe('24 Aug');
+        expect(formatLastPlayed(now - 40 * DAY, now, 'de-DE')).toBe('24. Aug.');
+        for (const locale of ['en-US', 'en-GB', 'es-ES', 'fr-FR', 'de-DE']) expect(formatLastPlayed(now - 40 * DAY, now, locale), locale).not.toMatch(/^[\d\s./-]+$/);
+    });
+    it('a date from an earlier year has the year', () => {
+        expect(formatLastPlayed(now - 400 * DAY, now, 'en-US')).toBe('Aug 29, 2025');
     });
 });
 

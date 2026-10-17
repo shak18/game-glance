@@ -13,6 +13,8 @@ import {
     RECENTS_BOTTOM,
     recentsGeometry,
     recentsLayout,
+    rowStyleOf,
+    steamRowLayout,
     WIDE_ASPECT,
 } from '../../src/home/recentsLayout';
 
@@ -199,5 +201,72 @@ describe('recentsLayout without the wide card (a fast L1/R1 run)', () => {
     });
     it('expanded by default, as before', () => {
         expect(recentsLayout(5, 2, g).items[2].width).toBe(g.wideW);
+    });
+});
+
+describe('steamRowLayout', () => {
+    const W = HAND.wideW;
+    const C = HAND.capsuleW;
+    const VIEW = 1300;
+    const centreOf = (l: ReturnType<typeof steamRowLayout>, i: number) => l.items[i].left + l.items[i].width / 2 + l.scrollX;
+
+    it('the first game is the wide card wherever the selection is; the others, the selected one too, are capsules', () => {
+        for (const f of [0, 1, 4, 9, 10]) {
+            const l = steamRowLayout(10, f, HAND, VIEW);
+            expect(l.items[0].width).toBe(W);
+            expect(l.items.slice(1).every((it) => it.width === C)).toBe(true);
+            expect(l.items[1].left).toBe(STEP + GROW);
+            expect(l.items[3].left).toBe(3 * STEP + GROW);
+        }
+    });
+
+    it('the row stays still, nothing faded, while the selection is left of the middle', () => {
+        for (const f of [0, 1]) {
+            const l = steamRowLayout(10, f, HAND, VIEW);
+            expect(l.scrollX).toBe(0);
+            expect(l.items.some((it) => it.dim)).toBe(false);
+        }
+    });
+
+    it('past the middle the row scrolls to keep the selection centred, the games before it faded', () => {
+        for (const f of [2, 5, 9]) {
+            const l = steamRowLayout(10, f, HAND, VIEW);
+            expect(Math.abs(centreOf(l, f) - VIEW / 2)).toBeLessThanOrEqual(0.5);
+            expect(l.items.map((it) => it.dim)).toEqual(l.items.map((_, i) => i < f));
+        }
+        expect(steamRowLayout(10, 3, HAND, VIEW).scrollX - steamRowLayout(10, 4, HAND, VIEW).scrollX).toBe(STEP);
+    });
+
+    it('the Library card is centred the same way; the loop preview follows it', () => {
+        const l = steamRowLayout(10, 10, HAND, VIEW);
+        expect(Math.abs(centreOf(l, 10) - VIEW / 2)).toBeLessThanOrEqual(0.5);
+        expect(l.ghostStart).toBe(11 * STEP + GROW + HAND.ghostGap);
+        expect(l.ghosts).toHaveLength(MAX_GHOSTS);
+    });
+
+    it('a wider screen scrolls later', () => {
+        expect(steamRowLayout(10, 2, HAND, VIEW).scrollX).toBeLessThan(0);
+        expect(steamRowLayout(10, 2, HAND, 2400).scrollX).toBe(0);
+    });
+
+    it('no games: only the Library card; one game: wide, then the Library card', () => {
+        const none = steamRowLayout(0, 0, HAND, VIEW);
+        expect(none.items).toEqual([{ left: 0, width: C, dim: false }]);
+        const one = steamRowLayout(1, 0, HAND, VIEW);
+        expect(one.items.map((it) => it.width)).toEqual([W, C]);
+        expect(one.items[1].left).toBe(STEP + GROW);
+    });
+
+    it('a bad viewport centres on the left edge rather than breaking', () => {
+        expect(steamRowLayout(10, 0, HAND, Number.NaN).scrollX).toBe(-Math.round(W / 2));
+    });
+});
+
+describe('rowStyleOf', () => {
+    it('Steam\'s by default and for anything unknown', () => {
+        expect(rowStyleOf('spotlight')).toBe('spotlight');
+        expect(rowStyleOf('steam')).toBe('steam');
+        expect(rowStyleOf(undefined)).toBe('steam');
+        expect(rowStyleOf('fancy')).toBe('steam');
     });
 });

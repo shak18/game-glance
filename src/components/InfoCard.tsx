@@ -3,6 +3,7 @@ import { formatAchievements, formatHours, minutesToHours } from '../logic/format
 import { descriptionState } from '../logic/infoCard';
 import type { SizeStat } from '../logic/sizeStat';
 import { tr } from '../i18n/steamText';
+import { CardShell } from './CardShell';
 
 interface Props {
     game: GameInfo;
@@ -10,12 +11,14 @@ interface Props {
     description: string | null | undefined;
     /** A Unifideck game's install or download size (its own row's is hidden); absent for other games. */
     size?: SizeStat | null;
+    /** A tap on the card (#24, cardActions): the card responds and gives under the finger. */
+    onPress?(card: HTMLElement): void;
 }
 
-export function InfoCard({ game, locale, description, size = null }: Props) {
+export function InfoCard({ game, locale, description, size = null, onPress }: Props) {
     const desc = descriptionState(description);
     return (
-        <div className="gg-card">
+        <CardShell className="gg-card" onPress={onPress}>
             <div className="gg-stats">
                 <div data-stat="played">
                     <div className="gg-label">{tr('played')}</div>
@@ -37,6 +40,6 @@ export function InfoCard({ game, locale, description, size = null }: Props) {
             </div>
             {desc.kind === 'loading' && <p className="gg-desc"><span className="gg-skeleton" /></p>}
             {desc.kind === 'text' && <p className="gg-desc">{desc.text}</p>}
-        </div>
+        </CardShell>
     );
 }

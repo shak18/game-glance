@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyOpening, extrasFlags, extrasParts, measureHome, missingStats, viewportSize, openVariant, pageStatsFromChips, readExtrasAsked } from '../../src/home/openHome';
+import { applyOpening, extrasFlags, extrasParts, lineMeasure, measureHome, missingStats, mountTwins, readTwinTexts, restTwinsOnExtras, settleTwins, viewportSize, openVariant, pageStatsFromChips, readExtrasAsked } from '../../src/home/openHome';
+import type { TwinSpec } from '../../src/home/openTwins';
 import { BRIDGE_FADE_EASE, mountOpenBridge } from '../../src/home/openBridge';
 
 describe('openVariant', () => {
@@ -107,6 +108,13 @@ describe('applyOpening', () => {
         f.frames.splice(0).forEach((cb) => cb());
         expect(f.attrs.get('data-gh-phase')).toBe('to');
     });
+    it('twins that cannot be drawn: the morph still starts, without them (Home\'s own text morphs)', () => {
+        const f = fakeRoot();
+        const twin: TwinSpec = { name: 'title', role: 'title', text: 'X', x: 0, y: 0, origin: 'base', from: 'none', to: 'none', accent: false };
+        expect(() => applyOpening(f.root, 'morph', [], null, '', [twin])).not.toThrow();
+        expect(f.attrs.get('data-gh-opening')).toBe('morph');
+        expect(f.attrs.has('data-gh-twins')).toBe(false);
+    });
     it("a feed card's game: its hero art as a variable", () => {
         const f = fakeRoot();
         applyOpening(f.root, 'heroFade', [], 'https://steamloopback.host/assets/10/library_hero.jpg');
@@ -136,6 +144,10 @@ describe('viewportSize', () => {
         expect(viewportSize({ innerWidth: 828, innerHeight: 466 })).toEqual({ width: 828, height: 466 });
         expect(viewportSize({ innerWidth: 828, innerHeight: 466, visualViewport: { width: 0, height: 0 } })).toEqual({ width: 828, height: 466 });
     });
+    it('and its pixel ratio, where the page draws its borders and edges (whole device px)', () => {
+        expect(viewportSize({ innerWidth: 828, innerHeight: 466, devicePixelRatio: 2.32 }).dpr).toBe(2.32);
+        expect(viewportSize({ innerWidth: 828, innerHeight: 466 }).dpr).toBeUndefined();
+    });
 });
 
 describe('missingStats', () => {
@@ -154,7 +166,9 @@ describe('extrasParts', () => {
         expect(extrasParts('A ship in the dark.', found(9))).toBe('desc hltb');
         expect(extrasParts(null, found(9))).toBe('hltb');
         expect(extrasParts('  ', undefined)).toBe('');
-        expect(extrasParts('Text', { status: 'notFound' })).toBe('desc');
+        // No match: Home draws the card's "No Matches Found" too, so it does not arrive after the hand-over (ES-DE on the Deck).
+        expect(extrasParts('Text', { status: 'notFound' })).toBe('desc hltb');
+        expect(extrasParts(null, { status: 'unavailable' })).toBe('');
     });
     it('no Main time: no card (the page\'s "—" there would have nothing of Home\'s under it)', () => {
         expect(extrasParts(null, found(null))).toBe('');
@@ -216,6 +230,11 @@ describe('pageStatsFromChips', () => {
         expect(pageStatsFromChips(chips, 'clean').map((s) => [s.key, s.label, s.value, s.bar])).toEqual([
             ['played', 'Play Time', '1.9 h', false], ['achievements', 'Achievements', '0 / 49', true], ['hltb', 'HLTB main', '9.1 h', true],
         ]);
+    });
+    it("Spotlight: HowLongToBeat without a time ('—', no match) is no column of the page's card, so it has no target (it landed alone in the card)", () => {
+        const none = [chips[0], { key: 'hltb', label: 'HLTB main', value: '—', bar: false }];
+        expect(pageStatsFromChips(none, 'spotlight').map((s) => s.key)).toEqual(['played']);
+        expect(pageStatsFromChips(none, 'clean').map((s) => s.key)).toEqual(['played', 'hltb']);
     });
     it("a new game's Added chip: the page still shows Play time (0 h), and nothing else of Home's is invented", () => {
         const stats = pageStatsFromChips([{ key: 'added', label: 'Added', value: 'Today', bar: false }, chips[2]], 'clean');
@@ -353,5 +372,197 @@ describe("the page's size stat when Home's chip drew it (a Steam game's Space Re
     it('Home showed the size chip: the page is told, so its size stat is not hidden while it arrives', () => {
         expect(extrasFlags('', ['played', 'size', 'hltb'])).toEqual({ homeSize: true });
         expect(extrasFlags('', ['played', 'hltb'])).toEqual({});
+    });
+});
+
+describe('text twins on Home', () => {
+    /** Just enough of an element for mountTwins: children, attributes, text and style variables. */
+    function fakeEl(tag = 'div') {
+        const el = {
+            tag,
+            attrs: {} as Record<string, string>,
+            vars: {} as Record<string, string>,
+            className: '',
+            textContent: '',
+            children: [] as unknown[],
+            parent: null as null | { children: unknown[] },
+            style: { setProperty(n: string, v: string) { el.vars[n] = v; } },
+            setAttribute(n: string, v: string) { el.attrs[n] = v; },
+            appendChild(c: { parent: unknown }) { el.children.push(c); c.parent = el; return c; },
+            remove() { if (el.parent) el.parent.children.splice(el.parent.children.indexOf(el), 1); },
+            ownerDocument: null as unknown,
+        };
+        return el;
+    }
+    const spec = (name: string): TwinSpec => ({ name, role: 'label', text: `T-${name}`, x: 10, y: 20, origin: 'midline', from: 'translate(1px, 2px) scale(0.5)', to: 'none', accent: name === 'value-hltb' });
+    it('mountTwins creates one element per spec with its text and variables, and removes them', () => {
+        const root = fakeEl();
+        root.ownerDocument = { createElement: () => fakeEl() };
+        const remove = mountTwins(root as unknown as HTMLElement, [spec('label-played'), spec('value-hltb')]);
+        expect(root.children).toHaveLength(1);
+        const layer = root.children[0] as ReturnType<typeof fakeEl>;
+        expect(layer.className).toBe('gh-open-twins');
+        const [a, b] = layer.children as Array<ReturnType<typeof fakeEl>>;
+        expect(a.className).toBe('gh-twin');
+        expect(a.attrs).toMatchObject({ 'data-twin': 'label-played', 'data-role': 'label', 'data-origin': 'midline' });
+        expect(a.textContent).toBe('T-label-played');
+        expect(a.vars).toEqual({ '--t-x': '10px', '--t-y': '20px', '--t-from': 'translate(1px, 2px) scale(0.5)', '--t-to': 'none' });
+        expect(a.attrs['data-accent']).toBeUndefined();
+        expect(b.attrs['data-accent']).toBe('');
+        remove();
+        expect(root.children).toHaveLength(0);
+    });
+    it("mountTwins puts the twins of one page card in one layer at that card, placed inside it (the page's card is a layer: its text is snapped there)", () => {
+        const root = fakeEl();
+        root.ownerDocument = { createElement: () => fakeEl() };
+        mountTwins(root as unknown as HTMLElement, [{ ...spec('label-played'), card: { x: 4, y: 5 } }, spec('eyebrow'), { ...spec('value-played'), card: { x: 4, y: 5 } }]);
+        const layer = root.children[0] as ReturnType<typeof fakeEl>;
+        const [card, eyebrow] = layer.children as Array<ReturnType<typeof fakeEl>>;
+        expect(layer.children).toHaveLength(2);
+        expect(card.className).toBe('gh-twin-card');
+        expect(card.vars).toEqual({ '--t-card-x': '4px', '--t-card-y': '5px' });
+        const inside = card.children as Array<ReturnType<typeof fakeEl>>;
+        expect(inside.map((c) => c.attrs['data-twin'])).toEqual(['label-played', 'value-played']);
+        expect(inside[0].vars).toMatchObject({ '--t-x': '6px', '--t-y': '15px' });
+        expect(eyebrow.className).toBe('gh-twin');
+        expect(eyebrow.vars).toMatchObject({ '--t-x': '10px', '--t-y': '20px' });
+    });
+    it('mountTwins places a lifted twin by its top, with no share of its height to shift by', () => {
+        const root = fakeEl();
+        root.ownerDocument = { createElement: () => fakeEl() };
+        mountTwins(root as unknown as HTMLElement, [{ ...spec('value-hltb'), y: 682.45, lift: 18.75, card: { x: 4, y: 593.1 } }]);
+        const t = ((root.children[0] as ReturnType<typeof fakeEl>).children[0] as ReturnType<typeof fakeEl>).children[0] as ReturnType<typeof fakeEl>;
+        expect(t.vars).toMatchObject({ '--t-y': `${Math.round((682.45 - 18.75 - 593.1) * 10000) / 10000}px`, '--t-shift': '0%' });
+    });
+    it("restTwinsOnExtras rests Spotlight's HowLongToBeat time twin on the extras' own (hidden) time, laid out as the page's, inside its card layer", () => {
+        const rect = (left: number, top: number) => ({ getBoundingClientRect: () => ({ left, top, width: 40, height: 37.5 }) });
+        const vars: Record<string, string> = {};
+        const twin = { ...rect(0, 0), parentElement: rect(985.9375, 593.1146), style: { setProperty: (n: string, v: string) => void (vars[n] = v) } };
+        const hidden = rect(1011.703125, 663.671875);
+        const asked: string[] = [];
+        const root = {
+            querySelector: (sel: string) => {
+                asked.push(sel);
+                return sel === '.gh-twin[data-twin="value-hltb"]' ? twin : sel === '.gh-x-card[data-for="hltb"] .gh-x-stats > div:first-child .gh-x-value' ? hidden : null;
+            },
+        };
+        restTwinsOnExtras(root as unknown as HTMLElement);
+        expect(vars).toEqual({ '--t-x': `${1011.703125 - 985.9375}px`, '--t-y': `${663.671875 - 593.1146}px`, '--t-shift': '0%' });
+    });
+    it('restTwinsOnExtras leaves a twin as it is when the extras have nothing laid out there', () => {
+        const vars: Record<string, string> = {};
+        const twin = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }), parentElement: null, style: { setProperty: (n: string, v: string) => void (vars[n] = v) } };
+        const hidden = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }) };
+        restTwinsOnExtras({ querySelector: (sel: string) => (sel.startsWith('.gh-twin') ? twin : hidden) } as unknown as HTMLElement);
+        expect(vars).toEqual({});
+    });
+    it('mountTwins gives a pill twin its box as variables', () => {
+        const root = fakeEl();
+        root.ownerDocument = { createElement: () => fakeEl() };
+        mountTwins(root as unknown as HTMLElement, [{ ...spec('play'), role: 'playLabel', origin: 'pill', box: { w: 354.2, h: 62.5, inset: 60.42 } }]);
+        const t = (root.children[0] as ReturnType<typeof fakeEl>).children[0] as ReturnType<typeof fakeEl>;
+        expect(t.vars).toMatchObject({ '--t-w': '354.2px', '--t-h': '62.5px', '--t-inset': '60.42px' });
+    });
+    it('mountTwins with no specs adds nothing', () => {
+        const root = fakeEl();
+        root.ownerDocument = { createElement: () => fakeEl() };
+        mountTwins(root as unknown as HTMLElement, [])();
+        expect(root.children).toHaveLength(0);
+    });
+    it('readTwinTexts: the title, eyebrow and Play label as shown; null title for a logo', () => {
+        const q = (map: Record<string, string | null>) => ({ querySelector: (sel: string) => (map[sel] == null ? null : { textContent: map[sel] }) }) as unknown as Element;
+        expect(readTwinTexts(q({ '.gh-title-slot .gh-title': 'Cronos', '.gh-eyebrow': 'Last played', '.gh-btn[data-action="play"] .gh-btn-label': 'Play' }))).toEqual({ title: 'Cronos', eyebrow: 'Last played', play: 'Play' });
+        expect(readTwinTexts(q({ '.gh-eyebrow': 'Last played', '.gh-btn[data-action="play"] .gh-btn-label': 'Play' })).title).toBeNull();
+    });
+});
+
+describe('settleTwins', () => {
+    const rect = (x: number, y: number, w = 50, h = 10) => ({ getBoundingClientRect: () => ({ left: x, top: y, width: w, height: h }) });
+    it("glides each twin onto its page text as measured, within the guards; leaves the others", () => {
+        const vars: Record<string, Record<string, string>> = {};
+        const twin = (name: string, x: number, y: number) => ({
+            ...rect(x, y),
+            getAttribute: () => name,
+            style: { setProperty: (n: string, v: string) => ((vars[name] ??= {})[n] = v) },
+        });
+        const copy = { querySelectorAll: () => [twin('title', 10, 20), twin('eyebrow', 10, 40), twin('play', 10, 60)] } as unknown as HTMLElement;
+        const page = { title: rect(11.5, 19.5), eyebrow: rect(30, 40), play: null } as Record<string, unknown>;
+        const doc = { querySelector: (sel: string) => page[sel] ?? null } as unknown as Document;
+        settleTwins(copy, doc, { title: 'title', eyebrow: 'eyebrow', play: 'play' });
+        expect(vars.title).toEqual({ '--t-dx': '1.5px', '--t-dy': '-0.5px' });
+        expect(vars.eyebrow).toBeUndefined();
+        expect(vars.play).toBeUndefined();
+    });
+});
+
+describe('settleTwins measures text, not layout boxes', () => {
+    it("a page text in a stretched box (the titleblock's full width, a column's width) still glides: its text extent is measured", () => {
+        const vars: Record<string, string> = {};
+        // The page's eyebrow box spans the 640-unit column; its text is 90 px wide, 1.5 px off the twin's.
+        const pageEl = { getBoundingClientRect: () => ({ left: 25, top: 400, width: 640, height: 14 }), text: { left: 26.5, top: 400, width: 90, height: 14 } };
+        const twinEl = {
+            getBoundingClientRect: () => ({ left: 25, top: 400, width: 90, height: 14 }),
+            text: { left: 25, top: 400, width: 90, height: 14 },
+            getAttribute: () => 'eyebrow',
+            style: { setProperty: (n: string, v: string) => (vars[n] = v) },
+        };
+        const doc = {
+            querySelector: () => pageEl,
+            createRange: () => {
+                let on: { text: object } | null = null;
+                return { selectNodeContents: (el: { text: object }) => (on = el), getBoundingClientRect: () => on!.text };
+            },
+        } as unknown as Document;
+        const copy = { querySelectorAll: () => [twinEl] } as unknown as HTMLElement;
+        settleTwins(copy, doc, { eyebrow: '.gg-eyebrow' });
+        expect(vars).toEqual({ '--t-dx': '1.5px', '--t-dy': '0px' });
+    });
+});
+
+describe('settleTwins: the extras layer too', () => {
+    it('glides an element with data-settle onto its page text', () => {
+        const vars: Record<string, string> = {};
+        const el = {
+            getBoundingClientRect: () => ({ left: 1125.6836, top: 662.8906, width: 90.82, height: 39.063 }),
+            getAttribute: (n: string) => (n === 'data-settle' ? 'x-value-mainExtras' : null),
+            style: { setProperty: (n: string, v: string) => (vars[n] = v) },
+        };
+        const page = { getBoundingClientRect: () => ({ left: 1125.6958, top: 662.8784, width: 90.82, height: 39.063 }) };
+        const copy = { querySelectorAll: (sel: string) => (sel.includes('[data-settle]') ? [el] : []) } as unknown as HTMLElement;
+        const doc = { querySelector: (sel: string) => (sel === 'P' ? page : null) } as unknown as Document;
+        settleTwins(copy, doc, { 'x-value-mainExtras': 'P' });
+        expect(vars).toEqual({ '--t-dx': '0.0122px', '--t-dy': '-0.0122px' });
+    });
+});
+
+describe('lineMeasure', () => {
+    it("measures a 'normal' line in Home's document at the role's weight and size, once per size, and leaves nothing behind", () => {
+        const made: Array<{ style: Record<string, string>; removed: boolean }> = [];
+        const doc = {
+            createElement: () => {
+                const el = {
+                    style: {} as Record<string, string>,
+                    textContent: '',
+                    removed: false,
+                    getBoundingClientRect: () => ({ height: parseFloat(el.style.fontSize) * (el.style.fontWeight === '700' ? 1.43 : 1.4) }),
+                    remove() { el.removed = true; },
+                };
+                made.push(el);
+                return el;
+            },
+            defaultView: { getComputedStyle: () => ({ fontFamily: '"Motiva Sans"' }) },
+        };
+        const root = { ownerDocument: doc, appendChild: (c: unknown) => c };
+        const lines = lineMeasure(root as unknown as Element);
+        expect(lines('label', 8.75)).toBeCloseTo(8.75 * 1.43, 6);
+        expect(lines('label', 8.75)).toBeCloseTo(8.75 * 1.43, 6);
+        expect(made).toHaveLength(1);
+        expect(made[0].style).toMatchObject({ lineHeight: 'normal', fontWeight: '700', fontFamily: '"Motiva Sans"', visibility: 'hidden' });
+        expect(made[0].removed).toBe(true);
+        expect(lines('caption', 10)).toBeCloseTo(14, 6);
+        expect(made[1].style.fontWeight).toBe('400');
+    });
+    it('nothing measurable: 0, so pageTargets keeps its constants', () => {
+        expect(lineMeasure({ ownerDocument: null } as unknown as Element)('label', 9)).toBe(0);
     });
 });

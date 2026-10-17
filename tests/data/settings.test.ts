@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { memoryKv } from '../../src/data/kv';
 import { createSettingsStore } from '../../src/data/settings';
+import { SCREENSAVER_DEFAULTS } from '../../src/screensaver/options';
 
 describe('settings', () => {
     it('defaults to enabled and persists changes', async () => {
         const kv = memoryKv();
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeRowStyle: 'steam', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true, screensaver: SCREENSAVER_DEFAULTS });
         const listener = vi.fn();
         store.subscribe(listener);
         await store.setEnabled(false);
@@ -22,7 +23,7 @@ describe('settings', () => {
         await kv.set('settings', 'nonsense');
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeRowStyle: 'steam', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true, screensaver: SCREENSAVER_DEFAULTS });
     });
 });
 
@@ -34,16 +35,16 @@ describe('settings: automatic pre-load', () => {
         await store.setAutoPreload(false);
         const reloaded = createSettingsStore(kv);
         await reloaded.load();
-        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeRowStyle: 'steam', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true, screensaver: SCREENSAVER_DEFAULTS });
     });
     it('keeps the other setting when one changes, including settings saved before this option existed', async () => {
         const kv = memoryKv();
         await kv.set('settings', { enabled: false });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeRowStyle: 'steam', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true, screensaver: SCREENSAVER_DEFAULTS });
         await store.setAutoPreload(false);
-        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeRowStyle: 'steam', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true, screensaver: SCREENSAVER_DEFAULTS });
     });
 });
 
@@ -112,7 +113,7 @@ describe('settings: the removed Home switches', () => {
         await kv.set('settings', { enabled: true, autoPreload: true, spotlightHome: true, wishlistDeals: true, homeFeed: false, cleanHome: true });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: true, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: true, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeRowStyle: 'steam', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true, screensaver: SCREENSAVER_DEFAULTS });
     });
 });
 
@@ -151,6 +152,19 @@ describe('settings: Games row', () => {
         expect(store.get().homeRow).toBe('recent');
         expect(store.get().homeRowSort).toBe('lastPlayed');
         expect('homeNewGames' in store.get()).toBe(false);
+    });
+    it('moves the row as Steam\'s Home does by default, and remembers Spotlight; junk reads as Steam\'s', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().homeRowStyle).toBe('steam');
+        await store.setHomeRowStyle('spotlight');
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().homeRowStyle).toBe('spotlight');
+        await kv.set('settings', { homeRowStyle: 'bogus' });
+        await reloaded.load();
+        expect(reloaded.get().homeRowStyle).toBe('steam');
     });
 });
 
@@ -268,3 +282,15 @@ describe('settings: pulsingBackground', () => {
     });
 });
 
+describe('screensaver settings', () => {
+    it('persists a change and leaves the other options alone', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        await store.setScreensaver({ logo: false });
+        expect(store.get().screensaver).toEqual({ enabled: true, logo: false, statusBar: true, stats: true });
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().screensaver).toEqual({ enabled: true, logo: false, statusBar: true, stats: true });
+    });
+});

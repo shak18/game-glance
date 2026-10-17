@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCache } from '../../src/data/cache';
 import { memoryKv } from '../../src/data/kv';
-import { getDescription, parseStoreDescription, readGameInfo } from '../../src/data/steam';
+import { getDescription, parseStoreDescription, playedMinutesOf, readGameInfo } from '../../src/data/steam';
 
 describe('readGameInfo', () => {
     it('reads a Steam game with achievements', () => {
@@ -18,6 +18,17 @@ describe('readGameInfo', () => {
         const info = readGameInfo({ appid: 3123456789, display_name: 'Hades', minutes_playtime_forever: 30, app_type: 1073741824 }, { achievements: { nAchieved: 1, nTotal: 5 } });
         expect(info.isShortcut).toBe(true);
         expect(info.achievements).toBeNull();
+    });
+    it("a shortcut's play time is Steam's local one from its details (the overview's is 0 for shortcuts: #52, ES-DE on the Deck)", () => {
+        const info = readGameInfo({ appid: 4203820957, display_name: 'EmulationStationDE', minutes_playtime_forever: 0, app_type: 1073741824 }, { nPlaytimeForever: 21 });
+        expect(info.playedMinutes).toBe(21);
+    });
+    it('playedMinutesOf: the larger of the overview and the details, ignoring junk', () => {
+        expect(playedMinutesOf(0, 21)).toBe(21);
+        expect(playedMinutesOf('2406', 2400)).toBe(2406);
+        expect(playedMinutesOf(undefined, undefined)).toBe(0);
+        expect(playedMinutesOf(-3, 'x')).toBe(0);
+        expect(playedMinutesOf(30, NaN)).toBe(30);
     });
     it('reads the Heroic link of a shortcut Heroic added', () => {
         const info = readGameInfo(

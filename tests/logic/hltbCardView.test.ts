@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatHours } from '../../src/logic/format';
-import { HLTB_COLUMNS, hltbFoundView } from '../../src/logic/hltbCardView';
+import { tr } from '../../src/i18n/steamText';
+import { HLTB_COLUMNS, hltbFoundView, hltbNotFoundView } from '../../src/logic/hltbCardView';
 import { beyondCaption, HltbTimes, towardCaption } from '../../src/logic/progress';
 
 const W3: HltbTimes = { main: 51.7, mainExtras: 103.8, completionist: 175.3 };
@@ -58,5 +59,14 @@ describe('hltbFoundView', () => {
         const v = hltbFoundView({ main: null, mainExtras: null, completionist: null }, 600, 'en-US', true);
         expect(v.bar).toBeNull();
         expect(v.caption).toBeNull();
+    });
+});
+
+describe('hltbNotFoundView', () => {
+    it("the no-match card's two lines, the page's and Home's copy alike: no matches, and where to set the right game", () => {
+        expect(hltbNotFoundView()).toEqual({ muted: tr('noMatches'), caption: 'Set the right game in Quick Access → Game Glance' });
+    });
+    it('with an override: its id, and where to check or remove it', () => {
+        expect(hltbNotFoundView(12345)).toEqual({ muted: `#12345 · ${tr('noMatches')}`, caption: 'Check or remove the override in Quick Access → Game Glance' });
     });
 });

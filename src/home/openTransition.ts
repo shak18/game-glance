@@ -17,6 +17,8 @@ export interface OpenBridge {
     fadeIn(ms: number): void;
     fadeOut(ms: number): void;
     remove(): void;
+    /** At the page's ready, before the fade: the text twins glide onto the page's text as measured (openHome.settleTwins). */
+    settle?(): void;
 }
 
 export interface OpenDeps {
@@ -107,12 +109,13 @@ export function createOpenTransition(deps: OpenDeps): OpenTransition {
         }
     };
 
-    /** The bridge fades away (once), then everything is cleared. */
+    /** The bridge fades away (once), then everything is cleared; on the page's ready, its twins settle onto the page first. */
     let leaving = false;
-    const leave = () => {
+    const leave = (ready: boolean) => {
         if (leaving || !bridge) return;
         leaving = true;
         const b = bridge;
+        if (ready && b.settle) safely('could not settle the text twins', () => b.settle?.());
         safely('could not fade the bridge', () => b.fadeOut(OPEN_TIMINGS.bridgeFade));
         // Home's opening state goes too: Steam normally unmounts Home (hidden under the bridge while it leaves), but if it
         // keeps it, or brings it back on B, Home must not be left mid-open.
@@ -137,11 +140,11 @@ export function createOpenTransition(deps: OpenDeps): OpenTransition {
         if (!navigate(path)) return finish(true);
         if (!bridge) return finish(false);
         try {
-            stopReady = deps.onReady(leave);
+            stopReady = deps.onReady(() => leave(true));
         } catch (error) {
             warn('could not listen for the page', error);
         }
-        if (!later(leave, OPEN_TIMINGS.readyCap)) leave();
+        if (!later(() => leave(false), OPEN_TIMINGS.readyCap)) leave(false);
     };
 
     return {

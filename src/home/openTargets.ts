@@ -1,4 +1,4 @@
-import { PAGE_LAYOUT, pageDUnit, STEAM_LEGEND_PX } from '../styles/themeCss';
+import { cardMaxWidths, PAGE_LAYOUT, pageDUnit, STEAM_LEGEND_PX } from '../styles/themeCss';
 
 /**
  * Where the Game Glance page (restyled, Spotlight or Clean look) puts the things Spotlight Home morphs into during the
@@ -21,8 +21,15 @@ export interface PageTargets {
     circles: Box[];
     /** The store pill, right-aligned (its size is the given one). */
     store: Box;
-    /** Spotlight: [info card, HowLongToBeat card]; Clean: [panel]. */
+    /** Spotlight: [info card, HowLongToBeat card]; Clean: [panel]. On whole device px, as Chromium draws a card's edges. */
     shells: Box[];
+    /**
+     * The same cards where the page lays them out, unsnapped: each is a compositing layer on the page, and text inside one
+     * is snapped from its origin, so the open's layers for card text sit here (openTwins.TwinSpec.card). Absent: shells.
+     */
+    cards?: Box[];
+    /** The page's d unit (CSS px per handoff px), exactly as its --gg-d. Absent: Home's canvas scale. */
+    d?: number;
     /** Each stat's label and value; on Clean, the progress bar under a stat that has one. */
     stats: Partial<Record<StatKey, { label: Box; value: Box; bar?: Box }>>;
     /** Spotlight look, when asked for: the description and the rest of the HowLongToBeat card. */
@@ -49,26 +56,49 @@ export interface PageExtras {
 /** A text's width in CSS px as the page draws it: a stat label (uppercase, its letter spacing), a card value or a Clean value. */
 export type Measure = (text: string, role: 'label' | 'value' | 'cleanValue', fontPx: number) => number;
 
-/** The cards' and the Clean panel's border (CSS px, not scaled). */
-const BORDER = 1;
 /**
- * The page's line heights: labels inherit Steam's 1.5, values are set to 1.2 (themeCss), the HowLongToBeat caption inherits
- * the font's normal one (measured on the device: 1.45). Home's open transition draws the same texts with them.
+ * The cards' and the Clean panel's ring (1 d unit, as Home's: themeCss) as Chromium draws it at `dpr` device px per CSS
+ * px: a whole number of device px, at least one (1 at the Ally's 2.32 and d 0.575, so 0.431 CSS px). CSS px; the d unit
+ * itself when the ratio is not known.
  */
-export const PAGE_LINES = { label: 1.5, value: 1.2, caption: 1.45 } as const;
-const LABEL_LINE = PAGE_LINES.label;
+export function cardBorder(dpr: number | undefined, d: number): number {
+    return dpr && dpr > 0 ? Math.max(1, Math.floor(d * dpr)) / dpr : d;
+}
+/**
+ * The page's line heights, as Home's open transition draws the same texts: values are set to 1.2 (themeCss); labels and
+ * the HowLongToBeat caption keep Steam's 'normal', the font's own line, rounded to whole device px. That came to 1.5 for
+ * the labels at 16:9 docked, but about 1.43 at 21:9, where a 1.5 stood each label row 0.6 px taller than the page's and
+ * the text under it landed lower (Ally, emulated 1500x644).
+ */
+export const PAGE_LINES = { label: 'normal', value: 1.2, caption: 'normal' } as const;
+/** A 'normal' line's height in CSS px for a role's font size, measured in Home's document (openHome.lineMeasure); 0: unknown. */
+export type LineMeasure = (role: 'label' | 'caption', fontPx: number) => number;
+/** Without a measure: the lines as measured at 16:9 docked. */
+const LABEL_LINE = 1.5;
 const VALUE_LINE = PAGE_LINES.value;
-const CAPTION_LINE = PAGE_LINES.caption;
+const CAPTION_LINE = 1.45;
 /** The Spotlight cards' height with three description lines (handoff px; the theme's TV_CARDS_H). */
 const CARDS_H = PAGE_LAYOUT.playTop.tvCards;
 
 export function pageTargets(
-    look: PageLook, screen: { width: number; height: number }, stats: PageStat[], measure: Measure, storeSize: { w: number; h: number }, asked?: ExtrasAsked,
+    look: PageLook, screen: { width: number; height: number; dpr?: number }, stats: PageStat[], measure: Measure, storeSize: { w: number; h: number }, asked?: ExtrasAsked,
+    lines?: LineMeasure,
 ): PageTargets {
     const L = PAGE_LAYOUT;
     const W = screen.width;
     const H = screen.height;
     const d = pageDUnit(W, H);
+    const BORDER = cardBorder(screen.dpr, d);
+    // The cards' widths allow 1 d unit for each ring (themeCss.cardContentMax, CARD_FILL_WIDTH): a thinner one as drawn
+    // makes them this much narrower.
+    const thinner = 2 * (d - BORDER);
+    // A panel's edges where Chromium draws the card's: on whole device px.
+    const snap = (v: number) => (screen.dpr && screen.dpr > 0 ? Math.round(v * screen.dpr) / screen.dpr : v);
+    const snapBox = (b: Box): Box => {
+        const x = snap(b.x);
+        const y = snap(b.y);
+        return { x, y, w: snap(b.x + b.w) - x, h: snap(b.y + b.h) - y };
+    };
     const tv = W >= L.tvQuery.minWidth && H >= L.tvQuery.minHeight;
     const side = (tv ? L.side.tv : L.side.base) * d;
     const playTop = look === 'clean'
@@ -86,7 +116,11 @@ export function pageTargets(
     const titleBottomLeft = { x: side, y: blockBottom - eyebrowH - L.titleBlock.gap * d };
 
     const labelFont = L.stats.label * d;
-    const labelH = labelFont * LABEL_LINE;
+    const lineOf = (role: 'label' | 'caption', fontPx: number, fallback: number) => {
+        const h = lines?.(role, fontPx) ?? 0;
+        return Number.isFinite(h) && h > 0 ? h : fontPx * fallback;
+    };
+    const labelH = lineOf('label', labelFont, LABEL_LINE);
     const valueRole = look === 'clean' ? 'cleanValue' : 'value';
     const valueFont = (look === 'clean' ? L.cleanInfo.value : L.stats.value) * d;
     const valueH = valueFont * VALUE_LINE;
@@ -108,15 +142,23 @@ export function pageTargets(
     };
 
     let shells: Box[];
+    let cards: Box[];
     let store: Box;
     let extras: PageExtras | undefined;
     if (look === 'spotlight') {
         const top = playTop + L.rowH * d;
+        // As the page's grid: the columns share the width between the sides; each card at most its cardMaxWidths,
+        // the info card at the left, HowLongToBeat at the right end, so on a wider screen the art shows between them.
         const inner = W - 2 * side - L.cards.gridGap * d;
         const [a, b] = L.cards.split;
-        const info: Box = { x: side, y: top, w: (inner * a) / (a + b), h: CARDS_H * d };
-        const hltb: Box = { x: info.x + info.w + L.cards.gridGap * d, y: top, w: (inner * b) / (a + b), h: CARDS_H * d };
-        shells = [info, hltb];
+        const [infoMax, hltbMax] = cardMaxWidths(W / H);
+        // Their min-height is CARDS_H less 2 for the rings, in d units, and the rings as drawn come on top.
+        const cardH = (CARDS_H - 2) * d + 2 * BORDER;
+        const info: Box = { x: side, y: top, w: Math.min((inner * a) / (a + b), infoMax * d - thinner), h: cardH };
+        const hltbW = Math.min((inner * b) / (a + b), hltbMax * d) - thinner;
+        const hltb: Box = { x: W - side - hltbW, y: top, w: hltbW, h: cardH };
+        cards = [info, hltb];
+        shells = cards.map(snapBox);
         const pad = (card: Box) => ({ x: card.x + BORDER + L.cards.padX * d, y: card.y + BORDER + L.cards.padY * d });
         const i0 = pad(info);
         row(stats.filter((s) => s.key !== 'hltb'), i0.x, i0.y, L.stats.colGapInfo * d);
@@ -139,7 +181,7 @@ export function pageTargets(
             }
             const afterTiers = tiersY + statsH + L.cards.hltbGap * d;
             const bar: Box | undefined = asked.bar ? { x: h0.x, y: afterTiers, w: inner(hltb), h: L.cardText.bar * d } : undefined;
-            const caption: Box = { x: h0.x, y: bar ? bar.y + bar.h + L.cards.hltbGap * d : afterTiers, w: inner(hltb), h: L.cardText.caption * CAPTION_LINE * d };
+            const caption: Box = { x: h0.x, y: bar ? bar.y + bar.h + L.cards.hltbGap * d : afterTiers, w: inner(hltb), h: lineOf('caption', L.cardText.caption * d, CAPTION_LINE) };
             extras = { desc, hltbTitle: { x: h0.x, y: h0.y, w: inner(hltb), h: labelH }, columns, bar, caption };
         }
         store = { x: W - side - storeSize.w, y: top - L.storePillTop * d, w: storeSize.w, h: storeSize.h };
@@ -159,8 +201,14 @@ export function pageTargets(
             s.value = { ...s.value, x: s.value.x + ox, y: s.value.y + oy };
             if (s.bar) s.bar = { ...s.bar, x: s.bar.x + ox, y: s.bar.y + oy };
         }
-        shells = [panel];
+        cards = [panel];
+        shells = cards.map(snapBox);
         store = { x: W - side - storeSize.w, y: playTop - L.clean.storeGap * d - storeSize.h, w: storeSize.w, h: storeSize.h };
     }
-    return { titleBottomLeft, eyebrowBottomLeft, play, circles, store, shells, stats: out, extras };
+    return { titleBottomLeft, eyebrowBottomLeft, play, circles, store, shells, cards, d, stats: out, extras };
+}
+
+/** The page card (`cards`: PageTargets.shells) that point `p` is in, edges included, or null. Pure. */
+export function cardAround(cards: Box[], p: { x: number; y: number }): Box | null {
+    return cards.find((c) => p.x >= c.x && p.x <= c.x + c.w && p.y >= c.y && p.y <= c.y + c.h) ?? null;
 }

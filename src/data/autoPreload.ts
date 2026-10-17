@@ -6,6 +6,8 @@ import { settings } from './settings';
 export interface AutoPreloadDeps {
     run(): Promise<void>;
     isEnabled(): boolean;
+    /** Whether a game is running: a run then waits for the next one (#48: it went on mid-game). Absent: never. */
+    isGameRunning?(): boolean;
     /** How long after the start the first run waits (firstRunAfterStart); FIRST_RUN_MS without it. */
     firstRunMs?(): Promise<number>;
 }
@@ -36,7 +38,8 @@ export async function firstRunAfterStart(kv: KvBackend, version: () => Promise<s
 }
 
 /**
- * Pre-loads game data in the background: a minute after the plugin starts (15 s after an update), then every 30 minutes.
+ * Pre-loads game data in the background: a minute after the plugin starts (15 s after an update), then every 30 minutes,
+ * skipping a run while a game is running.
  * Cached games are skipped without going online, so a run only costs anything when a game is new (or its times are due
  * for a refresh). Returns a function that stops it.
  */
@@ -44,7 +47,7 @@ export function startAutoPreload(deps: AutoPreloadDeps = defaultDeps): () => voi
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     const tick = async () => {
-        if (deps.isEnabled()) {
+        if (deps.isEnabled() && !deps.isGameRunning?.()) {
             try {
                 await deps.run();
             } catch {
@@ -65,8 +68,21 @@ export function startAutoPreload(deps: AutoPreloadDeps = defaultDeps): () => voi
 
 const getVersion = callable<[], string | null>('get_version');
 
+/** Steam's running game (SteamUIStore, probed on the Ally); anything unreadable reads as none. */
+function steamGameRunning(): boolean {
+    try {
+        const store = (globalThis as { SteamUIStore?: { MainRunningAppID?: unknown; RunningApps?: unknown } }).SteamUIStore;
+        if (!store) return false;
+        if (Number(store.MainRunningAppID) > 0) return true;
+        return Array.isArray(store.RunningApps) && store.RunningApps.length > 0;
+    } catch {
+        return false;
+    }
+}
+
 const defaultDeps: AutoPreloadDeps = {
     run: () => fetchAll.start({ quiet: true }),
     isEnabled: () => settings.get().autoPreload,
+    isGameRunning: steamGameRunning,
     firstRunMs: () => firstRunAfterStart(backendKv, () => getVersion()),
 };

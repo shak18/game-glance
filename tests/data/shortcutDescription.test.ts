@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCache } from '../../src/data/cache';
 import { memoryKv } from '../../src/data/kv';
-import { findSteamAppId, getShortcutDescription, ShortcutDescriptionDeps } from '../../src/data/shortcutDescription';
+import { findSteamAppId, getShortcutDescription, shortcutDescriptionCached, ShortcutDescriptionDeps } from '../../src/data/shortcutDescription';
 
 const search = (items: Array<{ type?: string; id: number; name: string }>) => ({ status: 200, json: async () => ({ total: items.length, items }) });
 
@@ -103,5 +103,24 @@ describe('findSteamAppId keeps matches', () => {
         clock.t += 86_400_000 + 1;
         await findSteamAppId('Diablo III', miss);
         expect(miss.fetcher).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe('shortcutDescriptionCached', () => {
+    const game = { name: 'Diablo III', heroic: null };
+    it("true when its Steam match is known and that game's description is cached, or no match was found (a remembered miss)", async () => {
+        const cache = createCache(memoryKv());
+        expect(await shortcutDescriptionCached(game, 'english', cache)).toBe(false);
+        await cache.put('steammatch:diablo iii', { id: 200 }, 1000);
+        expect(await shortcutDescriptionCached(game, 'english', cache)).toBe(false);
+        await cache.put('desc:200:english', { text: 'Hell' }, 1000);
+        expect(await shortcutDescriptionCached(game, 'english', cache)).toBe(true);
+        expect(await shortcutDescriptionCached(game, 'swedish', cache)).toBe(false);
+        const miss = createCache(memoryKv());
+        await miss.put('steammatch:diablo iii', { id: null }, 1000);
+        expect(await shortcutDescriptionCached(game, 'english', miss)).toBe(true);
+    });
+    it('a nameless game goes nowhere: cached', async () => {
+        expect(await shortcutDescriptionCached({ name: '  ', heroic: null }, 'english', createCache(memoryKv()))).toBe(true);
     });
 });

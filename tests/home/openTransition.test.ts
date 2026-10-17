@@ -6,7 +6,7 @@ function setup(over: Partial<OpenDeps> = {}) {
     const log: string[] = [];
     const at = (what: string) => log.push(`${what}@${Date.now()}`);
     let ready: (() => void) | null = null;
-    const bridge = { fadeIn: vi.fn((ms: number) => at(`fadeIn(${ms})`)), fadeOut: vi.fn((ms: number) => at(`fadeOut(${ms})`)), remove: vi.fn(() => at('remove')) };
+    const bridge = { fadeIn: vi.fn((ms: number) => at(`fadeIn(${ms})`)), fadeOut: vi.fn((ms: number) => at(`fadeOut(${ms})`)), remove: vi.fn(() => at('remove')), settle: vi.fn(() => at('settle')) };
     const undo = vi.fn(() => at('undoHome'));
     const deps: OpenDeps = {
         navigate: vi.fn((path: string) => at(`navigate ${path}`)),
@@ -80,6 +80,32 @@ describe('openTransition', () => {
         expect(undo).toHaveBeenCalledTimes(1);
     });
 
+    it('settles once when the page is ready, before the fade', () => {
+        const { t, log, fireReady, bridge } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(600);
+        fireReady();
+        fireReady();
+        expect(bridge.settle).toHaveBeenCalledTimes(1);
+        expect(log.indexOf('settle@600')).toBeLessThan(log.indexOf('fadeOut(300)@600'));
+    });
+    it('no settle without ready (the cap fades the bridge as before)', () => {
+        const { t, bridge } = setup();
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(600 + 500);
+        expect(bridge.fadeOut).toHaveBeenCalled();
+        expect(bridge.settle).not.toHaveBeenCalled();
+    });
+    it('a settle that throws still fades', () => {
+        const { t, fireReady, bridge } = setup();
+        bridge.settle.mockImplementation(() => {
+            throw new Error('x');
+        });
+        t.open(620, 'morph');
+        vi.advanceTimersByTime(600);
+        fireReady();
+        expect(bridge.fadeOut).toHaveBeenCalledTimes(1);
+    });
     it('no ready: the bridge leaves at the cap (500 ms after the page opened)', () => {
         const { t, log } = setup();
         t.open(620, 'morph');

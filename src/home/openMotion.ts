@@ -1,5 +1,6 @@
 import { PAGE_LAYOUT, pillFocusScale } from '../styles/themeCss';
 import { HOME_PILL, TITLE_BLOCK } from './homeCss';
+import { cardAround } from './openTargets';
 import type { Box, PageLook, PageTargets, StatKey } from './openTargets';
 
 /**
@@ -37,8 +38,13 @@ export const HOME_CHIP_FONTS = { label: 10, value: 20 } as const;
 const HOME_LABEL_LINE = 1.2;
 const PAGE_LABEL_LINE = 1.5;
 
-const px = (n: number) => `${Math.round(n * 100) / 100}px`;
+// 4 decimals: placements rounded to 0.01 px put the bridge's text a whole device px off near a half pixel (Ally, docked).
+const px = (n: number) => `${Math.round(n * 10000) / 10000}px`;
+/** Unifideck's cloud state ring on its page: a 2 CSS px inset shadow (its button's inline style, probed on the Ally). */
+const UNIFIDECK_RING_PX = 2;
 const k = (n: number) => `${Math.round(n * 10000) / 10000}`;
+// Sizes of text unrounded: a font 0.001 px off the page's (31.251 for 31.25) set its digits a device px lower (Ally, docked).
+const font = (n: number) => `${n}px`;
 const translate = (x: number, y: number) => `translate(${px(x)}, ${px(y)})`;
 /** Maps box `from` onto box `to` (origin 0 0), in canvas px. */
 const mapBox = (from: Box, to: Box, s: number, uniform = false) =>
@@ -52,10 +58,11 @@ const union = (boxes: Box[]): Box => {
 
 const isStat = (key: string, page: PageTargets): key is StatKey => Object.prototype.hasOwnProperty.call(page.stats, key);
 
-export function openMotion(home: HomeRects, page: PageTargets, look: PageLook, canvasScale: number): MotionVar[] {
+export function openMotion(home: HomeRects, page: PageTargets, look: PageLook, canvasScale: number, focused = true): MotionVar[] {
     const s = canvasScale;
-    // Home's canvas and the page share one scale rule (home/scale.ts, themeCss --gg-d), so the page's d unit is s.
-    const d = s;
+    // Home's canvas and the page share one scale rule (home/scale.ts, themeCss --gg-d), so the page's d unit is s; the
+    // page's own when the targets have it (the measured s is a float: 1.04165954 on the Ally docked, for 1500 / 1440).
+    const d = page.d ?? s;
     const out: Record<string, string> = {};
 
     // From the top-left origin, scaled by k: the title's bottom ends at y + h * k, which must be the page's bottom.
@@ -65,8 +72,9 @@ export function openMotion(home: HomeRects, page: PageTargets, look: PageLook, c
     out['--gho-eyebrow'] = translate((page.eyebrowBottomLeft.x - home.eyebrow.x) / s, (page.eyebrowBottomLeft.y - (home.eyebrow.y + home.eyebrow.h)) / s);
 
     // The page focuses its Play on arrival, and a focused Play grows about its centre (as Home's): the morph lands on it.
-    // (A focused pill grows by what a circle grows: 4% taller, as much wider in px; themeCss.pillFocusScale.)
-    const pf = pillFocusScale(PAGE_LAYOUT.playW, PAGE_LAYOUT.icon);
+    // (A focused pill grows by what a circle grows: 4% taller, as much wider in px; themeCss.pillFocusScale.) Not
+    // `focused` (opened in mouse mode, where the page shows no focus look): its size at rest.
+    const pf = focused ? pillFocusScale(PAGE_LAYOUT.playW, PAGE_LAYOUT.icon) : { x: 1, y: 1 };
     const to: Box = { x: page.play.x - (page.play.w * (pf.x - 1)) / 2, y: page.play.y - (page.play.h * (pf.y - 1)) / 2, w: page.play.w * pf.x, h: page.play.h * pf.y };
     // The pill itself only moves (by its left edge and centre line); its background layer, inside it, grows to the page
     // pill's size about that centre line, so the label never stretches.
@@ -94,7 +102,18 @@ export function openMotion(home: HomeRects, page: PageTargets, look: PageLook, c
         out[`--gho-circle-${i}`] = mapBox(circle, to, s, true);
         // Its icon is already the page's size (homeCss): it shrinks as the circle grows, to stay that size.
         out[`--gho-circle-icon-${i}`] = `scale(${k(circle.w / to.w)})`;
+        // A Unifideck cloud's state ring (2 CSS px inset, Unifideck's inline style on its page), in the circle's canvas px:
+        // as wide as the page's once the circle has grown onto it (Home's 2 canvas px ended at 1.15 CSS px handheld).
+        out['--gho-uni-ring'] ??= px((UNIFIDECK_RING_PX * (circle.w / s)) / to.w);
     });
+    // The page's fourth circle (a Unifideck game's Uninstall, after controller, settings and cloud): Home draws one there as
+    // it opens (homeCss .gh-open-circle), in canvas px like the glass panels.
+    const extra = page.circles[3];
+    if (extra) {
+        out['--gho-circle-extra-x'] = k((extra.x - home.canvas.x) / s);
+        out['--gho-circle-extra-y'] = k((extra.y - home.canvas.y) / s);
+        out['--gho-circle-extra-w'] = k(extra.w / s);
+    }
     if (home.store) out['--gho-store'] = translate((page.store.x - home.store.x) / s, (page.store.y - home.store.y) / s);
 
     const labelScale = PAGE_LAYOUT.stats.label / HOME_CHIP_FONTS.label;
@@ -142,22 +161,32 @@ export function openMotion(home: HomeRects, page: PageTargets, look: PageLook, c
     // the description and the HowLongToBeat card's inside (by their top-left corners).
     const ox = home.root?.x ?? 0;
     const oy = home.root?.y ?? 0;
-    out['--gho-x-d'] = k(d);
+    // Unrounded, as the page's --gg-d: the extras' and twins' type is sized from it (font, above).
+    out['--gho-x-d'] = String(d);
     out['--gho-x-pill-x'] = px(page.store.x + page.store.w - ox);
     out['--gho-x-pill-y'] = px(page.store.y - oy);
     // The Play time column (a new game's: Home shows its Added chip instead), by its top-left corner, in the look's value size.
     // A Unifideck game's size column (right after Played), likewise.
+    // Each in a layer at the page card that holds it, as the page's card is one (openTwins.TwinSpec.card), by its top-left.
+    const inCard = (name: string, p: { x: number; y: number }) => {
+        const c = cardAround(page.cards ?? page.shells, p);
+        if (!c) return;
+        out[`--gho-x-${name}-cx`] = px(c.x - ox);
+        out[`--gho-x-${name}-cy`] = px(c.y - oy);
+    };
     const size = page.stats.size;
     if (size) {
+        inCard('size', size.label);
         out['--gho-x-size-x'] = px(size.label.x - ox);
         out['--gho-x-size-y'] = px(size.label.y - oy);
-        out['--gho-x-size-font'] = px((look === 'clean' ? PAGE_LAYOUT.cleanInfo.value : PAGE_LAYOUT.stats.value) * d);
+        out['--gho-x-size-font'] = font((look === 'clean' ? PAGE_LAYOUT.cleanInfo.value : PAGE_LAYOUT.stats.value) * d);
     }
     const played = page.stats.played;
     if (played) {
+        inCard('played', played.label);
         out['--gho-x-played-x'] = px(played.label.x - ox);
         out['--gho-x-played-y'] = px(played.label.y - oy);
-        out['--gho-x-played-font'] = px((look === 'clean' ? PAGE_LAYOUT.cleanInfo.value : PAGE_LAYOUT.stats.value) * d);
+        out['--gho-x-played-font'] = font((look === 'clean' ? PAGE_LAYOUT.cleanInfo.value : PAGE_LAYOUT.stats.value) * d);
     }
     if (page.extras) {
         const at = (name: string, b: Box) => {
@@ -167,6 +196,7 @@ export function openMotion(home: HomeRects, page: PageTargets, look: PageLook, c
         };
         at('desc', page.extras.desc);
         at('hltb', page.extras.hltbTitle);
+        inCard('hltb', page.extras.hltbTitle);
     }
 
     return Object.keys(out).sort().map((name) => ({ name, value: out[name] }));

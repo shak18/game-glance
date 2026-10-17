@@ -4,12 +4,12 @@ import { LOG_PREFIX } from '../constants';
 import { attempt } from '../data/attempt';
 import { cache, overrides, TTL } from '../data/cache';
 import { hltbCacheKey, HltbResult, lookupHltb } from '../data/hltb';
-import { GAME_APP_TYPE, SHORTCUT_APP_TYPE } from '../data/installedGames';
+import { DEMO_APP_TYPE, GAME_APP_TYPE, SHORTCUT_APP_TYPE } from '../data/installedGames';
 import { useSettings } from '../data/settings';
 import { getSourceLabel } from '../data/source';
 import { mergePlaytime } from '../data/unifideckPlaytime';
 import { useUnifideckPlaytime } from '../hooks/useUnifideckPlaytime';
-import { getDescription, getSteamLanguage, peekSteamLanguage, readGameInfo } from '../data/steam';
+import { getDescription, getSteamLanguage, peekSteamLanguage, playedMinutesOf, readGameInfo } from '../data/steam';
 import { getShortcutDescription } from '../data/shortcutDescription';
 import { useAsync } from '../hooks/useAsync';
 import { useOverrideVersion } from '../hooks/useOverrideVersion';
@@ -36,7 +36,7 @@ import { HomeCollection, homeCollections, pickCollectionGames, RECENT_ROW, RowSo
 import { formatLastPlayed, mergeRecentSources, pickHomeRecents, pickRecents, RawApp, RecentGame } from './recents';
 import { getWishlistDeals } from './wishlist';
 import { pageHidden } from './pageVisible';
-import { memoSpaceRequired, noteDetails, withKnownAchievements } from './detailsMemo';
+import { memoPlaytime, memoSpaceRequired, noteDetails, withKnownAchievements } from './detailsMemo';
 import { neighbourIds } from './heroLayers';
 import { useWarmup, useWarmVersion } from './useWarmup';
 import { forgetHltb, peekDescription, peekHltb, rememberDescription, rememberHltb } from './warmup';
@@ -44,6 +44,10 @@ import { HERO_PRELOAD_RADIUS } from './motion';
 
 export interface HomeGame extends RecentGame {
     installed: boolean;
+    /** A non-Steam shortcut (Steam's `installed` says nothing about those: they are never greyed out). */
+    shortcut?: boolean;
+    /** A demo (Steam's app type Demo): marked DEMO on its card. */
+    demo?: boolean;
     /** Steam's 64-bit game id (set for non-Steam shortcuts); RunGame needs it for them. */
     gameId: string | undefined;
 }
@@ -175,13 +179,13 @@ function readRecentGames(): HomeGame[] {
     }, []);
 }
 
-/** Steam's `installed` and `m_gameid` for each picked game, from the app objects it came from. */
+/** Steam's `installed` and `m_gameid` for each picked game (and whether it is a shortcut or a demo), from the app objects it came from. */
 function withLaunchInfo(picked: RecentGame[], apps: AnyApp[]): HomeGame[] {
     const byId = new Map(apps.map((a) => [a.appid, a]));
     return picked.map((g) => {
         const app = byId.get(g.appId);
         const gameId = app?.m_gameid;
-        return { ...g, installed: app?.installed === true, gameId: typeof gameId === 'string' ? gameId : undefined };
+        return { ...g, installed: app?.installed === true, shortcut: app?.app_type === SHORTCUT_APP_TYPE, demo: app?.app_type === DEMO_APP_TYPE, gameId: typeof gameId === 'string' ? gameId : undefined };
     });
 }
 
@@ -190,7 +194,7 @@ function withLaunchInfo(picked: RecentGame[], apps: AnyApp[]): HomeGame[] {
  * name for the eyebrow, or Steam's recent games with those new to the library. A collection that is gone, not offered
  * or has no games left falls back to the recent games, so Home is never empty because of the setting.
  */
-function readRowGames(row: string, sort: RowSort): { games: HomeGame[]; collection: string | null } {
+export function readRowGames(row: string, sort: RowSort): { games: HomeGame[]; collection: string | null } {
     if (row !== RECENT_ROW) {
         const chosen = guarded('collection', () => {
             const store = steam.collectionStore;
@@ -646,11 +650,13 @@ export function useHomeData(focusIndex = 0): HomeData {
     // useAccentWarmup makes most of them known beforehand.
     const accent = useAccent(appId, resting);
 
-    const playedMinutes = focused ? mergePlaytime({ minutes: focused.playedMinutes, lastPlayed: focused.lastPlayed }, unifideck).minutes : 0;
+    // Steam's own play time: a shortcut's is only in its details (memoPlaytime, kept as useAppDetailsVersion loads them; #52).
+    const steamMinutes = focused ? playedMinutesOf(focused.playedMinutes, memoPlaytime(focused.appId)) : 0;
+    const playedMinutes = focused ? mergePlaytime({ minutes: steamMinutes, lastPlayed: focused.lastPlayed }, unifideck).minutes : 0;
     const nowSeconds = Math.floor(Date.now() / 1000);
     const chips = useMemo(() => {
         if (!focused) return [];
-        const merged = mergePlaytime({ minutes: focused.playedMinutes, lastPlayed: focused.lastPlayed }, unifideck);
+        const merged = mergePlaytime({ minutes: steamMinutes, lastPlayed: focused.lastPlayed }, unifideck);
         const isNew = focused.isNew && !(unifideck?.lastPlayed);
         return guarded('game chips', () => gameChips({
             playedMinutes: merged.minutes,

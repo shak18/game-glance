@@ -18,15 +18,15 @@
     },
     "titleblock": {
       "x": 25,
-      "y": 245.63,
+      "y": 395.31,
       "w": 666.66,
-      "h": 209.97
+      "h": 60.29
     },
     "title": {
       "x": 25,
-      "y": 245.63,
-      "w": 336.66,
-      "h": 180.41
+      "y": 395.31,
+      "w": 583.33,
+      "h": 30.73
     },
     "eyebrow": {
       "x": 25,
@@ -62,119 +62,119 @@
       "x": 1372.09,
       "y": 507.69,
       "w": 102.91,
-      "h": 34.89
+      "h": 33.33
     },
     "card0": {
       "x": 25,
       "y": 593.1,
-      "w": 749.69,
+      "w": 562.06,
       "h": 184.88
     },
     "card1": {
-      "x": 793.44,
+      "x": 985.86,
       "y": 593.1,
-      "w": 681.56,
+      "w": 489.14,
       "h": 184.88
     },
-    "stat:col0:label": {
+    "stat:played:label": {
       "x": 50.78,
       "y": 614.71,
       "w": 77.45,
       "h": 17.19
     },
-    "stat:col0:value": {
+    "stat:played:value": {
       "x": 50.78,
       "y": 636.06,
       "w": 77.45,
       "h": 37.5
     },
-    "stat:col1:label": {
+    "stat:achievements:label": {
       "x": 169.9,
       "y": 614.71,
       "w": 113.79,
       "h": 17.19
     },
-    "stat:col1:value": {
+    "stat:achievements:value": {
       "x": 169.9,
       "y": 636.06,
       "w": 113.79,
       "h": 37.5
     },
     "stat:hltb:label": {
-      "x": 819.23,
+      "x": 1011.65,
       "y": 642.31,
-      "w": 74.85,
+      "w": 76.48,
       "h": 17.19
     },
     "stat:hltb:value": {
-      "x": 819.23,
+      "x": 1011.65,
       "y": 663.66,
-      "w": 74.85,
+      "w": 76.48,
       "h": 37.5
     },
     "stat:mainExtras:label": {
-      "x": 931.58,
+      "x": 1125.62,
       "y": 642.31,
-      "w": 92.85,
+      "w": 90.82,
       "h": 17.19
     },
     "stat:mainExtras:value": {
-      "x": 931.58,
+      "x": 1125.62,
       "y": 663.66,
-      "w": 92.85,
+      "w": 90.82,
       "h": 37.5
     },
     "stat:completionist:label": {
-      "x": 1061.93,
+      "x": 1253.94,
       "y": 642.31,
-      "w": 93.38,
+      "w": 94.01,
       "h": 17.19
     },
     "stat:completionist:value": {
-      "x": 1061.93,
+      "x": 1253.94,
       "y": 663.66,
-      "w": 93.38,
+      "w": 94.01,
       "h": 37.5
     },
     "hltbTitle": {
-      "x": 819.23,
+      "x": 1011.65,
       "y": 614.71,
-      "w": 629.99,
+      "w": 437.57,
       "h": 17.19
     },
     "desc": {
       "x": 50.78,
       "y": 686.06,
-      "w": 698.13,
+      "w": 510.5,
       "h": 70.31
     },
     "caption": {
-      "x": 819.23,
+      "x": 1011.65,
       "y": 728.23,
-      "w": 629.99,
+      "w": 437.57,
       "h": 22.66
     }
   },
   "texts": {
     "eyebrow": "Last Played · Today",
     "store": "Steam",
-    "stat:col0:label": "Play Time",
-    "stat:col0:value": "1.9 h",
-    "stat:col1:label": "Achievements",
-    "stat:col1:value": "0/49",
+    "stat:played:label": "Play Time",
+    "stat:played:value": "2 h",
+    "stat:achievements:label": "Achievements",
+    "stat:achievements:value": "4 / 13",
     "stat:hltb:label": "Main",
-    "stat:hltb:value": "9.1 h",
+    "stat:hltb:value": "9.2 h",
     "stat:mainExtras:label": "+ Extras",
-    "stat:mainExtras:value": "11.6 h",
+    "stat:mainExtras:value": "11.1 h",
     "stat:completionist:label": "100%",
-    "stat:completionist:value": "23.7 h",
+    "stat:completionist:value": "13.8 h",
     "hltbTitle": "HowLongToBeat",
-    "caption": "7.3 h left in main story"
+    "caption": "7.2 h left in main story"
   },
   "headerImg": {
-    "src": "assets/286690/library_hero.jpg?c=780105480",
+    "src": "assets/1262350/library_hero.jpg?c=529831560",
     "objectFit": "cover",
-    "objectPosition": "50% 50%",
+    "objectPosition": "50% 30%",
     "naturalWidth": 1920,
     "naturalHeight": 620
   }

@@ -1,5 +1,4 @@
 import { OPEN_TIMINGS } from '../home/motion';
-import { ARRIVE_BLUR_MS } from '../styles/themeCss';
 
 /**
  * The game page's arrival after Spotlight Home's open transition, as a controller with its clocks injected (the hook
@@ -11,11 +10,11 @@ import { ARRIVE_BLUR_MS } from '../styles/themeCss';
 export type ArrivalPhase = 'hidden' | 'revealing' | 'done';
 
 /**
- * How long the page stays in its arriving state once revealed: until its new parts have faded in and its glass has
- * grown its blur (the stylesheet carries that transition; dropping it mid-way would cancel it, the blur jumping in).
+ * How long the page stays in its arriving state once revealed: until its new parts have faded in (the stylesheet
+ * carries that transition; dropping it mid-way would cancel it). The glass arrives blurred, as Home's copy drew it.
  */
 export function arrivalHoldMs(): number {
-    return Math.max(OPEN_TIMINGS.reveal, ARRIVE_BLUR_MS);
+    return OPEN_TIMINGS.reveal;
 }
 
 export interface ArrivalDeps {

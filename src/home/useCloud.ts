@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CloudState, sameCloud } from './cloud';
-import { unifideckCloudForApp } from '../data/unifideckCloud';
+import { CloudState, cloudFor, sameCloud } from './cloud';
+import { peekUnifideckCloud, unifideckCloudForApp } from '../data/unifideckCloud';
 import { readCloud } from './steamCloud';
 import { pageHidden } from './pageVisible';
 
@@ -29,7 +29,9 @@ export function useUnifideckCloud(appId: number | null, active: boolean): CloudS
             clearInterval(timer);
         };
     }, [appId, active]);
-    return active && state.id === appId ? state.cloud : null;
+    if (!active || appId === null) return null;
+    // Before this game's first answer in this mount: its last one (no frame without the button on a switch).
+    return state.id === appId ? state.cloud : peekUnifideckCloud(appId) ?? null;
 }
 
 /**
@@ -50,7 +52,7 @@ export function useCloud(appId: number | null): CloudState | null {
         return () => clearInterval(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appId]);
-    const steam = state.id === appId ? state.cloud : null;
+    const steam = cloudFor(state, appId, readCloud);
     // Steam shows none for a Unifideck game (a shortcut): its own cloud saves stand in.
     const unifideck = useUnifideckCloud(appId, steam === null);
     return steam ?? unifideck;

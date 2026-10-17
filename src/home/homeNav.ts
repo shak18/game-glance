@@ -6,7 +6,8 @@ import { markLeaving, noteHome } from './homeMemory';
 import { playNavSound } from './navSound';
 import { takeSteamFocus } from './steamFocus';
 import { createOpenTransition, OpenTransition } from './openTransition';
-import { applyOpening, canvasMeasure, extrasFlags, missingStats, OpenVariant, openVariant, pageStatsFromChips, readChipTexts, readExtrasAsked, readExtrasSize, measureHome, viewportSize } from './openHome';
+import { applyOpening, canvasMeasure, lineMeasure, extrasFlags, missingStats, OpenVariant, openVariant, pageStatsFromChips, readChipTexts, readExtrasAsked, readExtrasSize, readTwinTexts, measureHome, settleTwins, viewportSize } from './openHome';
+import { TwinSpec, twinSpecs } from './openTwins';
 import { openMotion } from './openMotion';
 import { pageTargets, PageLook } from './openTargets';
 import { mountOpenBridge } from './openBridge';
@@ -14,7 +15,8 @@ import { heroArtFor, heroShownApp } from './HeroBackground';
 import { homeMode } from './mode';
 import { settings } from '../data/settings';
 import { clearOpen, markOpen, onOpenReady, OpenIntent } from '../data/openIntent';
-import { pageArrivalSelectors, steamEnterOffCss, steamFooter } from '../styles/theme';
+import { pageArrivalSelectors, pageTwinTargets, steamEnterOffCss, steamFooter } from '../styles/theme';
+import { MOUSE_ATTR } from './mouseMode';
 import { clearSteamBarCover } from './useHideSteamBar';
 
 /** Opens a game's page directly, without the transition (Play pill fallbacks, Steam call fallbacks). */
@@ -222,8 +224,16 @@ function startHome(c: OpenContext): (() => void) | null {
                 const size = c.extras.split(' ').includes('size') ? readExtrasSize(root) : null;
                 const stats = pageStatsFromChips(readChipTexts(root), c.look, size);
                 const store = home.store ?? { x: 0, y: 0, w: 0, h: 0 };
-                const page = pageTargets(c.look, screen, stats, canvasMeasure(root), { w: store.w, h: store.h }, c.extras ? readExtrasAsked(root) : undefined);
-                return applyOpening(root, 'morph', openMotion(home, page, c.look, scale), null, c.extras);
+                const page = pageTargets(c.look, screen, stats, canvasMeasure(root), { w: store.w, h: store.h }, c.extras ? readExtrasAsked(root) : undefined, lineMeasure(root));
+                const focused = !root.ownerDocument?.documentElement?.hasAttribute(MOUSE_ATTR);
+                // The moving text as page-sized twins (openTwins); without them (any failure) Home's own text morphs as before.
+                let twins: TwinSpec[] = [];
+                try {
+                    twins = twinSpecs(home, page, readTwinTexts(root), stats, c.look, focused, scale);
+                } catch (error) {
+                    console.warn(`${LOG_PREFIX} Home: could not set up the text twins`, error);
+                }
+                return applyOpening(root, 'morph', openMotion(home, page, c.look, scale, focused), null, c.extras, twins);
             }
         } catch (error) {
             console.warn(`${LOG_PREFIX} Home: could not set up the morph`, error);
@@ -268,7 +278,9 @@ function controller(): OpenTransition {
             const footer = steamFooter();
             const extras = [...doc.querySelectorAll('.gg-status-host'), ...(footer ? [...doc.querySelectorAll(footer)] : [])];
             // Home's game row, tabs and feed have left (or faded with the rest) by the hand-over: the copy goes without them.
-            const bridge = mountOpenBridge(c.root, steamEnterOffCss(), extras, ['.gh-recents', '.gh-tabs', '.gh-feed']);
+            // At the page's ready the copy's text twins glide onto the page's text as measured (openHome.settleTwins).
+            const look = c.intent.look;
+            const bridge = mountOpenBridge(c.root, steamEnterOffCss(), extras, ['.gh-recents', '.gh-tabs', '.gh-feed'], (copy) => settleTwins(copy, doc, pageTwinTargets(look)));
             if (c.intent.look !== 'steam') return bridge;
             // Steam's own page draws no status bar of ours: give Steam's top bar back once the bridge is gone.
             return { fadeIn: (ms: number) => bridge.fadeIn(ms), fadeOut: (ms: number) => bridge.fadeOut(ms), remove: () => { bridge.remove(); clearSteamBarCover(doc); } };
@@ -325,7 +337,9 @@ export function openGame(appId: number, source?: HTMLElement | null) {
         // The page's stat columns Home showed no chip for (a new game's Play time) arrive instead of popping in.
         const homeMissing = variant === 'morph' && root ? missingStats(readChipTexts(root).map((c) => c.key), extras) : undefined;
         const homeChipKeys = variant === 'morph' && root ? readChipTexts(root).map((c) => c.key) : [];
-        const intent: OpenIntent = { look: pageRestyled ? look : 'steam', mode: variant === 'morph' ? 'parts' : 'all', eyebrow, homeCloud, homeBars, homeFamily, homeMissing, ...extrasFlags(extras, homeChipKeys) };
+        // A Unifideck game's Uninstall circle Home draws as it opens (.gh-open-circle): the page's must not arrive again.
+        const homeUninstall = variant === 'morph' && root ? root.querySelector('.gh-open-circle') !== null : undefined;
+        const intent: OpenIntent = { look: pageRestyled ? look : 'steam', mode: variant === 'morph' ? 'parts' : 'all', eyebrow, homeCloud, homeBars, homeFamily, homeMissing, homeUninstall, ...extrasFlags(extras, homeChipKeys) };
         next = { root, appId, variant, look, heroUrl, intent, extras };
         controller().open(appId, variant);
     } catch (error) {

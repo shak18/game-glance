@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { Box, ExtraColumn, Measure, pageTargets, PageLook, PageStat, StatKey } from '../../src/home/openTargets';
+import { Box, cardBorder, ExtraColumn, Measure, pageTargets, PageLook, PageStat, StatKey } from '../../src/home/openTargets';
+import { PAGE_LAYOUT, pageDUnit } from '../../src/styles/themeCss';
 
 interface Fixture {
     screen: { width: number; height: number };
@@ -10,14 +11,15 @@ interface Fixture {
 }
 const fixture = (name: string): Fixture => JSON.parse(readFileSync(resolve(__dirname, 'fixtures/openLayout', `${name}.json`), 'utf8'));
 
-// The fixtures were captured before the page had data-stat: columns by order (device notes).
-const COLUMNS: Record<PageLook, Array<[string, StatKey]>> = {
-    spotlight: [['col0', 'played'], ['col1', 'achievements'], ['hltb', 'hltb']],
-    clean: [['col0', 'played'], ['col1', 'achievements'], ['col2', 'hltb']],
-};
+// The Clean fixtures were captured before the page had data-stat: columns by order (device notes).
+const CLEAN_COLUMNS: Array<[string, StatKey]> = [['col0', 'played'], ['col1', 'achievements'], ['col2', 'hltb']];
+/** A fixture's stat columns: by data-stat when it was captured with it (scripts/cef-layout.mjs), else by order. */
+const STAT_KEYS: StatKey[] = ['played', 'size', 'achievements', 'hltb'];
+const columnsOf = (f: Fixture): Array<[string, StatKey]> =>
+    f.rects['stat:played:label'] ? STAT_KEYS.filter((key) => f.rects[`stat:${key}:label`]).map((key) => [key, key]) : CLEAN_COLUMNS;
 
 function pageStats(look: PageLook, f: Fixture): PageStat[] {
-    return COLUMNS[look].map(([col, key]) => ({
+    return columnsOf(f).map(([col, key]) => ({
         key,
         label: f.texts[`stat:${col}:label`],
         value: f.texts[`stat:${col}:value`],
@@ -36,7 +38,7 @@ function measureFrom(look: PageLook, f: Fixture): Measure {
         for (const key of look === 'spotlight' ? EXTRA_KEYS : []) {
             if (f.texts[`stat:${key}:label`] === text || f.texts[`stat:${key}:value`] === text) return f.rects[`stat:${key}:label`].w;
         }
-        for (const [col] of COLUMNS[look]) {
+        for (const [col] of columnsOf(f)) {
             const label = f.rects[`stat:${col}:label`];
             const bar = f.rects[`stat:${col}:bar`];
             if (f.texts[`stat:${col}:label`] === text || f.texts[`stat:${col}:value`] === text) return bar && Math.abs(bar.w - label.w) < 0.5 ? 0 : label.w;
@@ -61,11 +63,14 @@ for (const look of ['spotlight', 'clean'] as const) {
         it(`matches the measured ${look} page at ${size} within 2 px`, () => {
             const f = fixture(`${look}-${size}`);
             const r = f.rects;
-            // The fixture's game had a bar (its caption: "7.3 h left in main story").
+            // The fixtures' games had a bar (captions "7.3 h left in main story", "7.2 h left in main story").
             const extras = { columns: extraColumns(f), bar: true };
             const t = pageTargets(look, f.screen, pageStats(look, f), measureFrom(look, f), { w: r.store.w, h: r.store.h }, extras);
             nearBox(t.play, r.play, 'play');
-            for (let i = 0; i < 3; i++) nearBox(t.circles[i], r[`circle${i}`], `circle${i}`);
+            // The circles the page drew (three for an installed game, two before it is installed).
+            const circles = Object.keys(r).filter((k) => /^circle\d$/.test(k));
+            expect(circles.length).toBeGreaterThanOrEqual(2);
+            for (let i = 0; i < circles.length; i++) nearBox(t.circles[i], r[`circle${i}`], `circle${i}`);
             near(t.store.x, r.store.x, 'store.x');
             near(t.store.y, r.store.y, 'store.y');
             // The title block grows upward: its eyebrow sits at the bottom, the title above it.
@@ -88,7 +93,7 @@ for (const look of ['spotlight', 'clean'] as const) {
                 nearBox(t.shells[0], r.clean, 'Clean panel');
                 expect(t.extras, 'the Clean look shows no description or HowLongToBeat card').toBeUndefined();
             }
-            for (const [col, key] of COLUMNS[look]) {
+            for (const [col, key] of columnsOf(f)) {
                 nearBox(t.stats[key]?.label, r[`stat:${col}:label`], `${key} label`);
                 nearBox(t.stats[key]?.value, r[`stat:${col}:value`], `${key} value`);
                 // Clean's progress bars are targets too (Home's chip bars move into them); the Spotlight cards' are not.
@@ -107,6 +112,19 @@ describe('pageTargets stats', () => {
     const played: PageStat = { key: 'played', label: 'Play Time', value: '1 h' };
     const main: PageStat = { key: 'hltb', label: 'Main', value: '9 h' };
     const columns: ExtraColumn[] = [{ key: 'mainExtras', label: '+ Extras', value: '12 h' }, { key: 'completionist', label: '100%', value: '24 h' }];
+    it("a label's line is the measured 'normal' one when Home measures it (21:9: 12.5, not 1.5 x 8.75), so the values below land where the page's are", () => {
+        const wide = { width: 1500, height: 644.53125, dpr: 1.28 };
+        const d = 644.53125 / 810;
+        const lines = (role: 'label' | 'caption', fontPx: number) => (role === 'label' ? 12.5 : fontPx * 1.4);
+        const t = pageTargets('spotlight', wide, [played, main], measure, store, { columns, bar: true }, lines);
+        const s = t.stats.played!;
+        expect(s.label.h).toBe(12.5);
+        expect(s.value.y).toBeCloseTo(s.label.y + 12.5 + PAGE_LAYOUT.stats.rowGap * d, 6);
+        expect(t.extras!.caption.h).toBeCloseTo(PAGE_LAYOUT.cardText.caption * d * 1.4, 6);
+        // Without a measure: the old constants (1.5 for labels).
+        const plain = pageTargets('spotlight', wide, [played, main], measure, store, { columns, bar: true });
+        expect(plain.stats.played!.label.h).toBeCloseTo(PAGE_LAYOUT.stats.label * d * 1.5, 6);
+    });
     it('the HowLongToBeat columns follow Main in order, one gap apart; the bar sits between them and the caption', () => {
         const t = pageTargets('spotlight', screen, [played, main], measure, store, { columns, bar: true });
         const m = t.stats.hltb!.label;
@@ -123,8 +141,44 @@ describe('pageTargets stats', () => {
         expect(noBar.bar).toBeUndefined();
         expect(noBar.caption.y).toBeCloseTo(withBar.bar!.y, 6);
     });
+    it("the cards as laid out, unsnapped (the twins' layers sit there, as the page's card layers do), and the page's d unit", () => {
+        const f = fixture('spotlight-1500x844');
+        // The Ally docked: the window's real height (the fixture's is rounded to 844).
+        const t = pageTargets('spotlight', { width: 1500, height: 844.53125, dpr: 1.28 }, pageStats('spotlight', f), measureFrom('spotlight', f), { w: f.rects.store.w, h: f.rects.store.h });
+        // The glass panels are on whole device px (759 / 1.28); the cards themselves are where the page lays them out.
+        expect(t.shells[1].y).toBe(759 / 1.28);
+        // Probed on the Ally docked (2026-10-17): the HowLongToBeat card at 985.9375, 593.1030.
+        expect(t.cards?.[1].y).toBeCloseTo(593.103, 1);
+        expect(t.cards?.[1].x).toBeCloseTo(985.9375, 3);
+        expect(t.cards?.[0].y).toBeCloseTo(f.rects.card0.y, 1);
+        expect(t.d).toBe(1500 / 1440);
+    });
     it('no extras asked for: none', () => {
         expect(pageTargets('spotlight', screen, [played, main], measure, store).extras).toBeUndefined();
+    });
+    it('the Spotlight cards keep their own widths: the info card at the left side, HowLongToBeat at the right, the art between', () => {
+        const { infoW, hltbW } = PAGE_LAYOUT.cards;
+        const cards = (w: number, h: number) => pageTargets('spotlight', { width: w, height: h }, [played, main], measure, store).shells;
+        // 21:9 (the Ally's TV window emulated at 1500x643): d = 643 / 810, 56 sides (not a TV by height).
+        const d = 643 / 810;
+        const side = PAGE_LAYOUT.side.base * d;
+        const [info, hltb] = cards(1500, 643);
+        expect(info.x).toBeCloseTo(side, 6);
+        // Wider than 9:5, the description card is as wide as the HowLongToBeat card (Michael, 21:9 on the Ally).
+        expect(hltb.w).toBeCloseTo(hltbW * d, 6);
+        expect(info.w).toBeCloseTo(hltb.w, 6);
+        expect(hltb.x + hltb.w).toBeCloseTo(1500 - side, 6);
+        // 16:9 and 16:10 (the Ally's 828x466, the Deck's 854x534, 56 sides; a 1080p TV, 24 sides): each card its own width,
+        // pinned to its side, so the HowLongToBeat card has no empty space after its times (issue #53).
+        for (const [w, h, s, logical] of [[828, 466, PAGE_LAYOUT.side.base, 1440], [854, 534, PAGE_LAYOUT.side.base, 1280], [1500, 844, PAGE_LAYOUT.side.tv, 1440]]) {
+            const unit = w / logical;
+            const [i, t] = cards(w, h);
+            expect(i.x).toBeCloseTo(s * unit, 6);
+            expect(i.w).toBeCloseTo(infoW * unit, 6);
+            expect(t.w).toBeCloseTo(hltbW * unit, 6);
+            expect(t.x + t.w).toBeCloseTo(w - s * unit, 6);
+            expect(t.x).toBeGreaterThan(i.x + i.w + PAGE_LAYOUT.cards.gridGap * unit);
+        }
     });
     it('a stat the page lacks has no target', () => {
         const t = pageTargets('spotlight', screen, [{ key: 'played', label: 'Play Time', value: '1 h' }, { key: 'hltb', label: 'Main', value: '9 h' }], measure, store);
@@ -141,5 +195,63 @@ describe('pageTargets stats', () => {
         near(b.shells[0].w - a.shells[0].w, 'Install size'.length * 10 + 28 * d, 'panel growth');
         // Right-aligned: the panel's right edge stays put.
         near(b.shells[0].x + b.shells[0].w, a.shells[0].x + a.shells[0].w, 'panel right edge');
+    });
+});
+
+describe('pageTargets at a fractional pixel ratio', () => {
+    // The Ally handheld (2.32 device px per CSS px), measured on the device: Ori's page in the Spotlight look, then with a
+    // 1 px ring (drawn 2 device px, 0.862 CSS px). The ring is now 1 d unit (0.575 CSS px), drawn 1 device px (0.431):
+    // everything inside the cards sits 0.431 px further up and left, and each card is 0.862 px narrower and shorter.
+    const screen = { width: 828.0172, height: 466.3793, dpr: 2.32 };
+    const d = pageDUnit(screen.width, screen.height);
+    // Measured: rings of 2 / 2.32 inside widths that allowed 2 px for them. Now: 1 / 2.32 inside widths allowing 2 d units.
+    const was = 2 / 2.32;
+    const now = 1 / 2.32;
+    const narrower = 2 * (1 - was) - 2 * (d - now);
+    const measure: Measure = (text) => text.length * 6;
+    const stats: PageStat[] = [
+        { key: 'played', label: 'Play Time', value: '2.3 h' },
+        { key: 'achievements', label: 'Achievements', value: '1 / 37' },
+        { key: 'hltb', label: 'Main', value: '12 h' },
+    ];
+    const columns: ExtraColumn[] = [{ key: 'mainExtras', label: '+ Extras', value: '15.7 h' }, { key: 'completionist', label: '100%', value: '18.3 h' }];
+    const t = pageTargets('spotlight', screen, stats, measure, { w: 50, h: 20 }, { columns, bar: true });
+    // The info card keeps its left edge, HowLongToBeat its right one (it sits at the row's end).
+    const cards: Box[] = [
+        { x: 32.2, y: 299.623, w: 310.224 + narrower, h: 102.916 - 2 * (was - now) },
+        { x: 525.84 - narrower, y: 299.623, w: 269.98 + narrower, h: 102.916 - 2 * (was - now) },
+    ];
+    /** A text measured in card `i` at (x, y), where it is now: moved with its card, and inside the thinner ring. */
+    const at = (actual: { x: number; y: number }, i: number, x: number, y: number, what: string) => {
+        const ex = x + (i === 1 ? -narrower : 0) - (was - now);
+        const ey = y - (was - now);
+        expect(Math.abs(actual.x - ex), `${what}.x: ${actual.x} vs ${ex}`).toBeLessThan(0.05);
+        expect(Math.abs(actual.y - ey), `${what}.y: ${actual.y} vs ${ey}`).toBeLessThan(0.05);
+    };
+    it('puts the texts inside the cards where the page does (inside their device-px ring)', () => {
+        at(t.stats.played!.label, 0, 46.86, 311.98, 'Play Time label');
+        at(t.stats.played!.value, 0, 46.86, 323.76, 'Play Time value');
+        at(t.extras!.desc, 0, 46.86, 351.35, 'description');
+        at(t.extras!.hltbTitle, 1, 540.5, 311.98, 'HowLongToBeat title');
+        at(t.stats.hltb!.label, 1, 540.5, 327.21, 'Main label');
+        at(t.stats.hltb!.value, 1, 540.5, 338.99, 'Main value');
+    });
+    it("gives the panels the cards' edges as drawn, on whole device px (a crisp ring, as the page's)", () => {
+        t.shells.forEach((shell, i) => {
+            const card = cards[i];
+            const edges = [[shell.x, card.x], [shell.y, card.y], [shell.x + shell.w, card.x + card.w], [shell.y + shell.h, card.y + card.h]];
+            for (const [mine, page] of edges) {
+                expect(Math.abs(mine * screen.dpr - Math.round(mine * screen.dpr)), `shell ${i} edge ${mine} on a device px`).toBeLessThan(1e-6);
+                expect(Math.abs(mine - page), `shell ${i} edge ${mine} vs ${page}`).toBeLessThanOrEqual(0.5 / screen.dpr + 1e-6);
+            }
+        });
+    });
+    it('the ring the cards draw: 1 d unit on whole device px, at least one; the d unit itself when the ratio is not known', () => {
+        expect(cardBorder(2.32, 0.575)).toBeCloseTo(1 / 2.32, 6);
+        expect(cardBorder(1, 0.889)).toBe(1);
+        expect(cardBorder(1, 1.333)).toBe(1);
+        expect(cardBorder(2, 1.333)).toBe(1);
+        expect(cardBorder(3, 1.34)).toBeCloseTo(4 / 3, 6);
+        expect(cardBorder(undefined, 0.575)).toBe(0.575);
     });
 });

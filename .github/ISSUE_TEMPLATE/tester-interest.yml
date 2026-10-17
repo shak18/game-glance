@@ -1,0 +1,77 @@
+name: Volunteer as a tester
+description: Opt in to help test upcoming changes on your device.
+title: "[Tester signup]: "
+labels: ["tester-interest"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for offering to help!
+
+        **This form creates a public GitHub issue.** Only include information you are comfortable sharing publicly. Do not post your email address, serial numbers, credentials, Steam account details, or other private information. GitHub mentions/notifications are the default way to coordinate.
+
+        You do not need to test every release, join Discord, or contribute money.
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      description: Include the exact model when you know it (for example, Steam Deck OLED or ROG Xbox Ally).
+      placeholder: Device model
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system and version
+      description: Include distro/channel and version where possible (for example, Bazzite stable plus its version).
+      placeholder: OS / distribution / version
+    validations:
+      required: true
+  - type: textarea
+    id: projects
+    attributes:
+      label: Which project(s) can you test?
+      description: Select or name the plugin(s)/tool(s), and mention features you are particularly interested in testing.
+      placeholder: Game Glance; handheld/docked layouts; Steam client changes
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup details that affect testing
+      description: Optional. Include screen resolution, dock/external display, controller setup, or other relevant context. Do not include serial numbers or private identifiers.
+      placeholder: Optional setup details
+    validations:
+      required: false
+  - type: dropdown
+    id: availability
+    attributes:
+      label: How often might you be able to test?
+      options:
+        - Occasionally, when the change matches my setup
+        - For a few specific test rounds
+        - Regularly when I have time
+        - Not sure yet
+    validations:
+      required: true
+  - type: dropdown
+    id: comfort
+    attributes:
+      label: What kind of testing are you comfortable with?
+      multiple: true
+      options:
+        - Installing a test build and following a checklist
+        - Trying a new feature and giving feedback
+        - Reproducing bugs and collecting logs
+        - Comparing handheld and docked behavior
+        - Testing different OS versions
+        - Translating or checking text
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Public signup acknowledgement
+      options:
+        - label: I understand this is a public GitHub issue, and I have not included private contact details or sensitive information.
+          required: true

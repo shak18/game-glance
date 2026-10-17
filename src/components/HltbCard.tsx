@@ -1,6 +1,7 @@
 import { HltbResult } from '../data/hltb';
-import { HLTB_COLUMNS, HLTB_TITLE, hltbFoundView } from '../logic/hltbCardView';
+import { HLTB_COLUMNS, HLTB_TITLE, hltbFoundView, hltbNotFoundView } from '../logic/hltbCardView';
 import { tr } from '../i18n/steamText';
+import { CardShell } from './CardShell';
 
 interface Props {
     result: HltbResult | undefined;
@@ -8,14 +9,16 @@ interface Props {
     locale: string;
     /** The restyled page (Spotlight Home on): the bar and caption follow the main story only. */
     restyle?: boolean;
+    /** A tap on the card (#24, cardActions): the card responds and gives under the finger. */
+    onPress?(card: HTMLElement): void;
 }
 
-export function HltbCard({ result, playedMinutes, locale, restyle = false }: Props) {
+export function HltbCard({ result, playedMinutes, locale, restyle = false, onPress }: Props) {
     const header = <div className="gg-label">{HLTB_TITLE}</div>;
 
     if (result === undefined) {
         return (
-            <div className="gg-card gg-hltb">
+            <CardShell className="gg-card gg-hltb" onPress={onPress}>
                 {header}
                 <div className="gg-stats">
                     {HLTB_COLUMNS.map((c) => (
@@ -25,36 +28,31 @@ export function HltbCard({ result, playedMinutes, locale, restyle = false }: Pro
                         </div>
                     ))}
                 </div>
-            </div>
+            </CardShell>
         );
     }
     if (result.status === 'notFound') {
+        const none = hltbNotFoundView(result.overrideId);
         return (
-            <div className="gg-card gg-hltb">
+            <CardShell className="gg-card gg-hltb" onPress={onPress}>
                 {header}
-                <div className="gg-muted">
-                    {result.overrideId !== undefined ? `#${result.overrideId} · ${tr('noMatches')}` : tr('noMatches')}
-                </div>
-                <div className="gg-caption">
-                    {result.overrideId !== undefined
-                        ? 'Check or remove the override in Quick Access → Game Glance'
-                        : 'Set the right game in Quick Access → Game Glance'}
-                </div>
-            </div>
+                <div className="gg-muted">{none.muted}</div>
+                <div className="gg-caption">{none.caption}</div>
+            </CardShell>
         );
     }
     if (result.status === 'unavailable') {
         return (
-            <div className="gg-card gg-hltb">
+            <CardShell className="gg-card gg-hltb" onPress={onPress}>
                 {header}
                 <div className="gg-muted">{tr('unavailable')}</div>
-            </div>
+            </CardShell>
         );
     }
 
     const view = hltbFoundView(result.times, playedMinutes, locale, restyle);
     return (
-        <div className="gg-card gg-hltb">
+        <CardShell className="gg-card gg-hltb" onPress={onPress}>
             {header}
             <div className="gg-stats">
                 {view.columns.map((c) => (
@@ -66,6 +64,6 @@ export function HltbCard({ result, playedMinutes, locale, restyle = false }: Pro
             </div>
             {view.bar !== null && <div className="gg-bar"><div style={{ width: `${view.bar}%` }} /></div>}
             {view.caption !== null && <div className="gg-caption">{view.caption}</div>}
-        </div>
+        </CardShell>
     );
 }

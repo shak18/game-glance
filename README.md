@@ -5,38 +5,24 @@ with everything about the game at a glance (how long it takes to beat, how far y
 came from), and can replace Steam's Home with **Spotlight Home** and Steam's Library with **Spotlight Library**:
 your games, over their own art.
 
-![A game page on a TV: the game's logo, Play row, cards, and the Family Sharing pill](docs/images/tv-page-family.jpg)
+https://github.com/user-attachments/assets/7772cd5b-ac8c-428e-a612-e9d594454a50
 
-<details>
-<summary>More screenshots: the Clean look in Spanish, and the Quick Access panel</summary>
 
-![The Clean look, with Steam set to Spanish](docs/images/tv-clean-look-es.jpg)
+## Features
 
-<img src="docs/images/quick-access.jpg" alt="Game Glance in Quick Access" width="320">
-
-</details>
-
-## The game page
-
-- **Full-screen art.** The game's hero art fills the screen (your custom SteamGridDB art when you have set some).
-  Steam's Activity, Your stuff, Community and Game info tabs are one press down.
-- **HowLongToBeat.** Main story, Main + Extras and 100% times, a bar toward the next one you have not reached, and
-  how many hours are left.
-- **Info card.** Your play time, achievements and the game's description, in your Steam language.
-- **Play row.** A pill-shaped Play button (with the "Play from" arrow some games have), round controller and settings
-  buttons, and Steam Cloud as a small icon coloured by its sync state.
-- **Store pill.** Where the game comes from, with the store's icon: Steam, GOG, Epic, Amazon, Battle.net, Ubisoft,
-  Xbox Cloud or Heroic. A game borrowed through **Steam Families** gets a second pill with the owner's name
-  ("Family Sharing · Lender").
-- **Clean look** (optional): only the art and one row at the bottom (Play, the buttons, and a small card with your play
-  time, achievements and HowLongToBeat's main story), without the description and HowLongToBeat cards.
+- **Game page.** Full-screen art, how long the game takes to beat ([HowLongToBeat](https://howlongtobeat.com)), your play
+  time and achievements, and where the game comes from. An optional **Clean look** shows less.
+- **Spotlight Home.** An optional new Home screen (off by default): one game at a time over its art, a row of your
+  recent games or a collection, and Friends, News and Recommended tabs one press down.
+- **Touch.** On a handheld's touchscreen, tap a game to select it and again to open it, swipe the games row and the tabs'
+  rows, swipe up for the tabs, and tap the game page's cards. A mouse clicks and drags the same way, scrolls the rows
+  with the wheel and lights whatever you can click under the cursor.
+- **Screensaver.** Steam's Game Slideshow, drawn with your games and their art, with logo and stats.
 - **Non-Steam games.** Games added by [Heroic](https://heroicgameslauncher.com) or
-  [Unifideck](https://github.com/mubaraknumann/unifideck) get their store, times and description too. A Unifideck game's
-  page looks and works like a Steam game's: its Play row in the same place, the buttons in Steam's order, its own play
-  time, last played and install size (in Unifideck's language), and its cloud saves.
-- **Works offline.** Times and descriptions are kept on the device. Quick Access can pre-load them for every installed
-  game, and new installs are picked up automatically.
+  [Unifideck](https://github.com/mubaraknumann/unifideck) get their store, times and description too.
+- **Works offline.** Times and descriptions are kept on the device.
 
+<<<<<<< HEAD
 With Spotlight Home on (or the Clean look), the page takes Spotlight Home's look: the game's title or logo with "Last
 played" under it, just above a larger Play row in the game's colour, and the status bar at the top. With both off, the
 page keeps its classic look.
@@ -163,6 +149,8 @@ juego" in Spanish, the collection and sort names, the cloud states and more). Un
 few words with no Steam equivalent stay in English: the HowLongToBeat column names and this Quick Access panel (see
 [docs/localization.md](docs/localization.md)).
 
+Every feature and setting is described in [docs/features.md](docs/features.md).
+
 ## Install
 
 Game Glance is not in the Decky plugin store. Install it from a release:
@@ -172,10 +160,15 @@ Game Glance is not in the Decky plugin store. Install it from a release:
 3. Decky → Settings → Developer → **Install plugin from ZIP** (or **Install plugin from URL** with the release asset's
    link).
 
-**Updates install from Game Mode** (from 2.1 on): Game Glance checks for a new release once a day, and Quick Access →
-Game Glance → Updates shows **Update to …**, which hands it to Decky to confirm, install and reload Game Glance.
+Updates install from Game Mode: Game Glance checks for a new release once a day, and Quick Access → Game Glance →
+Updates shows **Update to …**, which hands it to Decky to confirm, install and reload Game Glance.
 
 If you use **HLTB for Deck**, you can uninstall it; Game Glance shows the same times on the game page.
+
+## Settings
+
+Find them in Quick Access (…) → Game Glance. The full list, with defaults, is in
+[docs/features.md](docs/features.md#settings).
 
 ## Compatibility
 
@@ -186,7 +179,7 @@ Steam updates can rename the parts of the page Game Glance styles. When that hap
 get Steam's normal page with the cards on it, rather than a broken page.
 [docs/device-checklist.md](docs/device-checklist.md) lists what to check after an update.
 
-Known limits: Steam keeps no "last played" game for friends, so Game Glance remembers the last game it saw each friend
+Known limit: Steam keeps no "last played" game for friends, so Game Glance remembers the last game it saw each friend
 play and shows it once they are away or offline.
 
 ## Privacy
@@ -194,15 +187,26 @@ play and shows it once they are away or offline.
 Game Glance talks to two sites for game data: howlongtobeat.com (times) and store.steampowered.com (descriptions). It
 sends game names and Steam app IDs, nothing about you.
 
-- **Show wishlist deals** (off by default) is the one exception: it sends your Steam ID to Steam's web API
-  (api.steampowered.com) to read your public wishlist, then asks the store for the prices of its games by app ID.
-- **Updates:** once a day, and when you press Check for updates, Game Glance asks api.github.com for the latest release's
-  version and download link. It sends nothing about you; an update is only downloaded, by Decky, when you press Update.
-- **From the Steam client:** Spotlight Home's news, friends, status bar and art, and the family owner's name (from your
-  friends list). Art, logos and news images Steam has not stored on the device yet load from Steam's image servers, as
-  on Steam's own Home.
+- **Show wishlist deals** (off by default) sends your Steam ID to Steam's web API (api.steampowered.com) to read your
+  public wishlist, then asks the store for the prices of its games.
+- **Updates:** once a day, and when you press Check for updates, Game Glance asks api.github.com for the latest
+  release's version and download link. It sends nothing about you.
+- **Steam client:** Spotlight Home's news, friends, status bar and art come from the Steam client, as on Steam's own
+  Home, and the family owner's name comes from your friends list. Images not yet stored on the device load from Steam's
+  image servers.
+- **Screensaver:** it looks nothing up. Its times and achievement counts are only what Game Glance already saved on the
+  device.
 
 Everything Game Glance stores stays on the device, in Decky's settings folder.
+
+## If something goes wrong
+
+If Spotlight Home hits an error, it shows Steam's own Home instead and writes the error to a log file:
+
+`~/homebrew/logs/Game Glance/game-glance.log`
+
+Attach that file to an issue report. Review it first and remove anything personal. It keeps the newest entries and stays
+small.
 
 ## Development
 
@@ -221,10 +225,16 @@ A release is a GitHub release tagged `vX.Y.Z` (the version in `package.json`) wi
 `scripts/serve.sh` serves the zip on your network for **Install plugin from URL**. The `scripts/cef-*.mjs` helpers
 drive Steam's UI through remote CEF debugging; see the device checklist for the setup.
 
-## Roadmap and progress
+## Contributing and support
 
-Planned work and what is in progress are on the [Game Glance project board](https://github.com/users/michpalm/projects/2).
-Each item links to its issue. To suggest a feature or report a bug, [open an issue](https://github.com/michpalm/game-glance/issues).
+- **Bugs and ideas:** [open an issue](https://github.com/michpalm/game-glance/issues/new/choose). Planned work and
+  what's in progress are on the [project board](https://github.com/users/michpalm/projects/2).
+- **Testing:** if you want to help test changes on your device, [volunteer as a tester](https://github.com/michpalm/game-glance/issues/new?template=tester-interest.yml).
+  Testing is optional. See the [community testing guide](docs/community-testing.md).
+- **Support:** Game Glance is free, and support is optional. It does not buy priority support or influence over the
+  roadmap; it helps keep the project going when I have time.
+
+[![Support Game Glance on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/michpalm)
 
 ## About this project
 

@@ -112,3 +112,13 @@ export const CLOUD_COLOURS: Record<CloudTone, string> = {
 
 /** The icon on a focused (white) cloud circle on the game page, which only takes focus on a sync problem: 6.6:1 on white. */
 export const CLOUD_FOCUS_BAD = '#b3261e';
+
+/**
+ * The cloud state to show for `appId`: the one read for it (`state`), or, while `state` is still another game's (the
+ * selection just moved, its poll not yet run), the new game's read now. Returning none for that render removed the cloud
+ * button for a frame on every switch, and it flickered back as if reloading while the other buttons stayed. Pure.
+ */
+export function cloudFor(state: { id: number | null; cloud: CloudState | null }, appId: number | null, read: (appId: number) => CloudState | null): CloudState | null {
+    if (appId === null) return null;
+    return state.id === appId ? state.cloud : read(appId);
+}

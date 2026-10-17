@@ -14,6 +14,7 @@ function deps(over: Partial<PrefetchGameDeps> = {}): PrefetchGameDeps {
         cache: createCache(memoryKv()),
         steamDescription: vi.fn(async () => 'Steam text'),
         shortcutDescription: vi.fn(async () => 'Shortcut text'),
+        shortcutCached: vi.fn(async () => false),
         ...over,
     };
 }
@@ -36,6 +37,11 @@ describe('prefetchGameData', () => {
         expect(await prefetchGameData(ECHOES, 'english', d)).toEqual({ status: 'found', fetched: false });
         expect(d.shortcutDescription).toHaveBeenCalledWith(ECHOES, 'english');
         expect(await prefetchGameData(DIABLO, 'english', d)).toEqual({ status: 'found', fetched: true });
+    });
+    it("a shortcut whose Steam match and description are cached goes nowhere, so no pause (#48: 500 cached Unifideck games took 8 minutes)", async () => {
+        const d = deps({ shortcutCached: vi.fn(async () => true) });
+        expect(await prefetchGameData(DIABLO, 'english', d)).toEqual({ status: 'found', fetched: false });
+        expect(d.shortcutCached).toHaveBeenCalledWith(DIABLO, 'english');
     });
     it('stops at the times when HowLongToBeat is unreachable (offline)', async () => {
         const d = deps({ hltb: vi.fn(async () => ({ status: 'unavailable' as const, fetched: true })) });

@@ -21,7 +21,8 @@ export type ArriveMode = 'parts' | 'all';
  * `homeDesc` / `homeHltb`: Home drew the description / the HowLongToBeat card's rest as it turned into the page
  * (home/OpenExtras), so the page shows those at once instead of letting them arrive, and `homeFamily`: Home showed
  * the family library pill (it moves in with the store pill, so the page's is there at once too), and `homeMissing`:
- * the page's stat columns Home showed no chip for (they arrive with the new parts).
+ * the page's stat columns Home showed no chip for (they arrive with the new parts), and `homeUninstall`: Home drew a
+ * Unifideck game's Uninstall circle as it opened (homeCss .gh-open-circle), so the page's is there at once.
  */
 export interface OpenIntent {
     look: PageLook | 'steam';
@@ -33,6 +34,7 @@ export interface OpenIntent {
     homeHltb?: boolean;
     homeFamily?: boolean;
     homeMissing?: string[];
+    homeUninstall?: boolean;
     /** Home drew a Unifideck game's size column (OpenExtras): the page shows its own at once. */
     homeSize?: boolean;
 }

@@ -1,6 +1,5 @@
-import { BETA_APP_TYPE, DEMO_APP_TYPE, GAME_APP_TYPE, SHORTCUT_APP_TYPE } from '../data/installedGames';
 import { PhraseKey, tr } from '../i18n/steamText';
-import { addedTime, RawApp, RECENTS_LIMIT, RecentGame } from './recents';
+import { addedTime, isRowApp, RawApp, RECENTS_LIMIT, RecentGame } from './recents';
 
 /**
  * Home's games row from one of Steam's collections instead of the recent games (Quick Access → Games row). Steam's
@@ -80,21 +79,17 @@ export function homeCollections(collections: unknown): HomeCollection[] {
     return list.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
-const isGameOrShortcut = (a: RawApp) =>
-    a.app_type === GAME_APP_TYPE ||
-    a.app_type === DEMO_APP_TYPE ||
-    a.app_type === BETA_APP_TYPE ||
-    a.app_type === SHORTCUT_APP_TYPE;
+
 const sortName = (a: RawApp & { sort_as?: unknown }) => (typeof a.sort_as === 'string' && a.sort_as ? a.sort_as : a.display_name ?? '').toLowerCase();
 
 /**
- * A collection's games for the row: games and shortcuts only, none the user hid in Steam (a failing check keeps the
+ * A collection's games for the row: games, demos and shortcuts only (recents.isRowApp), none the user hid in Steam (a failing check keeps the
  * game: it must not empty Home), sorted by `sort` (last played: played newest first, then never-played newest added
  * first; name: Steam's sort name, so a leading "The" does not count; added: newest added first), at most `limit`.
  */
 export function pickCollectionGames<T extends RawApp & { sort_as?: unknown }>(apps: T[], isHidden: (appId: number) => boolean, sort: RowSort, limit = RECENTS_LIMIT): RecentGame[] {
     const visible = apps.filter((a) => {
-        if (!a || !isGameOrShortcut(a)) return false;
+        if (!a || !isRowApp(a)) return false;
         try {
             return !isHidden(a.appid);
         } catch {

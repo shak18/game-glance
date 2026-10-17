@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLOUD_COLOURS, CLOUD_STATUS as S, cloudState, sameCloud } from '../../src/home/cloud';
+import { CLOUD_COLOURS, CLOUD_STATUS as S, cloudFor, cloudState, sameCloud } from '../../src/home/cloud';
 
 const on = (eCloudStatus: number, extra = {}) => ({ bCloudEnabledForApp: true, bCloudEnabledForAccount: true, bHasAnyLocalContent: true, eCloudStatus, nCloudProgressPercent: 0, ...extra });
 
@@ -79,5 +79,16 @@ describe('cloudDialog (Steam\'s handlers on A)', () => {
         expect(cloudDialog('none', 9, () => undefined)).toBeNull();
         // A missing Steam call never throws.
         expect(() => (cloudDialog('retry', 9, () => undefined)!.props.onOK as () => void)()).not.toThrow();
+    });
+});
+
+describe('cloudFor', () => {
+    const ok = cloudState(on(S.synchronized), 'game', false);
+    it("the state read for this game; for another game's state, the new game's read at once (no frame without the button)", () => {
+        const read = (id: number) => (id === 2 ? ok : null);
+        expect(cloudFor({ id: 1, cloud: null }, 1, read)).toBeNull();
+        expect(cloudFor({ id: 1, cloud: null }, 2, read)).toBe(ok);
+        expect(cloudFor({ id: 2, cloud: ok }, 2, () => null)).toBe(ok);
+        expect(cloudFor({ id: 2, cloud: ok }, null, read)).toBeNull();
     });
 });

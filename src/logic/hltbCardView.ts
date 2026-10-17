@@ -1,3 +1,4 @@
+import { tr } from '../i18n/steamText';
 import { formatHours, minutesToHours } from './format';
 import { beyondCaption, computeProgress, HltbTimes, mainStoryProgress, Tier, towardCaption } from './progress';
 
@@ -48,4 +49,11 @@ export function hltbFoundView(times: HltbTimes, playedMinutes: number, locale: s
         default:
             return { columns, bar: null, caption: null };
     }
+}
+
+/** The no-match card's two lines (the page's card and Home's copy as it opens): no matches, and where to fix it. Pure. */
+export function hltbNotFoundView(overrideId?: number): { muted: string; caption: string } {
+    return overrideId !== undefined
+        ? { muted: `#${overrideId} · ${tr('noMatches')}`, caption: 'Check or remove the override in Quick Access → Game Glance' }
+        : { muted: tr('noMatches'), caption: 'Set the right game in Quick Access → Game Glance' };
 }

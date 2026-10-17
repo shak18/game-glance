@@ -1,7 +1,9 @@
 import { sourcePillIcon, sourcePillLook } from '../../src/styles/sourcePill';
 import { describe, expect, it } from 'vitest';
-import { buildAccentCss, buildArrivingCss, buildCleanCss, buildSteamEnterOffCss, steamFooterSelector, buildDownloadCss, buildLaunchCss, buildThemeCss, buildUnifideckCss, launchTargets, ThemeClasses } from '../../src/styles/themeCss';
-import { PAGE_LAYOUT, PAGE_SCRIM_LAYERS, PAGE_SCRIMS, pageDUnit, pillFocusScale, STEAM_LEGEND_PX } from '../../src/styles/themeCss';
+import { arrivalSelectors, buildAccentCss, buildArrivingCss, buildCleanCss, buildSteamEnterOffCss, steamFooterSelector, buildDownloadCss, buildLaunchCss, buildRingCss, buildThemeCss, buildUnifideckCss, launchTargets, ThemeClasses } from '../../src/styles/themeCss';
+import { homeCanvas } from '../../src/home/scale';
+import { SETTLE } from '../../src/home/openTwins';
+import { cardMaxWidths, PAGE_LAYOUT, PAGE_SCRIM_LAYERS, PAGE_SCRIMS, pageDUnit, PAGE_TYPE, pageType, pillFocusScale, playRowSelector, ringBoost, STEAM_LEGEND_PX, twinTargets } from '../../src/styles/themeCss';
 
 const full: ThemeClasses = {
     header: { TopCapsule: 'hd_Top', BoxSizer: 'hd_Box' },
@@ -45,6 +47,15 @@ describe('buildThemeCss full-screen layout', () => {
         expect(ruleFor(css, '.ov_Backdrop {')).toContain('display: none');
         expect(ruleFor(css, '.hd_Box {')).toContain('top:');
     });
+    it('a card that responds to a tap (#24) gives under the finger (restyled look; the plain one stays 1.1.1)', () => {
+        const css = buildThemeCss(full, { restyle: true });
+        expect(css).toContain('.gg-card-tap:active { transform: scale(0.98); }');
+        expect(css).toMatch(/\.gg-card-tap\s*\{[^}]*transition:\s*transform/);
+        // Steam's page panel lies over the cards (seen on the Deck: a tap landed on it): the hero is lifted above it
+        // and takes no touches itself, only the tappable cards do, so nothing else of Steam's below is covered.
+        expect(css).toContain('.gg-hero { z-index: 2; pointer-events: none; }');
+        expect(css).toContain('.gg-hero .gg-card-tap { pointer-events: auto; }');
+    });
     it('is all-or-nothing: one missing piece keeps the stacked stock layout', () => {
         for (const drop of ['header', 'details', 'root'] as const) {
             const key = { header: 'TopCapsule', details: 'AppDetailsOverviewPanel', root: 'AppDetailsContainer' }[drop];
@@ -75,8 +86,8 @@ describe('buildThemeCss play row', () => {
     });
     it('keeps a visible focus highlight on Play, the arrow and the icon buttons', () => {
         const css = buildThemeCss(full);
-        expect(ruleFor(css, '.rt_PlayBtn [role="button"].gpfocus {')).toContain('background:');
-        expect(ruleFor(css, '.ps_Menu.gpfocus {')).toContain('background: #ffffff');
+        expect(ruleFor(css, ':where(html:not([data-gg-mouse])) .rt_PlayBtn [role="button"].gpfocus {')).toContain('background:');
+        expect(ruleFor(css, ':where(html:not([data-gg-mouse])) .ps_Menu.gpfocus {')).toContain('background: #ffffff');
         expect(ruleFor(css, '.ps_Menu {')).toContain('border-radius: 50%');
     });
     it('shrinks the cloud row to an icon coloured by sync state', () => {
@@ -240,6 +251,8 @@ describe('buildUnifideckCss (a Unifideck game\u2019s page)', () => {
         expect(css).toMatch(/\.unifideck-install-btn[^{]*\{[^}]*justify-content: flex-start !important/);
         // Its cloud button's in-sync check badge at Unifideck's proportion to the 24 glyph (our circles' rule would size it 24).
         expect(css).toContain('.unifideck-icon-btn svg.unifideck-cloud-badge { width: calc(13 * var(--gg-d)) !important; height: calc(13 * var(--gg-d)) !important; }');
+        // Unifideck's inline 0.05em letter spacing drew its word wider than Home's and Steam's ("Play" stepped at the open).
+        expect(css).toMatch(/\.unifideck-play-btn[^{]*\{[^}]*letter-spacing: normal !important/);
         // Unifideck's own 8 px flex gap would add to the glyph's gap (its word sat 14 px further right than Home's).
         expect(css).toMatch(/\.unifideck-install-btn[^{]*\{[^}]*gap: 0 !important/);
         expect(css).toContain(`padding: 0 calc(${PAGE_LAYOUT.pill.padX} * var(--gg-d)) !important`);
@@ -350,12 +363,12 @@ describe('buildThemeCss 1.1.1 baseline', () => {
           .rt_PlayBtn [role="button"] > div { font-size: calc(16 * var(--gg-u)) !important; }
           .rt_PlayBtn [role="button"] + [role="button"] { flex: 0 0 calc(38 * var(--gg-u)) !important; width: calc(38 * var(--gg-u)) !important; padding: 0 !important;
                       display: flex !important; align-items: center !important; justify-content: center !important; border-left: 1px solid rgba(4, 17, 12, 0.25) !important; }
-          .rt_PlayBtn [role="button"].gpfocus { background: rgba(255, 255, 255, 0.28) !important; }
+          :where(html:not([data-gg-mouse])) .rt_PlayBtn [role="button"].gpfocus { background: rgba(255, 255, 255, 0.28) !important; }
           .rt_Buttons { margin-left: 0 !important; gap: var(--gg-gap) !important; }
           .rt_Buttons > * { margin: 0 !important; padding: 0 !important; }
           .ps_Menu { width: var(--gg-icon) !important; height: var(--gg-icon) !important; min-width: 0 !important; margin: 0 !important; box-sizing: border-box !important; border-radius: 50% !important;
                       background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(255, 255, 255, 0.18) !important; }
-          .ps_Menu.gpfocus { background: #ffffff !important; color: #0b0f14 !important; }
+          :where(html:not([data-gg-mouse])) .ps_Menu.gpfocus { background: #ffffff !important; color: #0b0f14 !important; }
           .rt_PlayBtn svg, .ps_Menu svg { width: calc(24 * var(--gg-u)) !important; height: calc(24 * var(--gg-u)) !important; }
           .rt_PlayBtn [role="button"] svg { margin-right: calc(16 * var(--gg-u)) !important; }
           .rt_PlayBtn [role="button"] + [role="button"] svg { width: calc(12 * var(--gg-u)) !important; height: calc(12 * var(--gg-u)) !important; margin: 0 !important; }
@@ -480,11 +493,121 @@ describe('buildThemeCss restyle (Spotlight Home on)', () => {
         expect(cloud).toContain('backdrop-filter: blur(calc(12 * var(--gg-d))) !important;');
         expect(cloud).toContain('--gg-ok: #5cf2b4; --gg-warn: #ffd84d; --gg-bad: #ff8585; --gg-off: #c4c9d1;');
         expect(rulesFor(restyled, '.ps_Cloud svg')).toContain('drop-shadow');
-        expect(rulesFor(restyled, '.ps_Cloud.gpfocus')).toContain('background: #ffffff !important; color: #b3261e !important;');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .ps_Cloud.gpfocus')).toContain('background: #ffffff !important; color: #b3261e !important;');
         // The menu circles' fill is the same.
         expect(rulesFor(restyled, '.ps_Menu')).toContain('background: rgba(12, 16, 22, 0.4) !important;');
         // Not in the 1.1.1 output.
         expect(buildThemeCss(steam)).not.toContain('#5cf2b4');
+    });
+    it("the glass rings are Home's, 1 d unit (1 canvas px there), not 1 px: a 1 px border is drawn on 2 whole device px at the Ally's 2.32 and read brighter than Home's as the open transition handed over", () => {
+        expect(rulesFor(restyled, '.ps_Menu')).toContain('border-width: calc(1 * var(--gg-d)) !important;');
+        expect(rulesFor(restyled, '.gg-card')).toContain('border-width: calc(1 * var(--gg-d));');
+        expect(buildCleanCss(full)).toMatch(/\.gg-clean-info \{[^}]*border: calc\(1 \* var\(--gg-d\)\) solid /);
+        // The cloud keeps its 1 px: placed at a fractional position, it is drawn soft like Home's already (Michael: no change there).
+        expect(rulesFor(restyled, '.ps_Cloud')).toContain('border: 1px solid rgba(255, 255, 255, 0.18) !important;');
+    });
+    it("the glass rings are as bright as Home's: their colour is Home's times --gg-ring (ringBoost), 1 when not set", () => {
+        expect(rulesFor(restyled, '.ps_Menu')).toContain('border-color: rgba(255, 255, 255, calc(0.18 * var(--gg-ring, 1))) !important;');
+        expect(rulesFor(restyled, '.gg-card')).toContain('border-color: rgba(255, 255, 255, calc(0.12 * var(--gg-ring, 1)));');
+        expect(buildCleanCss(full)).toMatch(/\.gg-clean-info \{[^}]*border: calc\(1 \* var\(--gg-d\)\) solid rgba\(255, 255, 255, calc\(0\.12 \* var\(--gg-ring, 1\)\)\)/);
+        expect(buildRingCss(1.15)).toBe(':root { --gg-ring: 1.15; }');
+    });
+    it("everything clickable takes the hover ring under a mouse (in d units), never when focused, ring only but the cards", () => {
+        const ring = 'box-shadow: 0 0 0 calc(2 * var(--gg-d)) rgba(255,255,255,.45) !important;';
+        const pill = rulesFor(restyled, 'html[data-gg-mouse] .rt_PlayBtn > div:has(> [role="button"]):hover');
+        expect(pill).toContain(ring);
+        expect(pill).not.toContain('transform');
+        const circle = rulesFor(restyled, 'html[data-gg-mouse] .ps_Menu:hover');
+        expect(circle).toContain(ring);
+        expect(circle).not.toContain('transform');
+        expect(rulesFor(restyled, 'html[data-gg-mouse] .ps_Cloud:hover')).toContain(ring);
+        // In mouse mode the focus looks are off (Steam puts its focus back on a clicked button), at no weight: every focus
+        // rule of the pill, the circles and the cloud sits behind :where(html:not([data-gg-mouse])).
+        const gate = ':where(html:not([data-gg-mouse]))';
+        const focusRules = (restyled.match(/[^{}]*\{[^}]*\}/g) ?? []).map((r) => r.slice(0, r.indexOf('{')).trim())
+            .filter((s) => /\.(rt_PlayBtn|ps_Menu|ps_Cloud)/.test(s) && /(\.gpfocus|:focus)(?![\w-])/.test(s) && !s.split(gate).join('').includes(':not(') && !s.startsWith('html[data-gg-mouse]'));
+        expect(focusRules.length).toBeGreaterThanOrEqual(8);
+        for (const sel of focusRules) for (const part of sel.split(',')) expect(part.trim(), sel).toMatch(/^:where\(html:not\(\[data-gg-mouse\]\)\)/);
+        expect(rulesFor(restyled, `${gate} .ps_Menu.gpfocus`)).toContain('background: #ffffff !important;');
+        // Steam's own focus rule darkens a focused circle's icon (meant for its white focus look): in mouse mode it stays
+        // the white of a circle at rest, or it showed black on the dark glass after coming back to the page.
+        // (Steam darkens the icon's svg, whose paths fill with currentColor: the button and its svg both.)
+        expect(rulesFor(restyled, 'html[data-gg-mouse] .ps_Menu:is(.gpfocus, :focus)')).toContain('color: #ffffff !important;');
+        expect(rulesFor(restyled, 'html[data-gg-mouse] .ps_Menu:is(.gpfocus, :focus) svg')).toContain('color: #ffffff !important;');
+        // And Steam's own focus fill on Play and its arrow (blue, green for some games: our transparent focus rules hid it).
+        const play = rulesFor(restyled, 'html[data-gg-mouse] .rt_PlayBtn [role="button"]:is(.gpfocus, :focus)');
+        expect(play).toContain('background: transparent !important;');
+        expect(play).toContain('color: #ffffff !important;');
+        // The cards (info, HowLongToBeat) lift as Home's feed cards do; a press still gives.
+        const card = rulesFor(restyled, 'html[data-gg-mouse] .gg-card-tap:hover');
+        expect(card).toContain(ring);
+        expect(card).toContain('transform: translateY(calc(-2 * var(--gg-d)))');
+        expect(rulesFor(restyled, 'html[data-gg-mouse] .gg-card-tap:hover:active')).toContain('scale(0.98)');
+        // Not in the 1.1.1 output, and never without mouse mode.
+        expect(buildThemeCss(steam)).not.toContain(':hover');
+        for (const sel of restyled.match(/[^{}]*:hover[^{]*\{/g) ?? []) expect(sel).toContain('html[data-gg-mouse]');
+    });
+    it("a card the controller selected looks like Home's focused feed card (accent ring and glow, a lift), not in mouse mode", () => {
+        const gate = ':where(html:not([data-gg-mouse]))';
+        const look = rulesFor(restyled, `${gate} .gg-card-nav.gg-card-focus, ${gate} .gg-card-nav:focus`);
+        expect(look).toContain('box-shadow: 0 0 0 calc(1 * var(--gg-d)) var(--glance-accent), 0 calc(16 * var(--gg-d)) calc(40 * var(--gg-d)) calc(-1 * calc(12 * var(--gg-d))) var(--glance-accent) !important;');
+        expect(look).toContain('transform: translateY(calc(-4 * var(--gg-d)))');
+        expect(buildThemeCss(steam)).not.toContain('gg-card-focus');
+    });
+    it("playRowSelector: Steam's Play row (the pill and its arrow, the circles, the cloud); null without its classes", () => {
+        expect(playRowSelector(full)).toBe('.rt_PlayBtn, .ps_Menu, .ps_Cloud');
+        expect(playRowSelector({ ...full, root: {}, play: {} })).toBeNull();
+    });
+    it("PAGE_TYPE drives the page's own text rules", () => {
+        const d = (n: number) => `calc(${n} * var(--gg-d))`;
+        expect(PAGE_TYPE.title).toEqual({ size: 64, weight: 800, letterSpacing: '-0.02em', lineHeight: '1', upper: false });
+        expect(PAGE_TYPE.eyebrow).toEqual({ size: 12, weight: 700, letterSpacing: '0.2em', lineHeight: '1.2', upper: true });
+        expect(PAGE_TYPE.label).toMatchObject({ size: 11, weight: 700, letterSpacing: '0.18em', upper: true });
+        expect(PAGE_TYPE.value).toMatchObject({ size: 30, weight: 700, lineHeight: '1.2', upper: false });
+        expect(PAGE_TYPE.cleanValue).toMatchObject({ size: PAGE_LAYOUT.cleanInfo.value, weight: 700, lineHeight: '1.2' });
+        expect(PAGE_TYPE.playLabel).toMatchObject({ size: 22, weight: 700, upper: false });
+        // Each rule carries its role's declarations (the play label's are !important there).
+        expect(restyled).toContain(`.gg-eyebrow { ${pageType('eyebrow', d)}`);
+        expect(restyled).toContain(`.gg-title { margin: calc(-1 * ${d(16)}); padding: ${d(16)}; ${pageType('title', d)}`);
+        expect(restyled).toContain(`.gg-label { ${pageType('label', d)}`);
+        expect(restyled).toContain(`.gg-value { ${pageType('value', d)}`);
+        expect(buildCleanCss(full)).toContain(`.gg-clean-info .gg-value { ${pageType('cleanValue', d)}`);
+        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"] > div')).toContain(pageType('playLabel', d, true));
+        // Only what the page sets itself: nothing it inherits from Steam is declared.
+        expect(pageType('playLabel', d)).toBe('font-size: calc(22 * var(--gg-d)); font-weight: 700;');
+    });
+    it("twinTargets: each twin's text on the page, in each look", () => {
+        const sp = twinTargets(full, 'spotlight');
+        expect(sp.title).toBe('.gg-title');
+        expect(sp.eyebrow).toBe('.gg-eyebrow');
+        expect(sp.play).toBe('.rt_PlayBtn [role="button"] > div');
+        expect(sp['label-played']).toBe('.gg-hero [data-stat="played"] .gg-label');
+        expect(sp['value-hltb']).toBe('.gg-hero [data-stat="hltb"] .gg-value');
+        expect(twinTargets(full, 'clean')['value-size']).toBe('.gg-clean-info [data-stat="size"] .gg-value');
+        expect(twinTargets({ ...full, root: {} }, 'spotlight').play).toBeUndefined();
+        // The extras layer's text settles too (openTwins.SETTLE names): the HowLongToBeat card, the description, the columns.
+        expect(sp[SETTLE.hltbTitle]).toBe('.gg-hltb > .gg-label');
+        expect(sp[SETTLE.label('mainExtras')]).toBe('.gg-hltb [data-stat="mainExtras"] .gg-label');
+        expect(sp[SETTLE.value('completionist')]).toBe('.gg-hltb [data-stat="completionist"] .gg-value');
+        expect(sp[SETTLE.caption]).toBe('.gg-hltb .gg-caption');
+        expect(sp[SETTLE.desc]).toBe('.gg-hero .gg-desc');
+        expect(sp[SETTLE.statValue('played')]).toBe('.gg-hero [data-stat="played"] .gg-value');
+        expect(twinTargets(full, 'clean')[SETTLE.statValue('size')]).toBe('.gg-clean-info [data-stat="size"] .gg-value');
+    });
+    it("the cloud's icon is centred in its circle, as on Home: Steam's icon box is as tall as the icon", () => {
+        // (Its box kept the 1.1.1 theme's 16 u height under a 26 d unit icon, which hung out of its bottom: 1.65 px low docked.)
+        expect(rulesFor(restyled, '.ps_CloudIcon')).toContain(`height: calc(${PAGE_LAYOUT.cloudIcon} * var(--gg-d)) !important;`);
+    });
+    it("ringBoost: Home's ring as drawn on screen over the page's, both on whole device px", () => {
+        // The Ally handheld (2.32, 828x466: d 0.575): Home's 1 canvas px is 2 device px scaled to 1.15; the page's 1 d unit is 1.
+        const d = pageDUnit(828.0172, 466.3793);
+        expect(ringBoost(2.32, 828.0172, 466.3793)).toBeCloseTo(2 * d, 3);
+        // The Deck (1, 1280x800: d 1): both 1 device px.
+        expect(ringBoost(1, 1280, 800)).toBe(1);
+        // A 1080p screen at 1 (d 1.333): Home's 1.333 device px, soft, against the page's 1.
+        expect(ringBoost(1, 1920, 1080)).toBeCloseTo(pageDUnit(1920, 1080), 3);
+        // Unknown ratio: no change.
+        expect(ringBoost(0, 1280, 800)).toBe(1);
     });
     it('Play: white words and glyph on the accent pill, as on Home (Steam drew the glyph dark and the words white)', () => {
         expect(rulesFor(restyled, '.rt_PlayBtn [role="button"]')).toContain('color: #ffffff !important');
@@ -495,25 +618,51 @@ describe('buildThemeCss restyle (Spotlight Home on)', () => {
         expect(rulesFor(restyled, '.rt_PlayBtn [role="button"]::after')).toContain('display: none !important');
     });
     it("Play focused as Home's: the fill stays the accent (no lighter overlay), a white ring and accent glow, scaled as Home's", () => {
-        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"].gpfocus')).toContain('background: transparent !important');
-        const ring = rulesFor(restyled, '.rt_PlayBtn > div:has(> [role="button"].gpfocus)');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .rt_PlayBtn [role="button"].gpfocus')).toContain('background: transparent !important');
+        const ring = rulesFor(restyled, ':where(html:not([data-gg-mouse])) .rt_PlayBtn > div:has(> [role="button"].gpfocus)');
         expect(ring).toContain('rgba(255, 255, 255, 0.9)');
         const pf = pillFocusScale(PAGE_LAYOUT.playW, PAGE_LAYOUT.icon);
         expect(ring).toContain(`transform: scale(${pf.x}, ${pf.y}) !important`);
         expect(rulesFor(restyled, '.rt_PlayBtn > div:has(> [role="button"])')).toContain('transition: transform 250ms, box-shadow 250ms !important');
     });
+    it('the glass blurs the art: the round buttons and the cards join Steam\'s 3D scene, the hero art\'s (a flat container cut their blur off)', () => {
+        // Steam lays the page out in a preserve-3d scene with the hero art in it; a backdrop-filter inside a flat container
+        // sees only that container (probed on the Ally: controller and settings showed the art sharp, the cloud, a direct
+        // child of the scene, blurred it). So every container from the play section down to the round buttons, and the
+        // hero and its cards, keep the scene going.
+        expect(rulesFor(restyled, '.rt_Play:has(.ps_Menu), .rt_Play :has(.ps_Menu)')).toContain('transform-style: preserve-3d !important');
+        expect(rulesFor(restyled, '.gg-hero, .gg-cards')).toContain('transform-style: preserve-3d');
+    });
+    it('the page counts as arrived with Play under DOM focus too (opened by a tap or a click: no gpfocus, the hand-over waited out its timeout)', () => {
+        const focus = arrivalSelectors(steam).focus ?? '';
+        expect(focus.split(', ')).toHaveLength(2);
+        expect(focus).toMatch(/ \.gpfocus, /);
+        expect(focus).toMatch(/ :focus$/);
+    });
+    it('focus looks follow DOM focus too: a page opened by a tap or a click has Play focused without Steam\'s gpfocus', () => {
+        // The open transition lands on a focused Play (openMotion): without this the pill shrank and lost its ring at the hand-over.
+        const ring = rulesFor(restyled, ':where(html:not([data-gg-mouse])) .rt_PlayBtn > div:has(> [role="button"]:focus)');
+        expect(ring).toContain('rgba(255, 255, 255, 0.9)');
+        const pf = pillFocusScale(PAGE_LAYOUT.playW, PAGE_LAYOUT.icon);
+        expect(ring).toContain(`transform: scale(${pf.x}, ${pf.y}) !important`);
+        expect(ring).toContain('var(--glance-accent)');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .rt_PlayBtn [role="button"]:focus')).toContain('background: transparent !important');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .rt_PlayBtn [role="button"] + [role="button"]:focus')).toContain('background: rgba(255, 255, 255, 0.28) !important');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .ps_Menu:focus')).toContain('background: #ffffff !important');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .ps_Cloud:focus')).toContain('background: #ffffff !important; color: #b3261e !important;');
+    });
     it('the "Play from" arrow focused: the pill shows its focus and the arrow\'s segment is tinted, as on Home (Michael: Neva)', () => {
-        expect(rulesFor(restyled, '.rt_PlayBtn [role="button"] + [role="button"].gpfocus')).toContain('background: rgba(255, 255, 255, 0.28) !important');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .rt_PlayBtn [role="button"] + [role="button"].gpfocus')).toContain('background: rgba(255, 255, 255, 0.28) !important');
     });
     it('buildThemeCss with restyle adds the eyebrow, title and accent rules', () => {
         // accent: one per-game colour, animated over 500 ms, on Play, the HLTB goal value and bar
         expect(restyled).toContain("@property --glance-accent { syntax: '<color>'; inherits: true; initial-value: #5fd1ae; }");
         expect(rulesFor(restyled, '.ad_Inner')).toContain('--gg-accent: var(--glance-accent);');
         expect(rulesFor(restyled, '.ad_Inner')).toContain('transition: --glance-accent 500ms ease;');
-        expect(rulesFor(restyled, '.rt_PlayBtn > div:has(> [role="button"].gpfocus)')).toContain('var(--glance-accent)');
+        expect(rulesFor(restyled, ':where(html:not([data-gg-mouse])) .rt_PlayBtn > div:has(> [role="button"].gpfocus)')).toContain('var(--glance-accent)');
         // handoff px scaled like Home: its 1440 canvas on 16:9, its 1280 canvas on 16:10
-        expect(restyled).toContain(':root { --gg-d: calc(100vw / 1440); }');
-        expect(restyled).toContain('@media (max-aspect-ratio: 17/10) { :root { --gg-d: calc(100vw / 1280); } }');
+        expect(restyled).toContain(':root { --gg-d: min(calc(100vw / 1440), calc(100vh / 810)); }');
+        expect(restyled).toContain('@media (max-aspect-ratio: 17/10) { :root { --gg-d: min(calc(100vw / 1280), calc(100vh / 800)); } }');
         // eyebrow and 64px/800 title
         expect(rulesFor(restyled, '.gg-eyebrow')).toContain('color: var(--glance-accent-text)');
         expect(rulesFor(restyled, '.gg-eyebrow')).toContain('text-transform: uppercase');
@@ -535,6 +684,26 @@ describe('buildThemeCss restyle (Spotlight Home on)', () => {
         // cards: grid 1.1fr / 1fr, gap 18, padding 20x24, radius 16, side insets 56
         expect(rulesFor(restyled, '.gg-cards')).toContain('grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr)');
         expect(rulesFor(restyled, '.gg-cards')).toContain('gap: calc(18 * var(--gg-d))');
+        // Each card at most its own width (cards.infoW / hltbW), sized to its content rather than the row: HowLongToBeat fits
+        // three 3-digit times, the info card a little wider. On a screen with room to spare the art shows between them.
+        const { infoW, hltbW, padX } = PAGE_LAYOUT.cards;
+        expect([infoW, hltbW]).toEqual([540, 470]);
+        expect(cardMaxWidths()).toEqual([infoW, hltbW]);
+        expect(rulesFor(restyled, '.gg-cards')).not.toContain('max-width');
+        // The cards are content-box: the cap is the outer width less the padding (2 x padX) and the 1 px borders.
+        const content = (outer: number) => `max-width: calc(${outer - 2 * padX - 2} * var(--gg-d))`;
+        expect(rulesFor(restyled, '.gg-card')).toContain(content(infoW));
+        const hltbRules = rulesFor(restyled, '.gg-card.gg-hltb');
+        expect(hltbRules).toContain(content(hltbW));
+        // Wider than 9:5 (21:9, 32:9) the description card is as wide as HowLongToBeat.
+        expect(PAGE_LAYOUT.cards.equalFromAspect).toBe(1.8);
+        expect(cardMaxWidths(PAGE_LAYOUT.cards.equalFromAspect)).toEqual([hltbW, hltbW]);
+        expect(restyled).toContain(`@media (min-aspect-ratio: 9/5) { .gg-card { ${content(hltbW)}; } }`);
+        // Aligned to the row's right end at its full (capped) width, not shrunk to its content. Content-box like the cap:
+        // a plain 100% added the padding and borders, spilling 2 x padX + 2 px left over the info card (issue #53, the Deck).
+        expect(hltbRules).toContain('justify-self: end');
+        expect(hltbRules).toContain(`width: calc(100% - calc(${2 * padX + 2} * var(--gg-d)))`);
+        expect(hltbRules).not.toContain('width: 100%;');
         expect(rulesFor(restyled, '.gg-card')).toContain('padding: calc(20 * var(--gg-d)) calc(24 * var(--gg-d))');
         expect(rulesFor(restyled, '.gg-card')).toContain('border-radius: calc(16 * var(--gg-d))');
         expect(rulesFor(restyled, '.gg-value')).toContain('font-size: calc(30 * var(--gg-d))');
@@ -648,11 +817,13 @@ describe('buildThemeCss restyle (Spotlight Home on)', () => {
         for (const [, selector, body] of steamRules) {
             const props = body.split(';').map((d) => d.split(':')[0].trim()).filter(Boolean);
             for (const prop of props) {
-                expect([selector, prop]).toEqual([selector, expect.stringMatching(/^(--gg-accent|--gg-play-top|--gg-row-h|--gg-ok|--gg-warn|--gg-bad|--gg-off|transition|color|background|border|filter|box-shadow|visibility|padding-left|padding-right|padding-top|padding-bottom|font-size|font-weight|width|height|margin-right|top|min-width|flex|padding|backdrop-filter|display|object-position|transform)$/)]);
+                expect([selector, prop]).toEqual([selector, expect.stringMatching(/^(--gg-accent|--gg-play-top|--gg-row-h|--gg-ok|--gg-warn|--gg-bad|--gg-off|transition|color|background|border|border-width|border-color|filter|box-shadow|visibility|padding-left|padding-right|padding-top|padding-bottom|font-size|font-weight|width|height|margin-right|top|min-width|flex|padding|backdrop-filter|display|object-position|transform|transform-style)$/)]);
             }
         }
-        // (100vh only in the Play row's anchor variable, which the 1.1.1 layout rules read: the default and the TV's)
-        expect(extra(steam).replace(/--gg-play-top: [^;]*;/g, '')).not.toMatch(/z-index|100vh/);
+        // (100vh only in the Play row's anchor variable, which the 1.1.1 layout rules read: the default and the TV's, and in
+        // the d unit's height limit, the shared scale rule with Home: home/scale.ts)
+        // (z-index only on our own hero, lifted over Steam's page panel so the tappable cards get touches, #24)
+        expect(extra(steam).replace(/--gg-play-top: [^;]*;/g, '').replace(/--gg-d: min\([^;]*\);/g, '').replace('.gg-hero { z-index: 2; pointer-events: none; }', '')).not.toMatch(/z-index|100vh/);
     });
 });
 
@@ -723,6 +894,13 @@ describe('the page layout constants', () => {
         expect(pageDUnit(1280, 800)).toBeCloseTo(1);
         expect(pageDUnit(828, 466)).toBeCloseTo(828 / 1440);
     });
+    it('pageDUnit scales a screen wider than 16:9 by its height, as Home does (one rule keeps the open transition aligned)', () => {
+        expect(pageDUnit(1500, 643)).toBeCloseTo(643 / 810);
+        expect(pageDUnit(2560, 1080)).toBeCloseTo(1080 / 810);
+        for (const [w, h] of [[1920, 1080], [1280, 800], [1500, 844], [1500, 643], [2560, 1080], [3440, 1440], [1024, 768]]) {
+            expect(pageDUnit(w, h)).toBeCloseTo(homeCanvas(w, h).scale, 10);
+        }
+    });
     it('the restyled theme is built from them', () => {
         const css = buildThemeCss(full, { restyle: true });
         expect(css).toContain(`--gg-play-top: calc(100vh - calc(${PAGE_LAYOUT.playTop.spotlight} * var(--gg-d)))`);
@@ -766,10 +944,9 @@ describe('the page arriving after the open transition', () => {
             expect(buildArrivingCss(full, 'clean', mode), mode).toContain(`.${root.ActionButtonAndStatusPanel} [role="button"], .${root.ActionButtonAndStatusPanel} > div:has(> [role="button"]) { transition: none !important; }`);
         }
     });
-    it("the page's glass arrives unblurred, as Home's copy is, and grows its blur once revealed (Michael: the blur, cinematic)", () => {
+    it("the page's glass arrives blurred, as Home's copy is: the arriving page leaves its blur alone", () => {
         for (const look of ['spotlight', 'clean'] as const) {
-            expect(buildArrivingCss(full, look, 'parts'), look).toContain('.gg-clean-info, .gg-card { backdrop-filter: blur(0px) !important; }');
-            expect(buildArrivingCss(full, look, 'parts', true), look).toContain('.gg-clean-info, .gg-card { backdrop-filter: blur(calc(16 * var(--gg-d))) !important; transition: backdrop-filter 600ms cubic-bezier(.25,.1,.25,1) !important; }');
+            for (const revealed of [false, true]) expect(buildArrivingCss(full, look, 'parts', revealed), look).not.toContain('backdrop-filter');
         }
     });
     it('Spotlight: the description and the HowLongToBeat card are there at once when Home drew them as it opened', () => {
@@ -780,6 +957,9 @@ describe('the page arriving after the open transition', () => {
         const hltb = buildArrivingCss(full, 'spotlight', 'parts', false, { hltb: true });
         expect(hltb).toContain('.gg-desc');
         for (const sel of hltbParts) expect(hltb, sel).not.toContain(sel);
+        // The no-match line too (Home draws it as well): it arrives only when Home did not draw the card.
+        expect(hltb).not.toContain('.gg-muted');
+        expect(desc).toContain('.gg-muted');
         // The other new parts still arrive.
         for (const sel of ['.gg-family', '[data-stat="size"]']) expect(buildArrivingCss(full, 'spotlight', 'parts', false, { desc: true, hltb: true }), sel).toContain(sel);
     });
@@ -795,6 +975,9 @@ describe('the page arriving after the open transition', () => {
         const buttons = `.${full.root!.AppButtons}`;
         for (const look of ['spotlight', 'clean'] as const) {
             expect(buildArrivingCss(full, look, 'parts', false), look).toContain(`.unifideck-hide-native-play ${buttons}:has(> :nth-child(4)) > :nth-child(n+4)`);
+            // Home drew one at its place as it opened (homeCss .gh-open-circle): the page's is there at once under the copy
+            // (arriving after the copy had faded, it flickered).
+            expect(buildArrivingCss(full, look, 'parts', false, { uninstall: true }), look).not.toContain(':nth-child(n+4)');
         }
     });
     it('a Unifideck size column Home drew (extras) is there at once; otherwise it arrives with the new parts', () => {

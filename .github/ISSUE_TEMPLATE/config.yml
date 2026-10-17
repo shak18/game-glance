@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Community testing guide
+    url: https://github.com/michpalm/game-glance/blob/main/docs/community-testing.md
+    about: How volunteer test rounds work, and what a useful test result contains.

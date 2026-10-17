@@ -1,0 +1,66 @@
+name: Bug report
+description: Report something that is not working as expected.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Check the README's "If Home shows an error" section first, in case it already explains the problem.
+
+        Do not attach logs or screenshots that contain personal details. Never include passwords, authentication tokens, Steam credentials, or private account data.
+  - type: input
+    id: version
+    attributes:
+      label: Game Glance version
+      placeholder: For example, 3.2.0
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      placeholder: Exact device model
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: Operating system and version
+      placeholder: Distribution/channel and version
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open...
+        2. Navigate to...
+        3. Observe...
+    validations:
+      required: false
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Sometimes
+        - Once
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots, logs, or additional notes
+      description: Attach only relevant evidence, reviewed for personal or sensitive information.
+    validations:
+      required: false

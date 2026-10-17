@@ -24,7 +24,8 @@ export interface RecentGame {
     addedAt: number;
 }
 
-const isGameOrShortcut = (a: RawApp) =>
+/** What Home's games row shows: games, demos (as Steam's own Home does), betas, and non-Steam shortcuts; never tools or soundtracks. */
+export const isRowApp = (a: RawApp) =>
     a.app_type === GAME_APP_TYPE ||
     a.app_type === DEMO_APP_TYPE ||
     a.app_type === BETA_APP_TYPE ||
@@ -44,10 +45,10 @@ export function addedTime(a: RawApp): number {
  */
 export const RECENTS_LIMIT = 20;
 
-/** Recently played games and non-Steam shortcuts, newest first. */
+/** Recently played games, demos and non-Steam shortcuts, newest first. */
 export function pickRecents(apps: RawApp[], limit = RECENTS_LIMIT): RecentGame[] {
     return apps
-        .filter((a) => isGameOrShortcut(a) && (a.rt_last_time_played ?? 0) > 0)
+        .filter((a) => isRowApp(a) && (a.rt_last_time_played ?? 0) > 0)
         .sort((a, b) => (b.rt_last_time_played ?? 0) - (a.rt_last_time_played ?? 0))
         .slice(0, limit)
         .map((a) => ({
@@ -95,7 +96,7 @@ export function mergeRecentSources<T extends RawApp>(recentAll: T[], all: T[], i
 
 /**
  * Home's recents: the played games (mergeRecentSources, pickRecents) and, with `includeNew` (the "New to library"
- * setting), the never-played games and shortcuts Steam itself lists in its recent games (`recent`, never the rest of
+ * setting), the never-played games, demos and shortcuts Steam itself lists in its recent games (`recent`, never the rest of
  * the library) that have an added time. All newest first by their activity (last played, or added for a new game),
  * at most `limit`, each game once.
  */
@@ -111,7 +112,7 @@ export function pickHomeRecents<T extends RawApp>({ recent, all, isHidden, inclu
     const seen = new Set(played.map((g) => g.appId));
     const fresh: RecentGame[] = [];
     for (const a of recent) {
-        if (!a || seen.has(a.appid) || !isGameOrShortcut(a) || (a.rt_last_time_played ?? 0) > 0 || hiddenApp(a, isHidden, false)) continue;
+        if (!a || seen.has(a.appid) || !isRowApp(a) || (a.rt_last_time_played ?? 0) > 0 || hiddenApp(a, isHidden, false)) continue;
         const addedAt = addedTime(a);
         if (addedAt <= 0) continue;
         seen.add(a.appid);
@@ -121,11 +122,17 @@ export function pickHomeRecents<T extends RawApp>({ recent, all, isHidden, inclu
     return [...played, ...fresh].sort((a, b) => at(b) - at(a)).slice(0, limit);
 }
 
-/** "Today", "Yesterday", "N days ago", then a date. Timestamps are Unix seconds. */
+/**
+ * "Today", "Yesterday", "N days ago", then a date with its month named, in the language's own order ("Aug 24", "24 Aug",
+ * "24. Aug."), and the year when it is not this one. Never all numbers: Steam has one English, so 10/12 read as October
+ * in the US order to people for whom it is 12 December (#57). Timestamps are Unix seconds.
+ */
 export function formatLastPlayed(lastPlayed: number, now: number, locale: string): string {
     const days = Math.floor((now - lastPlayed) / DAY_SECONDS);
     if (days < 1) return tr('today');
     if (days === 1) return tr('yesterday');
     if (days <= AGO_DAYS_MAX) return tr('daysAgo', [days]);
-    return new Date(lastPlayed * 1000).toLocaleDateString(locale);
+    const when = new Date(lastPlayed * 1000);
+    const thisYear = when.getFullYear() === new Date(now * 1000).getFullYear();
+    return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', ...(thisYear ? {} : { year: 'numeric' as const }) }).format(when);
 }

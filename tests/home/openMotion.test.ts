@@ -87,29 +87,67 @@ describe('openMotion', () => {
             extras: { desc: box(50.8, 686.1, 698.1, 70.3), hltbTitle: box(819.2, 614.7, 630, 17.2), columns: {}, caption: box(819.2, 728.2, 630, 22.7) },
         };
         const v = vars(openMotion({ ...homeRects(), root: box(10, 20, 1500, 844) }, page, 'spotlight', s));
-        expect(v['--gho-x-d']).toBe(String(Math.round(s * 10000) / 10000));
+        expect(v['--gho-x-d']).toBe(String(s));
         expect([v['--gho-x-desc-x'], v['--gho-x-desc-y'], v['--gho-x-desc-w']]).toEqual(['40.8px', '666.1px', '698.1px']);
         expect([v['--gho-x-hltb-x'], v['--gho-x-hltb-y'], v['--gho-x-hltb-w']]).toEqual(['809.2px', '594.7px', '630px']);
     });
 
+    it("the page's d unit unrounded, so the extras' and twins' text is the page's size exactly (docked Ally: 30 x d is 31.25, not 31.251)", () => {
+        const docked = 1500 / 1440;
+        const v = vars(openMotion({ ...homeRects(), root: box(0, 0, 1500, 844) }, spotlight(), 'spotlight', docked));
+        expect(v['--gho-x-d']).toBe(String(docked));
+        expect(Math.abs(Number(v['--gho-x-d']) * 30 - 31.25)).toBeLessThan(1e-9);
+        expect(v['--gho-x-played-font']).toBe(`${30 * docked}px`);
+    });
+
+    it("the extras' HowLongToBeat inside and Play time column each in a layer at the page card that holds them (root px)", () => {
+        const page: PageTargets = {
+            ...spotlight(),
+            extras: { desc: box(50.8, 686.1, 698.1, 70.3), hltbTitle: box(819.2, 614.7, 630, 17.2), columns: {}, caption: box(819.2, 728.2, 630, 22.7) },
+        };
+        const v = vars(openMotion({ ...homeRects(), root: box(10, 20, 1500, 844) }, page, 'spotlight', s));
+        expect([v['--gho-x-hltb-cx'], v['--gho-x-hltb-cy']]).toEqual(['783.4px', '573.1px']);
+        expect([v['--gho-x-played-cx'], v['--gho-x-played-cy']]).toEqual(['15px', '573.1px']);
+        // The description is not in a card.
+        expect(v['--gho-x-desc-cx']).toBeUndefined();
+    });
+
+    it("the extras' sizes and card layers use the page's own d unit and cards as laid out, when the targets have them", () => {
+        const page: PageTargets = {
+            ...spotlight(),
+            cards: [box(25, 593.103, 749.7, 185.4), box(793.4, 593.103, 681.6, 185.4)],
+            d: 1500 / 1440,
+            extras: { desc: box(50.8, 686.1, 698.1, 70.3), hltbTitle: box(819.2, 614.7, 630, 17.2), columns: {}, caption: box(819.2, 728.2, 630, 22.7) },
+        };
+        // Home's canvas scale as measured on the Ally: a float, not exactly the page's 1500 / 1440.
+        const v = vars(openMotion(homeRects(), page, 'spotlight', 1.0416595458984375));
+        expect(v['--gho-x-d']).toBe(String(1500 / 1440));
+        expect(v['--gho-x-hltb-cy']).toBe('593.103px');
+        expect(v['--gho-x-played-font']).toBe(`${30 * (1500 / 1440)}px`);
+    });
+
     it("the Play time column's place and value size in the extras layer (a new game's), per look", () => {
         const v = vars(openMotion({ ...homeRects(), root: box(10, 20, 1500, 844) }, spotlight(), 'spotlight', s));
-        expect([v['--gho-x-played-x'], v['--gho-x-played-y']]).toEqual([`${Math.round((50.8 - 10) * 100) / 100}px`, `${Math.round((614.7 - 20) * 100) / 100}px`]);
-        expect(v['--gho-x-played-font']).toBe(`${Math.round(30 * s * 100) / 100}px`);
+        expect([v['--gho-x-played-x'], v['--gho-x-played-y']]).toEqual([`${Math.round((50.8 - 10) * 10000) / 10000}px`, `${Math.round((614.7 - 20) * 10000) / 10000}px`]);
+        expect(v['--gho-x-played-font']).toBe(`${30 * s}px`);
         const clean = vars(openMotion(homeRects(), { ...spotlight(), shells: [box(900, 480, 500, 90)] }, 'clean', s));
-        expect(clean['--gho-x-played-font']).toBe(`${Math.round(22 * s * 100) / 100}px`);
+        expect(clean['--gho-x-played-font']).toBe(`${22 * s}px`);
     });
 
     it("the store pill's place in the extras layer, for both looks: its right edge and top on the page, in the root's px", () => {
         const v = vars(openMotion({ ...homeRects(), root: box(10, 20, 1500, 844) }, spotlight(), 'spotlight', s));
-        expect([v['--gho-x-pill-x'], v['--gho-x-pill-y']]).toEqual([`${Math.round((1372.1 + 102.9 - 10) * 100) / 100}px`, `${Math.round((507.7 - 20) * 100) / 100}px`]);
-        expect(v['--gho-x-d']).toBe(String(Math.round(s * 10000) / 10000));
+        expect([v['--gho-x-pill-x'], v['--gho-x-pill-y']]).toEqual([`${Math.round((1372.1 + 102.9 - 10) * 10000) / 10000}px`, `${Math.round((507.7 - 20) * 10000) / 10000}px`]);
+        expect(v['--gho-x-d']).toBe(String(s));
     });
 
     it('without extras on the page targets (or no root measured): the extras sit in window px, or there are none', () => {
         expect(Object.keys(vars(openMotion(homeRects(), spotlight(), 'spotlight', s))).filter((n) => /^--gho-x-(desc|hltb)/.test(n))).toEqual([]);
         const page: PageTargets = { ...spotlight(), extras: { desc: box(50, 600, 700, 70), hltbTitle: box(800, 600, 600, 17), columns: {}, caption: box(800, 700, 600, 22) } };
         expect(vars(openMotion(homeRects(), page, 'spotlight', s))['--gho-x-desc-x']).toBe('50px');
+    });
+
+    it("no border variable: the panels keep Home's ring (homeCss), whatever the page's", () => {
+        expect(vars(openMotion(homeRects(), { ...spotlight(), border: 2 / 2.32 }, 'spotlight', s))['--gho-x-border']).toBeUndefined();
     });
 
     it('one shell per card, placed at the card and scaled down onto the chips that merge into it', () => {
@@ -195,6 +233,19 @@ describe('openMotion', () => {
         expect(v['--gho-circle-2']).toBeUndefined();
     });
 
+    it("a Unifideck cloud's ring: in canvas px, as wide as Unifideck's 2 CSS px once the circle has grown onto the page's", () => {
+        const v = vars(openMotion(homeRects(), spotlight(), 'spotlight', s));
+        // Home's cloud (circle 3) grows from its own box onto the page's third circle (62.5 wide).
+        expect(parseFloat(v['--gho-uni-ring'])).toBeCloseTo((2 * (r.circle3.w / s)) / 62.5, 3);
+        expect(v['--gho-uni-ring']).toMatch(/px$/);
+    });
+    it("the page's fourth circle (Unifideck's trash) in canvas px, for the circle Home draws there as it opens", () => {
+        const v = vars(openMotion(homeRects(), spotlight(), 'spotlight', s));
+        expect(Number(v['--gho-circle-extra-x'])).toBeCloseTo(625 / s, 3);
+        expect(Number(v['--gho-circle-extra-y'])).toBeCloseTo(493.1 / s, 3);
+        expect(Number(v['--gho-circle-extra-w'])).toBeCloseTo(62.5 / s, 3);
+    });
+
     // The page focuses Play on arrival, and a focused Play is scaled about its centre (as Home's): the morph lands on it.
     const f = PAGE_LAYOUT.focusScale;
     // The focused pill grows by what a circle grows (themeCss.pillFocusScale): 4% in height, the same px in width.
@@ -242,6 +293,16 @@ describe('openMotion', () => {
         expect(a.sy).toBeCloseTo(pageH / r.pill.h, 3);
     });
 
+    it("opened with a mouse, it lands on the page's pill unfocused (mouse mode hides the focus look and its growth)", () => {
+        const page = spotlight();
+        const v = vars(openMotion(homeRects(), page, 'spotlight', s, false));
+        expect(Number(v['--gho-play-sx'])).toBeCloseTo(page.play.w / r.pill.w, 3);
+        expect(Number(v['--gho-play-sy'])).toBeCloseTo(page.play.h / r.pill.h, 3);
+        const fg = parse(v['--gho-play-fg']);
+        expect(fg.tx).toBeCloseTo((page.play.x - r.pill.x) / s, 1);
+        const a = parse(v['--gho-play-arrow']);
+        expect(a.sx).toBeCloseTo(PAGE_LAYOUT.playArrow.w / HOME_PILL.arrow, 3);
+    });
     it("the page's focused pill's exact box (round ends, unlike the stretched layer), relative to Home's pill", () => {
         const v = vars(openMotion(homeRects(), spotlight(), 'spotlight', s));
         expect(Number(v['--gho-play-sx'])).toBeCloseTo(pageW / r.pill.w, 3);
@@ -292,7 +353,7 @@ describe('the Unifideck size column', () => {
 
 describe('open timings', () => {
     it('match the spec', () => {
-        expect(OPEN_TIMINGS).toEqual({ leave: 220, infoFade: 180, morph: 450, settle: 180, extras: 250, feedHero: 300, feedUi: 220, bridgeFade: 300, bridgeIn: 150, readyCap: 500, revealDelay: 0, reveal: 200, leaveDrop: 70, feedRise: 14 });
+        expect(OPEN_TIMINGS).toEqual({ leave: 220, infoFade: 180, morph: 450, twinFade: 180, settleGlide: 150, settle: 180, extras: 250, feedHero: 300, feedUi: 220, bridgeFade: 300, bridgeIn: 150, readyCap: 500, revealDelay: 0, reveal: 200, leaveDrop: 70, feedRise: 14 });
         expect(MORPH_EASE).toBe('cubic-bezier(.3,.55,.15,1)');
     });
 });

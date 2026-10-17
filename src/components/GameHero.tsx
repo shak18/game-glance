@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Focusable } from '@decky/ui';
 import { LOG_PREFIX } from '../constants';
 import { withKnownAchievements } from '../home/detailsMemo';
 import { cache } from '../data/cache';
@@ -31,7 +32,9 @@ import { useOpenArrival } from '../hooks/useOpenArrival';
 import { openPending } from '../data/openIntent';
 import { knownDescription, peekHltb, rememberDescription, rememberHltb } from '../home/warmup';
 import { accentMemo, knownAccent } from '../home/accentMemo';
-import { accentCss, arrivingCss, cleanCss, downloadCss, launchCss, launchSelectors, themeCss, unifideckCss } from '../styles/theme';
+import { accentCss, arrivingCss, cleanCss, downloadCss, launchCss, launchSelectors, ringCss, themeCss, unifideckCss } from '../styles/theme';
+import { installMouseMode } from '../home/mouseMode';
+import { useCardNav } from '../hooks/useCardNav';
 import { FaFolder, FaStar } from 'react-icons/fa';
 import { getGameCollections } from '../data/gameCollections';
 import { CleanInfo } from './CleanInfo';
@@ -44,6 +47,7 @@ import { InfoCard } from './InfoCard';
 import { FamilyPill, SourcePill } from './SourcePill';
 import { familyPillLabel } from '../data/family';
 import { GameTitle } from './GameTitle';
+import { hltbUrl, openGameInfoTab, openHltbPage } from './cardActions';
 
 /** A canvas length in the restyled page's scale unit (themeCss: --gg-d). */
 const pageUnit = (n: number) => `calc(${n} * var(--gg-d))`;
@@ -132,6 +136,10 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
     const heroRef = useRef<HTMLDivElement>(null);
     const [pageDoc, setPageDoc] = useState<Document | null>(null);
     useEffect(() => setPageDoc(heroRef.current?.ownerDocument ?? null), [game.appId]);
+    // Hover looks follow a mouse (home/mouseMode), here as on Home.
+    useEffect(() => (pageDoc ? installMouseMode(pageDoc) : undefined), [pageDoc]);
+    // The controller between the Play row, the cards and Steam's tabs, in the screen's order (#24).
+    useCardNav(pageDoc, restyle && !clean);
     // B and the D-pad go to Steam's gamepad focus, which can land on a hidden tab of Steam's own page on a Unifideck page (logic/gamepadFocus).
     useUnifideckGamepadFocus(pageDoc, game.isShortcut);
     const nativeSizeLabel = useUnifideckSizeLabel(pageDoc, game.appId, uniInstalled, restyle && game.isShortcut);
@@ -159,6 +167,7 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
     if (game.appId === 0) return null;
     // The Clean look, only where its layout applies (Steam's classes found); otherwise the page keeps its cards.
     const cleanStyle = clean ? cleanCss() : '';
+    const ringStyle = pageDoc?.defaultView ? ringCss(pageDoc.defaultView) : '';
     const family = restyle ? familyPillLabel(game.appId) : null;
     const eyebrow = restyle ? openedFrom?.eyebrow ?? lastPlayedEyebrow(overview, locale, unifideck?.lastPlayed ?? null) : null;
     const collections = useMemo(() => getGameCollections(game.appId), [game.appId]);
@@ -180,11 +189,12 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
             <div className="gg-hero" ref={heroRef}>
                 <style>{themeCss({ restyle, pulsing: pulsingBackground })}</style>
                 <style>{unifideckCss({ restyle })}</style>
+                {ringStyle && <style>{ringStyle}</style>}
                 {cleanStyle && <style>{cleanStyle}</style>}
                 {launching && <style>{launchCss()}</style>}
                 {accent && <style>{accentCss(accent)}</style>}
                 {fillCss && <style>{fillCss}</style>}
-                {arrival && restyle && <style>{arrivingCss(clean ? 'clean' : 'spotlight', arrival.intent.mode, arrival.revealed, { cloud: arrival.intent.homeCloud === false, bars: arrival.intent.homeBars, desc: arrival.intent.homeDesc, hltb: arrival.intent.homeHltb, family: arrival.intent.homeFamily, missing: arrival.intent.homeMissing, size: arrival.intent.homeSize })}</style>}
+                {arrival && restyle && <style>{arrivingCss(clean ? 'clean' : 'spotlight', arrival.intent.mode, arrival.revealed, { cloud: arrival.intent.homeCloud === false, bars: arrival.intent.homeBars, desc: arrival.intent.homeDesc, hltb: arrival.intent.homeHltb, family: arrival.intent.homeFamily, missing: arrival.intent.homeMissing, size: arrival.intent.homeSize, uninstall: arrival.intent.homeUninstall === true })}</style>}
                 {source && (
                     <SourcePill label={source}>
                         {/* A game from the family library (Steam's line under Play is hidden): with the restyled look only. */}
@@ -209,10 +219,13 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
                         })}
                     </div>
                 )}
-                <div className="gg-cards">
-                    <InfoCard game={game} locale={locale} description={description} size={size} />
-                    <HltbCard result={hltb} playedMinutes={game.playedMinutes} locale={locale} restyle={restyle} />
-                </div>
+                <CardsRow selectable={restyle}>
+                    {/* A tap, a click or the controller's A opens what each card summarises (#24, cardActions), in the
+                        restyled look (it lifts the cards over Steam's page panel; the plain look keeps 1.1.1's page). The
+                        controller reaches them from the Play row (hooks/useCardNav), Left/Right between them. */}
+                    <InfoCard game={game} locale={locale} description={description} size={size} onPress={restyle ? (card) => openGameInfoTab(card.ownerDocument) : undefined} />
+                    <HltbCard result={hltb} playedMinutes={game.playedMinutes} locale={locale} restyle={restyle} onPress={restyle && hltbUrl(hltb) ? () => openHltbPage(hltb) : undefined} />
+                </CardsRow>
                 <div className="gg-more" aria-hidden="true">⌄</div>
             </div>
         </>
@@ -229,5 +242,15 @@ export function GameHero(props: Props) {
         <ErrorBoundary>
             <Hero {...props} restyle={restyleDetails} clean={cleanDetails} />
         </ErrorBoundary>
+    );
+}
+
+/** The cards' row: in the restyled look a Focusable row (Left/Right between the cards the controller can select). */
+function CardsRow({ selectable, children }: { selectable: boolean; children: ReactNode }) {
+    if (!selectable) return <div className="gg-cards">{children}</div>;
+    return (
+        <Focusable className="gg-cards" flow-children="row">
+            {children}
+        </Focusable>
     );
 }

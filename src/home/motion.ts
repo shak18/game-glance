@@ -53,6 +53,10 @@ export const OPEN_TIMINGS = {
     leave: 220,
     infoFade: 180,
     morph: 450,
+    /** The morph's first 40%: Home's moving text hands over to its page-sized twins (home/openTwins), opacity only. */
+    twinFade: 180,
+    /** At the hand-over, the twins glide onto the page's text as measured (home/openTwins.settleDelta). */
+    settleGlide: 150,
     /** The morph's last part, as it comes to rest: the page's exact look (the glass's blur, the pill's round ends) fades in. */
     settle: 180,
     /** The page's parts Home draws as it turns into it (the description, the HowLongToBeat card's rest) fade in, done at the hand-over. */

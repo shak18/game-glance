@@ -53,6 +53,10 @@ describe('pickCollectionGames', () => {
     it('recently added first', () => {
         expect(pickCollectionGames(apps, hidden, 'added').map((g) => g.appId)).toEqual([3, 4, 2, 1, 7]);
     });
+    it('keeps demos (Steam\'s app type 8) with the games, and still drops tools and soundtracks', () => {
+        const withDemo = [...apps, app(8, 'A Demo', { app_type: 8, rt_last_time_played: 250 }), app(9, 'Proton', { app_type: 4, rt_last_time_played: 260 })];
+        expect(pickCollectionGames(withDemo, hidden, 'lastPlayed').map((g) => g.appId)).toEqual([2, 8, 7, 1, 3, 4]);
+    });
     it('keeps at most the limit, and never marks games NEW', () => {
         const picked = pickCollectionGames(apps, hidden, 'lastPlayed', 2);
         expect(picked).toHaveLength(2);

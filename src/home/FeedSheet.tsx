@@ -1,6 +1,6 @@
 import { Focusable } from '@decky/ui';
 import type { GamepadEvent, NavEntryPositionPreferences } from '@decky/ui';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FaUserFriends } from 'react-icons/fa';
 import { LOG_PREFIX } from '../constants';
 import { browserStores, capsuleUrls, heroUrls, landscapeUrls, storeHeaderUrl } from './artwork';
@@ -11,6 +11,9 @@ import { focusElement, focusElementSettled } from './homeNav';
 import { clampTab, HomeMemory, noteHome, RESTORE_WAIT_MS, restoreStep } from './homeMemory';
 import { useCardAccents } from './useHomeData';
 import { playNavSound, shoulderSound } from './navSound';
+import { useRowDrag } from './useRowDrag';
+import { rowWheelTarget } from './mouse';
+import { useHover, useWheelStep } from './useMouse';
 import { tr } from '../i18n/steamText';
 import { useSettings } from '../data/settings';
 
@@ -70,7 +73,7 @@ function cancel(zone: 'tabs' | 'feed', step: () => void) {
  * L1/R1 anywhere in the tabs or feed switch the tab, as on Steam's own tabbed pages (focusZones.tabForButton);
  * on the game cards and the action row L1/R1 select the game instead, so the off-screen feed never changes from there.
  */
-export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames, restore = null, onRestored, tabs: customTabs }: {
+export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames, scale = () => 1, restore = null, onRestored, tabs: customTabs }: {
     data: FeedData;
     raised: boolean;
     viewport: number;
@@ -78,6 +81,8 @@ export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames
     space: number;
     onZone(zone: 'tabs' | 'feed'): void;
     onBackToGames(): void;
+    /** Screen px per logical px (Home's canvas as drawn), for a finger dragging a row. */
+    scale?(): number;
     /** Where Home was when the user left it (homeMemory), applied once: the tab, the card, and focus in the tabs or feed. */
     restore?: HomeMemory | null;
     /** The restore is done (or given up), so Home stops holding its first focus back. */
@@ -133,6 +138,43 @@ export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames
     const sel: [number, number] = [0, 1].map((r) => Math.min(Math.max(0, at[r]), Math.max(0, rows[r].length - 1))) as [number, number];
     const selRow: 0 | 1 = row === 1 && rows[1].length > 0 ? 1 : 0;
     const scrolls = [0, 1].map((r) => feedScroll(sel[r], rows[r].map((i) => i.width), FEED_GAP, viewport));
+    // A finger on a row (useRowDrag): a sideways drag steps through its cards by moving focus to them, as Left/Right
+    // do; the track adds the finger's remainder beyond the selected card. A tap keeps opening the card (FeedCard).
+    const rowDrag = (r: 0 | 1) => ({
+        index: sel[r],
+        count: Math.max(0, rows[r].length - 1),
+        step: (rows[r][sel[r]]?.width ?? 0) + FEED_GAP,
+        scale,
+        onSelect: (i: number) => focusElement(cardRefs.current[flat(r, i)], `feed card ${i}`),
+        onRun: () => {},
+    });
+    const drags = [useRowDrag(rowDrag(0)), useRowDrag(rowDrag(1))];
+    // A mouse: the wheel over a raised row steps through its cards (one notch, one card; never wrapping), and the card
+    // under the cursor is lit (home/mouse). `wheelAt` follows the steps between renders, so a quick spin loses none.
+    const wheelAt = useRef<[number, number]>([0, 0]);
+    wheelAt.current = [sel[0], sel[1]];
+    const wheelRow = (r: 0 | 1) => (steps: -1 | 1) => {
+        if (!raised) return;
+        const next = rowWheelTarget(wheelAt.current[r], steps, rows[r].length - 1);
+        if (next === wheelAt.current[r]) return;
+        wheelAt.current[r] = next;
+        focusElement(cardRefs.current[flat(r, next)], `feed card ${next}`);
+    };
+    const wheels = [useWheelStep(wheelRow(0)), useWheelStep(wheelRow(1))];
+    const hover = useHover();
+    const rowHandlers = (r: 0 | 1) => ({
+        ...drags[r].handlers,
+        onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+            hover.clear();
+            drags[r].handlers.onPointerDown(event);
+        },
+        onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+            hover.onPointerMove(event);
+            drags[r].handlers.onPointerMove(event);
+        },
+        onPointerLeave: hover.clear,
+        onWheel: wheels[r],
+    });
     const lefts = rows.map((list) => {
         const out: number[] = [];
         list.reduce((x, item) => {
@@ -270,7 +312,6 @@ export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames
                         <div className="gh-tab-line" />
                     </Focusable>
                 ))}
-                <div className="gh-tabs-more" aria-hidden="true">▾ MORE</div>
             </Focusable>
             <div className="gh-feed" style={{ height: `${geometry.total}px` }}>
                 {items.length > 0 ? (
@@ -281,12 +322,13 @@ export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames
                             )}
                             <div className="gh-feed-row" style={{ top: `${r === 0 ? 0 : geometry.row2Top}px`, height: `${r === 0 ? geometry.row1 : geometry.row2}px` }}>
                                 <Focusable
-                                    className="gh-feed-track"
+                                    className={`gh-feed-track${drags[r].dragging ? ' gh-feed-drag' : ''}`}
                                     flow-children="row"
                                     navEntryPreferPosition={entry}
                                     onCancel={backFromFeed}
                                     onButtonDown={shoulder('feed')}
-                                    style={{ transform: `translateX(${-scrolls[r]}px)` }}
+                                    {...rowHandlers(r)}
+                                    style={{ transform: `translateX(${-scrolls[r] + (drags[r].dragging ? drags[r].offset : 0)}px)` }}
                                 >
                                     {rows[r].map((item, i) => (
                                         <FeedCard
@@ -302,6 +344,8 @@ export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames
                                             setRef={(el) => {
                                                 cardRefs.current[flat(r, i)] = el;
                                             }}
+                                            hoverKey={`r${r}c${i}`}
+                                            hover={hover.hovered === `r${r}c${i}`}
                                         />
                                     ))}
                                 </Focusable>

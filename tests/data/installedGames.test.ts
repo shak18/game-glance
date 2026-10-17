@@ -13,9 +13,11 @@ function deps(over: Partial<InstalledGamesDeps> = {}): InstalledGamesDeps {
             { appid: 2657861989, display_name: 'Chained Echoes', app_type: SHORTCUT },
             { appid: 4260993573, display_name: 'Diablo III', app_type: SHORTCUT },
             { appid: 3000000001, display_name: 'spotify', app_type: SHORTCUT },
+            { appid: 2675402758, display_name: 'Batman: Arkham Asylum', app_type: SHORTCUT },
         ],
         launchOptions: vi.fn(async (appId: number) => (appId === 2657861989 ? '"heroic://launch?appName=2067731250&runner=gog"' : '')),
-        unifideckStore: vi.fn(async (appId: number) => (appId === 4260993573 ? 'Battle.net' : null)),
+        unifideckStore: vi.fn(async (appId: number) => (appId === 4260993573 || appId === 2675402758 ? 'Battle.net' : null)),
+        unifideckInstalled: vi.fn(async (appId: number) => (appId === 4260993573 ? true : appId === 2675402758 ? false : null)),
         ...over,
     };
 }
@@ -31,6 +33,20 @@ describe('listInstalledGames', () => {
         expect(games).toContainEqual({ appId: 2657861989, name: 'Chained Echoes', isShortcut: true, heroic: { runner: 'gog', appName: '2067731250' } });
         expect(games).toContainEqual({ appId: 4260993573, name: 'Diablo III', isShortcut: true, heroic: null });
         expect(games.some((g) => g.name === 'spotify')).toBe(false);
+    });
+    it("leaves out the Unifideck games Unifideck has not installed (#48: its library adds a shortcut for every owned game)", async () => {
+        const d = deps();
+        const games = await listInstalledGames(d);
+        expect(games.some((g) => g.appId === 2675402758)).toBe(false);
+        expect(games.some((g) => g.appId === 4260993573)).toBe(true);
+        // A Heroic game is not Unifideck's to answer for.
+        expect(d.unifideckInstalled).not.toHaveBeenCalledWith(2657861989);
+    });
+    it("keeps a Unifideck game when Unifideck cannot say (an older Unifideck, or not running)", async () => {
+        const games = await listInstalledGames(deps({ unifideckInstalled: vi.fn(async () => null) }));
+        expect(games.some((g) => g.appId === 2675402758)).toBe(true);
+        const failing = await listInstalledGames(deps({ unifideckInstalled: vi.fn(async () => { throw new Error('x'); }) }));
+        expect(failing.some((g) => g.appId === 2675402758)).toBe(true);
     });
     it('skips a shortcut it cannot check instead of failing the whole list', async () => {
         const games = await listInstalledGames(deps({

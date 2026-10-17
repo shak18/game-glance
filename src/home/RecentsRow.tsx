@@ -1,12 +1,15 @@
 import { Focusable } from '@decky/ui';
 import type { GamepadEvent } from '@decky/ui';
-import { memo, Ref, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, MouseEvent, PointerEvent as ReactPointerEvent, Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserStores, capsuleUrls, heroUrls, landscapeUrls, useArtworkVersion } from './artwork';
 import { displayInfo } from './artShrink';
 import { ArtBox, cardBox } from './cardArt';
 import { wideArt } from './homeView';
 import { knownCardArt, lastCardArt, resolveCardArt } from './wideCardArt';
-import { clampFocus, isLibraryFocus, MAX_GHOSTS, RecentsGeometry, recentsLayout } from './recentsLayout';
+import { clampFocus, isLibraryFocus, MAX_GHOSTS, RecentsGeometry, recentsLayout, RowStyle, steamRowLayout } from './recentsLayout';
+import { cardTap } from './rowDrag';
+import { useRowDrag } from './useRowDrag';
+import { useHover } from './useMouse';
 import type { HomeGame } from './useHomeData';
 import { tr } from '../i18n/steamText';
 
@@ -72,8 +75,16 @@ function CapsuleArt({ cover, art, blur }: { cover: string[]; art: string | null;
  * card, and each blurred layer is re-composited (20 recents, 35 px blur docked). The neighbours keep theirs so the
  * card that is growing or shrinking during a step never shows a bare edge.
  */
-export function capsuleBlur(i: number, selected: number): boolean {
-    return Math.abs(i - selected) <= 1;
+export function capsuleBlur(i: number, selected: number, firstWide = false): boolean {
+    return Math.abs(i - selected) <= 1 || (firstWide && i === 0);
+}
+
+/**
+ * Whether a card is drawn greyed out: a game not installed on this device (as Steam's library shows them). Non-Steam
+ * shortcuts never are (Steam's `installed` does not describe them). The selected card shows its colours (homeCss).
+ */
+export function greyedOut(game: Pick<HomeGame, 'installed' | 'shortcut'>): boolean {
+    return !game.installed && game.shortcut !== true;
 }
 
 /** Helper to compute target card index change from drag offset in pixels. Pure. */
@@ -111,30 +122,11 @@ export function isPointerActivation(e?: unknown): boolean {
 }
 
 /**
+/**
  * One recents card. Memoized on plain props, so an L1/R1 step re-renders only the cards whose place or state changed;
  * its art urls are read from Steam's stores only when the game or its expanded state changes.
  */
-const GameCapsule = memo(function GameCapsule({
-    game,
-    left,
-    width,
-    dim,
-    wide,
-    selected,
-    blur,
-    box,
-    onClick,
-}: {
-    game: HomeGame;
-    left: number;
-    width: number;
-    dim: boolean;
-    wide: boolean;
-    selected: boolean;
-    blur: boolean;
-    box: ArtBox;
-    onClick?: (e: React.MouseEvent) => void;
-}) {
+const GameCapsule = memo(function GameCapsule({ game, index, left, width, dim, wide, selected, hover, blur, box, onTap }: { game: HomeGame; index: number; left: number; width: number; dim: boolean; wide: boolean; selected: boolean; hover: boolean; blur: boolean; box: ArtBox; onTap(index: number, event: MouseEvent): void }) {
     const artworkVersion = useArtworkVersion();
     const appId = game.appId;
     const cover = useMemo(() => urls(() => capsuleUrls(appId, browserStores)), [appId, artworkVersion]);
@@ -144,17 +136,15 @@ const GameCapsule = memo(function GameCapsule({
     );
     const art = useCardArt(appId, list, box);
     return (
-        <div
-            className={`gh-cap${wide ? ' gh-cap-wide' : selected ? ' gh-cap-sel' : ''}`}
-            style={{ left: `${left}px`, width: `${width}px`, opacity: dim ? 0.35 : 1 }}
-            onClick={onClick}
-            role="button"
-            tabIndex={-1}
-            aria-label={game.name}
-        >
+        <div className={`gh-cap${wide ? ' gh-cap-wide' : ''}${selected ? ' gh-cap-sel' : ''}${hover ? ' gh-cap-hover' : ''}${greyedOut(game) ? ' gh-cap-off' : ''}`} data-hover={`g${index}`} style={{ left: `${left}px`, width: `${width}px`, opacity: dim ? 0.35 : 1 }} onClick={(event) => onTap(index, event)}>
             <CapsuleArt cover={cover} art={art} blur={blur} />
-            {/* A game new to the library (the "New to library" setting), as Steam's Home marks it. */}
-            {game.isNew && <div className="gh-cap-new">{tr('newMark')}</div>}
+            {/* A game new to the library, as Steam's Home marks it, and a demo: side by side on the wide card, stacked on a capsule. */}
+            {(game.isNew || game.demo) && (
+                <div className="gh-cap-marks">
+                    {game.isNew && <div className="gh-cap-new">{tr('newMark')}</div>}
+                    {game.demo && <div className="gh-cap-new">{tr('demoMark')}</div>}
+                </div>
+            )}
             <div className="gh-cap-bar" />
         </div>
     );
@@ -172,23 +162,31 @@ export interface RecentsRowNav {
     onButtonUp?(evt: GamepadEvent): void;
     /** A: the selected game's page, or the Library on the Library card. */
     onActivate(): void;
-    /** Selects a game or the Library card by index (mouse clicks, touch taps, mouse wheel, swipe gestures). */
-    onSelect?(index: number): void;
+    /** A tap on another card (or a drag, useRowDrag): select it, with controller focus on the row. */
+    onSelect(index: number): void;
+    /** Screen px per logical px: Home's canvas as drawn, for a finger's distances. */
+    scale(): number;
+    /** A drag (with its flick) is running: a fast run, like a held stick (home/fastCycle). */
+    onRun(running: boolean): void;
+    /** False while a game opens: a flick stops instead of moving the selection under the transition. */
+    canStep?(): boolean;
 }
 
 /**
  * The recents row: games, then "View more in your Library", then the loop preview of the first games. One focusable for
  * the whole row (the cards slide by transform, so Steam's spatial navigation never moves between them): while it has
  * focus the selected card is highlighted, Left/Right select games and A opens the selected one (`nav`, from
- * SpotlightHome, which owns `selected`: it drives hero, title and actions; the row slides to follow).
- * Mouse and touch events are fully supported: clicking/tapping an unselected card selects it, clicking/tapping the
- * currently selected card opens/activates it, mouse wheel scrolls the carousel, and horizontal swipe/drag smoothly
- * tracks and snaps across items.
+ * SpotlightHome, which owns `selected`: it drives hero, title and actions; the row slides to follow). A tap (the
+ * browser's click) on another card selects it, on the selected card opens it (rowDrag.cardTap); a ghost selects its game. Rendered only with games. `geometry` is the card scale's sizes
+ * (handheld or docked), the same SpotlightHome gives homeCss.
  */
-export function RecentsRow({ games, selected, geometry, nav, expand = true, snap = false }: { games: HomeGame[]; selected: number; geometry: RecentsGeometry; nav: RecentsRowNav; expand?: boolean; snap?: boolean }) {
+export function RecentsRow({ games, selected, geometry, nav, rowStyle = 'spotlight', viewport = 0, expand = true, snap = false }: { games: HomeGame[]; selected: number; geometry: RecentsGeometry; nav: RecentsRowNav; rowStyle?: RowStyle; viewport?: number; expand?: boolean; snap?: boolean }) {
     const count = games.length;
     const at = clampFocus(count, selected);
-    const layout = recentsLayout(count, at, geometry, expand);
+    // Steam's style: the first game is the wide card and the selection moves to the middle (`viewport`); a fast run
+    // changes nothing there (no card widens). Spotlight: the selected game widens at the left edge.
+    const steam = rowStyle === 'steam';
+    const layout = steam ? steamRowLayout(count, at, geometry, viewport) : recentsLayout(count, at, geometry, expand);
     // The wide card in device px: its art is loaded for that size (home/artShrink).
     const perCanvas = displayInfo().perCanvas;
     const box = useMemo(() => cardBox(geometry, perCanvas), [geometry, perCanvas]);
@@ -197,145 +195,38 @@ export function RecentsRow({ games, selected, geometry, nav, expand = true, snap
     // The loop preview's portraits, read once per list of games (not on every step).
     const ghostCovers = useMemo(() => games.slice(0, MAX_GHOSTS).map((g) => urls(() => capsuleUrls(g.appId, browserStores))), [games]);
 
-    const [dragOffset, setDragOffset] = useState(0);
-    const [isDragging, setIsDragging] = useState(false);
-    const pointerStart = useRef<{ x: number; y: number; time: number } | null>(null);
-    const wasDragged = useRef(false);
-    const dragEndTime = useRef(0);
-    const lastWheelTime = useRef(0);
-
-    const onPointerDown = (e: React.PointerEvent) => {
-        if (e.button !== 0) return;
-        pointerStart.current = { x: e.clientX, y: e.clientY, time: Date.now() };
-        wasDragged.current = false;
+    // A tap on card `index` (count: the Library card). The latest nav and selection, behind one stable callback, so a
+    // tap never re-renders the memoised cards.
+    const tapTarget = useRef({ nav, at });
+    tapTarget.current = { nav, at };
+    const onTap = useCallback((index: number, event: MouseEvent) => {
+        event.stopPropagation();
+        const { nav: n, at: focused } = tapTarget.current;
+        if (cardTap(index, focused) === 'open') n.onActivate();
+        else n.onSelect(index);
+    }, []);
+    // A finger on the row: drags step the selection (the layout carries the row) and the track adds the finger's
+    // remainder beyond the selected card, so a release only settles that (useRowDrag).
+    const drag = useRowDrag({ index: at, count, step: geometry.step, scale: () => nav.scale(), onSelect: (i) => nav.onSelect(i), onRun: (r) => nav.onRun(r), canStep: () => nav.canStep?.() !== false, wraps: true });
+    const trackX = layout.scrollX + (drag.dragging ? drag.offset : 0);
+    // A mouse over a card lights it (home/mouse); pressing to drag, or a finger, clears it.
+    const hover = useHover();
+    const handlers = {
+        ...drag.handlers,
+        onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+            hover.clear();
+            drag.handlers.onPointerDown(event);
+        },
+        onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+            hover.onPointerMove(event);
+            drag.handlers.onPointerMove(event);
+        },
+        onPointerLeave: hover.clear,
     };
-
-    const onPointerMove = (e: React.PointerEvent) => {
-        if (!pointerStart.current) return;
-        const deltaX = e.clientX - pointerStart.current.x;
-        const deltaY = e.clientY - pointerStart.current.y;
-
-        if (!isDragging) {
-            if (isDragGesture(deltaX, deltaY)) {
-                setIsDragging(true);
-                wasDragged.current = true;
-                try {
-                    e.currentTarget.setPointerCapture?.(e.pointerId);
-                } catch {
-                    // Ignore capture errors in tests/mock environments
-                }
-            } else {
-                return;
-            }
-        }
-
-        let offset = deltaX;
-        // Rubber-band resistance at bounds
-        if (at === 0 && offset > 0) {
-            offset *= 0.35;
-        } else if (onLibrary && offset < 0) {
-            offset *= 0.35;
-        }
-        setDragOffset(offset);
-    };
-
-    const onPointerUp = (e: React.PointerEvent) => {
-        if (!pointerStart.current) return;
-        pointerStart.current = null;
-
-        if (isDragging) {
-            setIsDragging(false);
-            dragEndTime.current = Date.now();
-            wasDragged.current = true;
-            try {
-                e.currentTarget.releasePointerCapture?.(e.pointerId);
-            } catch {
-                // Ignore
-            }
-
-            const deltaX = dragOffset;
-            setDragOffset(0);
-
-            const step = cardStepFromDrag(deltaX, geometry.step);
-            if (step !== 0) {
-                const target = Math.min(count, Math.max(0, at + step));
-                if (target !== at) {
-                    nav.onSelect?.(target);
-                }
-            }
-
-            setTimeout(() => {
-                wasDragged.current = false;
-            }, 400);
-        } else {
-            setDragOffset(0);
-        }
-    };
-
-    const onPointerCancel = () => {
-        pointerStart.current = null;
-        if (isDragging) {
-            setIsDragging(false);
-            dragEndTime.current = Date.now();
-            setDragOffset(0);
-            setTimeout(() => {
-                wasDragged.current = false;
-            }, 400);
-        }
-    };
-
-    const onWheel = (e: React.WheelEvent) => {
-        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-        const step = wheelStep(delta);
-        if (step === 0) return;
-
-        const now = Date.now();
-        if (now - lastWheelTime.current < 180) return;
-        lastWheelTime.current = now;
-
-        e.preventDefault?.();
-        e.stopPropagation?.();
-
-        const target = Math.min(count, Math.max(0, at + step));
-        if (target !== at) {
-            nav.onSelect?.(target);
-        }
-    };
-
-    /**
-     * Focusable onActivate handler. Steam / Decky UI triggers Focusable.onActivate on synthetic
-     * and bubbling mouse/touch click events. We guard against any pointer/mouse click so that:
-     * 1) Gamepad 'A' press still activates the selected game as expected.
-     * 2) Mouse or touch clicks (on cards, other screen elements like news articles, or drag release)
-     *    never accidentally activate/open the game view.
-     */
-    const handleFocusableActivate = (e?: unknown) => {
-        if (isPointerActivation(e)) return;
-        nav.onActivate();
-    };
-
-    const handleCardClick = (e: React.MouseEvent, index: number) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (wasDragged.current || Date.now() - dragEndTime.current < 400) return;
-        if (index === at) {
-            nav.onActivate();
-        } else {
-            nav.onSelect?.(index);
-        }
-    };
-
-    const handleGhostClick = (e: React.MouseEvent, ghostIndex: number) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (wasDragged.current || Date.now() - dragEndTime.current < 400) return;
-        nav.onSelect?.(ghostIndex === 0 ? 0 : Math.min(count, ghostIndex));
-    };
-
     return (
         <Focusable
             ref={nav.setRef as Ref<HTMLDivElement>}
-            className={`gh-recents${isDragging ? ' gh-recents-dragging' : ''}`}
+            className={`gh-recents${drag.dragging ? ' gh-recents-drag' : ''}`}
             focusClassName="gh-recents-focus"
             noFocusRing
             preferredFocus={nav.preferred}
@@ -343,45 +234,32 @@ export function RecentsRow({ games, selected, geometry, nav, expand = true, snap
             onGamepadFocus={nav.onFocus}
             onButtonDown={nav.onButtonDown}
             onButtonUp={nav.onButtonUp}
-            onActivate={handleFocusableActivate}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerCancel}
-            onWheel={onWheel}
+            onActivate={(e?: unknown) => {
+                if (isPointerActivation(e)) return;
+                nav.onActivate();
+            }}
+            {...handlers}
             role="listbox"
             aria-label={tr('recentGames')}
         >
-            <div
-                className={`gh-recents-track${snap ? ' gh-recents-snap' : ''}`}
-                style={{
-                    transform: `translateX(${layout.scrollX + dragOffset}px)`,
-                    transition: isDragging ? 'none' : undefined,
-                }}
-            >
+            <div className={`gh-recents-track${snap ? ' gh-recents-snap' : ''}`} style={{ transform: `translateX(${trackX}px)` }}>
                 {games.map((game, i) => (
                     <GameCapsule
                         key={game.appId}
                         game={game}
+                        index={i}
+                        onTap={onTap}
                         left={layout.items[i].left}
                         width={layout.items[i].width}
                         dim={layout.items[i].dim}
-                        wide={expand && !onLibrary && i === at}
+                        wide={steam ? i === 0 : expand && !onLibrary && i === at}
                         selected={!onLibrary && i === at}
+                        hover={hover.hovered === `g${i}`}
                         box={box}
-                        blur={capsuleBlur(i, at)}
-                        onClick={(e) => handleCardClick(e, i)}
+                        blur={capsuleBlur(i, at, steam)}
                     />
                 ))}
-                <div
-                    className={`gh-cap gh-cap-lib${onLibrary ? ' gh-cap-lib-on' : ''}`}
-                    style={{ left: `${library.left}px`, width: `${library.width}px` }}
-                    onClick={(e) => handleCardClick(e, count)}
-                    role="button"
-                    tabIndex={-1}
-                    aria-label={tr('viewLibrary')}
-                >
+                <div className={`gh-cap gh-cap-lib${onLibrary ? ' gh-cap-lib-on' : ''}${hover.hovered === 'lib' ? ' gh-cap-hover' : ''}`} data-hover="lib" style={{ left: `${library.left}px`, width: `${library.width}px` }} onClick={(event) => onTap(count, event)}>
                     <div className="gh-lib-body">
                         <div className="gh-lib-grid">
                             <div className="gh-lib-cell gh-lib-cell-accent" />
@@ -396,10 +274,11 @@ export function RecentsRow({ games, selected, geometry, nav, expand = true, snap
                 {layout.ghosts.map((ghost, j) => (
                     <div
                         key={`ghost-${games[j].appId}`}
-                        className="gh-cap gh-ghost"
+                        className={`gh-cap gh-ghost${greyedOut(games[j]) ? ' gh-cap-off' : ''}${hover.hovered === `x${j}` ? ' gh-cap-hover' : ''}`}
+                        data-hover={`x${j}`}
                         aria-hidden="true"
                         style={{ left: `${ghost.left}px`, width: `${geometry.capsuleW}px`, opacity: ghost.opacity }}
-                        onClick={(e) => handleGhostClick(e, j)}
+                        onClick={(event) => onTap(j, event)}
                     >
                         {/* Cover only: a ghost is exactly the portrait's width, so a blur base would be fully hidden. */}
                         <div className="gh-cap-cover" style={backgrounds(ghostCovers[j] ?? [])} />

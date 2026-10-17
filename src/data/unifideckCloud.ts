@@ -73,12 +73,20 @@ const deckyBackend = (): DeckyBackendLike | undefined => (globalThis as { DeckyB
 // The status can take a while on Unifideck's side (it asks the store), so it is cached and asked once at a time.
 const TTL_MS = 10_000;
 const cache = new Map<number, { at: number; value: Promise<CloudState | null> }>();
+/** Each game's last answer, as it came (null: none), for a look without waiting (peekUnifideckCloud). */
+const known = new Map<number, CloudState | null>();
 let logged = false;
 
 /** Forget everything (tests). */
 export function resetUnifideckCloud(): void {
     cache.clear();
+    known.clear();
     logged = false;
+}
+
+/** A game's last answer at once (Home's cloud button on a switch, before the next answer comes); undefined: none yet. */
+export function peekUnifideckCloud(appId: number): CloudState | null | undefined {
+    return known.get(appId);
 }
 
 /** The cloud button state for a Unifideck shortcut app id; null when it is not a Unifideck game, has no cloud saves, or nothing answers. Cached 10 s. */
@@ -88,10 +96,17 @@ export async function unifideckCloudForApp(
 ): Promise<CloudState | null> {
     try {
         const key = await unifideckKeyFor(appId, deps.key);
-        if (!key) return null;
+        if (!key) {
+            known.set(appId, null);
+            return null;
+        }
         const now = (deps.now ?? Date.now)();
         const hit = cache.get(appId);
-        if (hit && now - hit.at < TTL_MS) return await hit.value;
+        if (hit && now - hit.at < TTL_MS) {
+            const cloud = await hit.value;
+            known.set(appId, cloud);
+            return cloud;
+        }
         const backend = 'backend' in deps ? deps.backend : deckyBackend();
         const value = (async () => {
             try {
@@ -106,7 +121,9 @@ export async function unifideckCloudForApp(
             }
         })();
         cache.set(appId, { at: now, value });
-        return await value;
+        const cloud = await value;
+        known.set(appId, cloud);
+        return cloud;
     } catch {
         return null;
     }

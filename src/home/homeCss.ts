@@ -1,12 +1,14 @@
 import { DOWNLOAD_FILL_COLOR, DOWNLOAD_FILL_MS } from '../styles/downloadFill';
+import { withDomFocus } from './focusCss';
 import { DEFAULT_ACCENT } from './accent';
 import { SOURCE_PILL, sourcePillIcon, sourcePillLook } from '../styles/sourcePill';
 import { CLOUD_COLOURS, CloudTone } from './cloud';
+import { hoverRing, MOUSE_ATTR, NOT_MOUSE } from './mouseMode';
 import { FRIEND_COLOURS } from './friends';
 import { FEED_ROW2_HEADER } from './feedLayout';
 import { PERSONA_DOT, PERSONA_DOT_COLOURS, PersonaDot, STATUS_BAR, STATUS_FADE_MS } from './statusItems';
 import { ACCENT_MS, CAP_ART_FADE_MS, CAP_STATE_MS, FEED_ART_FADE_MS, FEED_SCROLL, HERO_FADE_MS, MORPH_EASE, OPEN_TIMINGS, RETURN_TIMINGS, SETTLE_WIDEN_MS, SHEET, SHEET_MS, SLIDE, SLIDE_EASE } from './motion';
-import { PAGE_LAYOUT, PAGE_SCRIMS, pillFocusScale, STEAM_TOP_GRADIENT } from '../styles/themeCss';
+import { PAGE_LAYOUT, PAGE_SCRIMS, pageType, pillFocusScale, STEAM_PLAY_LINE, STEAM_TOP_GRADIENT } from '../styles/themeCss';
 import { PAGE_LINES } from './openTargets';
 import { CARD_SCALE_HANDHELD, GLOW as CAP_GLOW, RECENTS_BOTTOM, recentsGeometry } from './recentsLayout';
 import { PILL_INSET, ROW_OFFSET, SIDE_INSET } from './insets';
@@ -24,15 +26,31 @@ function soft(selector: string, body: string): string {
     return `${selector} { ${body}; }`;
 }
 
+/**
+ * Properties Home animates that are never `!important`: Chromium runs no animation of an !important property on its
+ * compositor (kAffectsImportantProperty, probed on the Ally), so the open transition's motion ran on the main thread,
+ * repainting every frame, and stalled. Nothing outside Game Glance sets them on Home's elements (probed: 441 elements),
+ * and dropping !important from all of them alike keeps every rule's place against the others.
+ */
+const ANIMATED = /^(transform|opacity)\s*:/;
+
 function rule(selector: string, body: string): string {
     const decls = body
         .split(';')
         .map((d) => d.trim())
         .filter(Boolean)
-        .map((d) => (d.startsWith('--') ? d : `${d} !important`));
-    return `${selector} { ${decls.join('; ')}; }`;
+        .map((d) => (d.startsWith('--') || ANIMATED.test(d) ? d : `${d} !important`));
+    // A focus look also follows DOM focus (focusCss): Steam drops its focus classes after a tap, a click or the wheel.
+    return `${withDomFocus(selector)} { ${decls.join('; ')}; }`;
 }
 
+/**
+ * Home's parts with a backdrop blur (the glass), inside .gh-safe: the chips, the buttons, the store pill and the family
+ * pill inside it, the Library card's body, the feed cards.
+ */
+export const HOME_GLASS = ['.gh-chip', '.gh-btn', '.gh-source', '.gh-family', '.gh-lib-body', '.gh-card'];
+/** Hover looks apply only in mouse mode (mouseMode). */
+const HOVER = `html[${MOUSE_ATTR}]`;
 const GLASS = 'background: rgba(12,16,22,.38); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(14px)';
 const SCRIM = '5,7,10';
 const GLOW = '0 0 0 1px var(--glance-accent), 0 16px 40px -12px var(--glance-accent)';
@@ -132,6 +150,9 @@ export const FEED_SHEET = {
     raise: 440,
 } as const;
 
+/** The mouse's sheet toggle (a chevron): its box, its icon, and how far its top sits above the games row's. */
+export const SHEET_TOGGLE = { w: 44, h: 24, lift: 18 + 24, icon: { w: 28, h: 12 } } as const;
+
 /** The most the stack moves down, whatever the screen. */
 export const MAX_STACK_SHIFT = 120;
 /** ...and the most it moves up when Steam's legend is taller than the 46 reserve (handheld: 72 logical px). */
@@ -229,6 +250,8 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
             transition: none;
             position: absolute; inset: 0; overflow: hidden; overflow: clip; z-index: 0; background: var(--gh-ink); color: #fff;
             font-family: inherit; text-align: left; line-height: normal; letter-spacing: normal; text-transform: none`),
+        // A finger on Home is Home's own (home/useRowDrag, the sheet swipes): no browser panning or pull gestures.
+        rule('.gh-root', 'touch-action: none'),
         rule('.gh-root *', 'box-sizing: border-box'),
 
         // Hero art: full-bleed on the real screen (not the scaled canvas). Each new art fades in over the last.
@@ -319,6 +342,8 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-btn-cloud.gh-cloud-uni', 'color: #fff'),
         rule('.gh-btn-cloud.gh-cloud-uni svg', `width: ${PAGE_LAYOUT.circleIcon}px; height: ${PAGE_LAYOUT.circleIcon}px; filter: none`),
         rule('.gh-btn-cloud.gh-cloud-uni:not(.gh-focus)', 'box-shadow: 0 0 0 2px var(--gh-uni-ring, transparent) inset'),
+        // Opening, its ring grows with the circle to the page's 2 CSS px (openMotion --gho-uni-ring), not to 2 canvas px.
+        rule('.gh-root[data-gh-opening="morph"] .gh-btn-cloud.gh-cloud-uni:not(.gh-focus)', 'box-shadow: 0 0 0 var(--gho-uni-ring, 2px) var(--gh-uni-ring, transparent) inset'),
         rule('.gh-btn-cloud.gh-cloud-uni-dim', 'opacity: .5'),
         rule('.gh-btn-cloud.gh-cloud-uni svg.gh-uni-badge', 'width: 13px; height: 13px'),
         // White words and glyph on the accent, as on the game page's Play.
@@ -335,9 +360,14 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-btn-play svg', `width: ${HOME_PILL.icon}px; height: ${HOME_PILL.icon}px; margin: 0`),
         rule('.gh-btn-icon', 'display: flex; align-items: center; justify-content: center; line-height: 1'),
         rule('.gh-btn-play .gh-btn-icon', `font-size: ${HOME_PILL.icon}px`),
-        rule('.gh-btn.gh-focus', `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 14px 40px -8px var(--glance-accent); transform: scale(${PAGE_LAYOUT.focusScale})`),
+        rule(`${NOT_MOUSE} .gh-btn.gh-focus`, `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 14px 40px -8px var(--glance-accent); transform: scale(${PAGE_LAYOUT.focusScale})`),
+        // A mouse over a button (mouseMode, never a finger or the controller): the game cards' hover ring, ring only (focused
+        // too: the focus looks are off in mouse mode, NOT_MOUSE). The stream
+        // segment is part of the Play pill: the pill takes the ring, as it takes the focus look.
+        rule(`${HOVER} .gh-btn:hover:not(.gh-btn-stream)`, `box-shadow: ${hoverRing('2px')}`),
+        rule(`${HOVER} .gh-actions > .gh-btn-play:has(+ .gh-btn-stream:hover)`, `box-shadow: ${hoverRing('2px')}`),
         // The Play pill grows by what a circle grows (themeCss.pillFocusScale), so its gap to the circles stays.
-        rule('.gh-actions > .gh-btn-play.gh-focus', `transform: scale(${pillFocus.x}, ${pillFocus.y})`),
+        rule(`${NOT_MOUSE} .gh-actions > .gh-btn-play.gh-focus`, `transform: scale(${pillFocus.x}, ${pillFocus.y})`),
         // A game on more than one device (home/streaming): the pill ends in the page's "Play from" segment (a divider and
         // Steam's arrow glyph, part of the pill, so it grows with it), and a focusable arrow lies over it, right after Play
         // in the row (the row's gap pulled back). Focused, the segment lights as the page's does; no ring or growth of its own.
@@ -346,28 +376,44 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-play-arrow svg', `width: ${HOME_PILL.arrowGlyph}px; height: ${HOME_PILL.arrowGlyph}px; margin: 0; fill: currentColor`),
         rule('.gh-actions > .gh-btn-stream', `position: relative; z-index: 1; flex: 0 0 ${HOME_PILL.arrow}px; width: ${HOME_PILL.arrow}px; margin-left: -${HOME_PILL.arrow + 12}px; background: transparent;
             border: none; border-radius: 0 999px 999px 0; backdrop-filter: none; box-shadow: none; transform: none`),
-        rule('.gh-actions > .gh-btn-stream.gh-focus', 'background: transparent; box-shadow: none; transform: none'),
+        rule(`${NOT_MOUSE} .gh-actions > .gh-btn-stream.gh-focus`, 'background: transparent; box-shadow: none; transform: none'),
         // The arrow focused: the whole pill shows Home's focus, as the page's pill does for its arrow; the segment is tinted.
-        rule('.gh-actions > .gh-btn-play:has(+ .gh-btn-stream.gh-focus)', `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 14px 40px -8px var(--glance-accent); transform: scale(${pillFocus.x}, ${pillFocus.y})`),
-        rule('.gh-actions > .gh-btn-play:has(+ .gh-btn-stream.gh-focus) > .gh-play-arrow', 'background: rgba(255,255,255,.28)'),
+        rule(`${NOT_MOUSE} .gh-actions > .gh-btn-play:has(+ .gh-btn-stream.gh-focus)`, `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 14px 40px -8px var(--glance-accent); transform: scale(${pillFocus.x}, ${pillFocus.y})`),
+        rule(`${NOT_MOUSE} .gh-actions > .gh-btn-play:has(+ .gh-btn-stream.gh-focus) > .gh-play-arrow`, 'background: rgba(255,255,255,.28)'),
 
         // Recents row (handoff: left 44, 140 tall; times the card scale, its bottom stays at 688 and it grows upwards
         // from geo.top). Overflow stays visible: earlier capsules scroll off to the left edge.
         // Every size here derives from recentsGeometry; left, width, dim and ghost opacity are inline. The row is one
-        // gamepad focusable (RecentsRow); mouse and touch support enabled for wheel, swipe and direct card clicks.
-        rule('.gh-recents', `position: absolute; left: var(--gh-row, ${SIDE_INSET.handheld - ROW_OFFSET}px); right: 0; top: calc(${geo.top}px - var(--gh-top)); height: ${geo.capsuleH}px; margin: 0; padding: 0; pointer-events: auto; user-select: none; -webkit-user-select: none; touch-action: pan-y`),
+        // gamepad focusable (RecentsRow); taps select or open a card, drags step the selection (useRowDrag). It handles
+        // both axes itself (touch-action: none: a vertical swipe raises the sheet), and takes no taps under the sheet or
+        // while a game opens (the root's own pointer-events: none doesn't reach a child that sets auto).
+        rule('.gh-recents', `position: absolute; left: var(--gh-row, ${SIDE_INSET.handheld - ROW_OFFSET}px); right: 0; top: calc(${geo.top}px - var(--gh-top)); height: ${geo.capsuleH}px; margin: 0; padding: 0; pointer-events: auto; touch-action: none; user-select: none`),
         rule('.gh-page-up .gh-recents', 'pointer-events: none'),
-        rule('.gh-recents-dragging', 'cursor: grabbing'),
+        rule('.gh-recents-drag', 'cursor: grabbing'),
+        // The sheet toggle, for a mouse only (mouseMode; a finger swipes, the controller presses Down / B): a chevron centred
+        // above the games row, its bottom 18 px above the cards (3 was too tight, Michael; the buttons' row ends left of it,
+        // so it may rise past their bottom; no room for a circle), drawn over the tabs row (which spans the page and took its
+        // clicks once the sheet was up), that raises the feed
+        // sheet; with the sheet up it rides onto the middle of the tabs row, which the tab names leave free, pointing up, and
+        // brings the games back. One element, moved and turned by transform only (motion.ts), with the sheet.
+        rule('.gh-sheet-toggle', `position: absolute; left: 50%; top: calc(${geo.top - SHEET_TOGGLE.lift}px - var(--gh-top)); width: ${SHEET_TOGGLE.w}px; height: ${SHEET_TOGGLE.h}px;
+            margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.7); filter: drop-shadow(0 1px 3px rgba(0,0,0,.6));
+            z-index: 3; cursor: pointer; opacity: 0; pointer-events: none; transform: translate(-50%, 0); transition: transform ${SHEET}, opacity 200ms, color 150ms`),
+        rule('.gh-sheet-toggle svg', `width: ${SHEET_TOGGLE.icon.w}px; height: ${SHEET_TOGGLE.icon.h}px; margin: 0; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round`),
+        rule(`${HOVER} .gh-sheet-toggle`, 'opacity: 1; pointer-events: auto'),
+        rule(`${HOVER} .gh-sheet-toggle:hover`, 'color: #fff'),
+        rule('.gh-page-up .gh-sheet-toggle', `transform: translate(-50%, ${Math.round((FEED_SHEET.tabsTop + (FEED_SHEET.tabHeight - SHEET_TOGGLE.h) / 2 - (geo.top - SHEET_TOGGLE.lift)) * 100) / 100}px) rotate(180deg)`),
+        rule('.gh-root[data-gh-opening] .gh-sheet-toggle', 'opacity: 0'),
+        rule('.gh-root[data-gh-opening] .gh-recents', 'pointer-events: none'),
         rule('.gh-recents-track', `position: absolute; inset: 0; transition: transform ${SLIDE}`),
+        rule('.gh-recents-drag .gh-recents-track', 'transition: none'),
         rule('.gh-cap', `position: absolute; top: 0; height: ${geo.capsuleH}px; margin: 0; padding: 0; border-radius: ${k(8)}px; overflow: hidden; background: #111;
-            border: none; --gh-edge: rgba(255,255,255,.08); box-shadow: ${capShadow}; outline: none; cursor: pointer; pointer-events: auto;
-            transition: left ${SLIDE}, width ${SLIDE}, opacity ${CAP_STATE_MS}ms`),
-        rule('.gh-cap:hover:not(.gh-ghost)', '--gh-edge: rgba(255,255,255,.25)'),
+            border: none; --gh-edge: rgba(255,255,255,.08); box-shadow: ${capShadow}; outline: none;
+            transition: left ${SLIDE}, width ${SLIDE}, opacity ${CAP_STATE_MS}ms, filter ${CAP_STATE_MS}ms`),
         // The 1px edge is drawn OVER the art (::after, inset ring) instead of a border beside it: with a border the art
         // ended inside it at a fractional device pixel, leaving a bright 1-device-px row of un-shaded art at the bottom.
         rule('.gh-cap::after', `content: ''; position: absolute; inset: 0; margin: 0; padding: 0; border-radius: inherit; pointer-events: none;
             box-shadow: inset 0 0 0 1px var(--gh-edge); transition: box-shadow ${CAP_STATE_MS}ms`),
-        rule('.gh-cap-wide', '--gh-edge: rgba(255,255,255,.35)'),
         rule('.gh-cap.gh-cap-focus', `box-shadow: ${capGlow}; --gh-edge: rgba(255,255,255,.35)`),
         rule('.gh-cap-blur', `position: absolute; inset: -${k(30)}px; background-size: cover; background-position: center; filter: blur(${k(22)}px) brightness(.75)`),
         // Wide art is mounted only on the expanded capsule, after (over) the portrait, and fades in. The portrait is
@@ -378,20 +424,34 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-cap.gh-cap-focus .gh-cap-bar', 'opacity: 1'),
         // A bar nobody sees takes a new accent at once (each L1/R1 step changes it: ~30 invisible colour transitions a step).
         rule('.gh-cap:not(.gh-cap-focus) .gh-cap-bar', 'transition: opacity 250ms'),
-        // "New" badge on a game new to the library: a small light pill at the top left, over the art.
-        rule('.gh-cap-new', `position: absolute; left: ${k(8)}px; top: ${k(8)}px; margin: 0; padding: ${k(3)}px ${k(7)}px; border-radius: 999px;
+        // "New" (a game new to the library) and "Demo" marks: small light pills at the top left, over the art; side by side
+        // on the wide card, one under the other on a capsule.
+        rule('.gh-cap-marks', `position: absolute; left: ${k(8)}px; top: ${k(8)}px; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-start; gap: ${k(4)}px; pointer-events: none`),
+        rule('.gh-cap-wide .gh-cap-marks', 'flex-direction: row'),
+        rule('.gh-cap-new', `position: relative; margin: 0; padding: ${k(3)}px ${k(7)}px; border-radius: 999px;
             font-size: ${k(8.5)}px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; line-height: 1.2; white-space: nowrap;
             color: #0b0d10; background: rgba(255,255,255,.92); box-shadow: 0 ${k(2)}px ${k(8)}px rgba(0,0,0,.35); pointer-events: none`),
         // While the card row has focus the selected card (or the Library card) is the focused one: a 2px white ring just
         // outside it and an accent glow even on every side (no downward offset, no bar along its bottom edge: on the Ally
-        // those read as the card being cut at the bottom). Unfocused it keeps its resting look.
-        rule('.gh-recents-focus .gh-cap-wide, .gh-recents-focus .gh-cap-lib-on', `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 ${k(28)}px ${k(2)}px var(--glance-accent); --gh-edge: rgba(255,255,255,.35)`),
-        // A fast L1/R1 run (home/fastCycle): the selected card stays narrow and is ringed the same way.
+        // those read as the card being cut at the bottom). Unfocused it keeps its resting look. Only the selected card: in
+        // Steam's row style the wide card is the first game, selected or not.
+        rule('.gh-recents-focus .gh-cap-sel, .gh-recents-focus .gh-cap-lib-on', `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 ${k(28)}px ${k(2)}px var(--glance-accent); --gh-edge: rgba(255,255,255,.35)`),
+        // The selected card's brighter edge, wide or narrow (a fast L1/R1 run, home/fastCycle, keeps it narrow).
         rule('.gh-cap-sel', '--gh-edge: rgba(255,255,255,.35)'),
-        // The way back (B from a page): the art is there at once; Home's title, chips, buttons and row fade in over it.
-        rule('.gh-root.gh-back .gh-safe', `animation: gh-fade-in ${RETURN_TIMINGS.fade}ms ease both`),
-        rule('.gh-recents-snap .gh-cap', `transition: left ${SETTLE_WIDEN_MS}ms ${SLIDE_EASE}, width ${SETTLE_WIDEN_MS}ms ${SLIDE_EASE}, opacity ${CAP_STATE_MS}ms`),
-        rule('.gh-recents-focus .gh-cap-sel', `box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 ${k(28)}px ${k(2)}px var(--glance-accent); --gh-edge: rgba(255,255,255,.35)`),
+        // A game not installed here (RecentsRow.greyedOut) is grey until selected, as Steam's library shows them.
+        rule('.gh-cap-off:not(.gh-cap-sel)', 'filter: grayscale(1) brightness(.7)'),
+        // A mouse over a card (home/mouse.hoverKey, never a finger): a faint white ring, half the selection's and without
+        // its accent glow, and a little brighter; an uninstalled game loses some of its grey. Not the selected card.
+        rule('.gh-cap.gh-cap-hover:not(.gh-cap-sel):not(.gh-cap-lib-on)', `box-shadow: ${hoverRing('2px')}, ${capShadow}; filter: brightness(1.12)`),
+        rule('.gh-cap-off.gh-cap-hover:not(.gh-cap-sel)', 'filter: grayscale(.5) brightness(.9)'),
+        // The way back (B from a page): the art is there at once; Home's title, chips, buttons and row fade in over it. Never
+        // as one layer: a parent fading (opacity under 1) cuts the glass inside it off from the art, which showed unblurred
+        // until the fade ended (Michael on the Ally). The glass fades itself, and around it the largest parts that hold no
+        // glass, each once; from transparent to its own opacity (what rests hidden stays hidden). Not in the open's copy.
+        `@keyframes gh-return-in { from { opacity: 0; } }`,
+        rule(`.gh-root.gh-back:not(.gh-bridge) .gh-safe :is(${HOME_GLASS.join(', ')}), .gh-root.gh-back:not(.gh-bridge) :is(.gh-safe, .gh-safe :has(${HOME_GLASS.join(', ')})) > :not(:has(${HOME_GLASS.join(', ')})):not(${HOME_GLASS.join(', ')})`,
+            `animation: gh-return-in ${RETURN_TIMINGS.fade}ms ease backwards`),
+        rule('.gh-recents-snap .gh-cap', `transition: left ${SETTLE_WIDEN_MS}ms ${SLIDE_EASE}, width ${SETTLE_WIDEN_MS}ms ${SLIDE_EASE}, opacity ${CAP_STATE_MS}ms, filter ${CAP_STATE_MS}ms`),
         // "View more in your Library" card.
         rule('.gh-cap-lib', '--gh-edge: rgba(255,255,255,.14)'),
         rule('.gh-cap-lib.gh-cap-lib-on', '--gh-edge: rgba(255,255,255,.35)'),
@@ -403,32 +463,32 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-lib-label', `font-size: ${k(10.5)}px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; line-height: 1.4; text-wrap: balance; color: #fff`),
         // Loop preview: the first games again, decorative only (not focusable).
         // Opacity is inline per ghost (recentsLayout.ghostOpacity): .4 (.55 on the Library card) fading to .08.
-        rule('.gh-ghost', `cursor: pointer; pointer-events: auto; --gh-edge: rgba(255,255,255,.06); box-shadow: none; filter: grayscale(.6) brightness(.75);
-            transition: filter 200ms ease, opacity ${CAP_STATE_MS}ms`),
-        rule('.gh-ghost:hover', 'filter: grayscale(.3) brightness(.9)'),
+        rule('.gh-ghost', 'cursor: default; --gh-edge: rgba(255,255,255,.06); box-shadow: none; filter: grayscale(.6) brightness(.75)'),
+        rule('.gh-ghost.gh-cap-off', 'filter: grayscale(1) brightness(.65)'),
         rule('.gh-ghost-badge', `position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: ${k(6)}px; background: rgba(5,7,10,.45)`),
         rule('.gh-ghost-icon', `width: ${k(36)}px; height: ${k(36)}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: ${k(20)}px; font-weight: 700; line-height: 1; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35); color: #fff`),
         rule('.gh-ghost-label', `font-size: ${k(9.5)}px; font-weight: 800; letter-spacing: .18em; line-height: 1.2; text-align: center; color: #fff`),
         rule('.gh-btn-library', 'width: 280px; flex: 0 0 280px; background: var(--glance-accent); border-color: var(--glance-accent); color: var(--gh-on-accent)'),
 
         // Feed sheet: tab strip (handoff: top 700 from the screen top plus the stack shift, ending 18 above the legend reserve at rest).
-        rule('.gh-tabs', `position: absolute; left: var(--gh-row, ${SIDE_INSET.handheld - ROW_OFFSET}px); right: var(--gh-row, ${SIDE_INSET.handheld - ROW_OFFSET}px); top: calc(${FEED_SHEET.tabsTop}px - var(--gh-top)); display: flex; justify-content: flex-start; gap: 30px; margin: 0; padding: 0`),
+        rule('.gh-tabs', `position: absolute; left: var(--gh-row, ${SIDE_INSET.handheld - ROW_OFFSET}px); right: var(--gh-row, ${SIDE_INSET.handheld - ROW_OFFSET}px); top: calc(${FEED_SHEET.tabsTop}px - var(--gh-top)); display: flex; justify-content: flex-start; gap: 30px; margin: 0; padding: 0; pointer-events: none`),
+        // Out of sight under the games row at rest: taps there are the row's; with the sheet up a tap picks a tab.
+        rule('.gh-page-up .gh-tabs', 'pointer-events: auto'),
         rule('.gh-tab', `position: relative; margin: 0; padding: 8px 2px 10px; font-size: 13px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
             line-height: 1.2; white-space: nowrap; color: rgba(255,255,255,.6); background: transparent; outline: none; cursor: pointer; transition: color 200ms`),
         rule('.gh-tab.gh-tab-on', 'color: #fff'),
+        rule(`${HOVER} .gh-tab:hover:not(.gh-tab-on)`, 'color: rgba(255,255,255,.85)'),
         rule('.gh-tab-line', `position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: var(--glance-accent); opacity: 0; box-shadow: none;
             transition: opacity 250ms, box-shadow 250ms, background ${ACCENT_MS}ms`),
         rule('.gh-tab.gh-tab-on .gh-tab-line', 'opacity: .55'),
         // The tabs are out of sight while the sheet is down: their line takes a new accent at once.
         rule('.gh-page:not(.gh-page-up) .gh-tab-line', 'transition: none'),
-        rule('.gh-tab.gh-tab-focus .gh-tab-line', 'opacity: 1; box-shadow: 0 0 14px 2px var(--glance-accent)'),
+        rule(`${NOT_MOUSE} .gh-tab.gh-tab-focus .gh-tab-line`, 'opacity: 1; box-shadow: 0 0 14px 2px var(--glance-accent)'),
         // Friends tab: people icon and the number of friends online, after the label.
         rule('.gh-tab-count', `display: inline-flex; align-items: center; gap: 4px; margin: 0 0 0 8px; font-size: 11px; letter-spacing: .04em; line-height: 1;
             vertical-align: 1px; color: ${FRIEND_COLOURS.none}; transition: color 200ms`),
         // Someone connected (online, away or in game): Steam's in-game green, never the game accent.
         rule('.gh-tab-count.gh-tab-count-on', `color: ${FRIEND_COLOURS.online}`),
-        rule('.gh-tabs-more', 'margin: 0 0 0 auto; align-self: center; font-size: 11px; letter-spacing: .16em; font-weight: 700; line-height: 1.2; color: rgba(255,255,255,.55); opacity: 1; transition: opacity 300ms'),
-        rule('.gh-page-up .gh-tabs-more', 'opacity: 0'),
         // Cards (top 756, 260 tall, gap 14); hidden until the sheet is up. Left, width and the art url are inline.
         rule('.gh-feed', `position: absolute; left: var(--gh-row, ${SIDE_INSET.handheld - ROW_OFFSET}px); right: 0; top: calc(756px - var(--gh-top)); margin: 0; padding: 0; opacity: 0; pointer-events: none; transition: opacity 400ms`),
         // One or two card rows (feedLayout.feedRows; heights inline), each with its own track and scroll; the second row's
@@ -438,6 +498,7 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
             font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; line-height: 1.2; color: rgba(255,255,255,.62)`),
         rule('.gh-page-up .gh-feed', 'opacity: 1; pointer-events: auto'),
         rule('.gh-feed-track', `position: absolute; inset: 0; margin: 0; padding: 0; transition: transform ${FEED_SCROLL}`),
+        rule('.gh-feed-track.gh-feed-drag', 'transition: none'),
         rule('.gh-feed-empty', 'position: absolute; left: 0; top: 0; height: 260px; display: flex; align-items: center; font-size: 16px; font-weight: 700; letter-spacing: .02em; color: rgba(255,255,255,.62)'),
         rule('.gh-card', `--gh-ring: rgba(255,255,255,.25);
             position: absolute; top: 0; height: var(--gh-card-h, 260px); margin: 0; padding: 0; border-radius: var(--gh-r-card); overflow: hidden; color: #fff;
@@ -447,6 +508,8 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         rule('.gh-card::after', `content: ''; position: absolute; inset: 0; margin: 0; padding: 0; border-radius: inherit; pointer-events: none;
             box-shadow: inset 0 0 0 1px var(--gh-edge); transition: box-shadow 300ms`),
         rule('.gh-card.gh-card-focus', `box-shadow: ${GLOW}; --gh-edge: rgba(255,255,255,.3); transform: translateY(-4px)`),
+        // A mouse over a feed card: the recents' faint ring and half the focused card's lift.
+        rule('.gh-card.gh-card-hover:not(.gh-card-focus)', `box-shadow: ${hoverRing('2px')}, 0 6px 20px -10px rgba(0,0,0,.6); transform: translateY(-2px)`),
         // Avatar rings: green online or in game, Steam's away blue away; offline: no ring and a dimmed avatar.
         rule('.gh-card-ring-online', `--gh-ring: ${FRIEND_COLOURS.online}`),
         rule('.gh-card-ring-away', `--gh-ring: ${FRIEND_COLOURS.away}`),
@@ -546,26 +609,50 @@ export function openingRules(): string[] {
     const dd = (n: number) => `calc(${n}px * var(--gho-x-d))`;
     const X = '.gh-open-extras';
     const at = (name: string) => `left: var(--gho-x-${name}-x); top: var(--gho-x-${name}-y); width: var(--gho-x-${name}-w)`;
+    // A part the page draws inside a card: placed inside its .gh-x-card layer (at the card, openMotion --gho-x-NAME-cx/cy).
+    const inCard = (name: string) => `left: calc(var(--gho-x-${name}-x) - var(--gho-x-${name}-cx, 0px)); top: calc(var(--gho-x-${name}-y) - var(--gho-x-${name}-cy, 0px))`;
+    // The twins' crossfade ends at this share of the morph; the Home text each twin replaces, by twin name.
+    const twinAt = Math.round((T.twinFade / T.morph) * 1000) / 10;
+    const twinOut: Array<[string, string]> = [
+        ['title', '.gh-title-slot'],
+        ['eyebrow', '.gh-eyebrow'],
+        ['play', `.gh-btn[data-action="play"] .gh-btn-label`],
+        ...(['size', 'played', 'achievements', 'hltb'] as const).flatMap((k): Array<[string, string]> => [
+            [`label-${k}`, `.gh-chip[data-chip="${k}"] .gh-chip-label`],
+            [`value-${k}`, `.gh-chip[data-chip="${k}"] .gh-chip-value`],
+        ]),
+    ];
     return [
         lateFade('gh-open-extras-in', 0, 1, T.extras, 'ease-out'),
         lateFade('gh-open-pill-out', 1, 0, T.extras, 'ease-in'),
         lateFade('gh-open-settle', 0, 1, T.settle, 'ease-in-out'),
         // Always there, hidden: the page's scrims over Home's, the opened game's hero (heroFade), the glass panels.
         rule('.gh-hero-open', 'position: absolute; inset: 0; pointer-events: none; background-image: var(--gho-hero, none); background-size: cover; background-position: center 30%; background-repeat: no-repeat; opacity: 0'),
-        // The glass: the page's cards and Clean panel (.38, its border), never blurred here (a blur under a moving scale is
-        // too slow on the Ally); the arriving page grows its blur from none once revealed (themeCss.buildArrivingCss).
-        rule('.gh-open-shell', 'display: none; position: absolute; left: 0; top: 0; margin: 0; padding: 0; pointer-events: none; transform-origin: 0 0; border-radius: 16px; background: rgba(12,16,22,.38); border: 1px solid rgba(255,255,255,.12)'),
+        // The glass: the page's cards and Clean panel, their tint, border and blur, so the page's arrive as they are (Michael,
+        // on the Ally: moving blurred felt more seamless than a blur growing in after the hand-over). 16 canvas px is the page's
+        // 16 d units. Its ring is Home's 1px, so it looks like the chips' all the way: Chromium snaps a border to whole device px
+        // in the canvas's own units, before the scale, so the page's 1 device px drawn in here came out half as bright on the Ally.
+        rule('.gh-open-shell', 'display: none; position: absolute; left: 0; top: 0; margin: 0; padding: 0; pointer-events: none; transform-origin: 0 0; border-radius: 16px; background: rgba(12,16,22,.38); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(16px)'),
+        // A Unifideck game's page has a fourth circle (Uninstall) Home has no button for: one is drawn at its place as Home's
+        // circles look at the page's size, and fades in late as the page's other parts do, so it does not pop in after the
+        // hand-over. Its own fade, not the extras layer's: a backdrop blur inside a fading parent sees nothing behind it.
+        rule('.gh-open-circle', `display: none; position: absolute; left: 0; top: 0; margin: 0; padding: 0; pointer-events: none; box-sizing: border-box; aspect-ratio: 1;
+            align-items: center; justify-content: center; border-radius: 999px; color: #fff; background: rgba(12,16,22,.4); border: 1px solid rgba(255,255,255,.18);
+            backdrop-filter: blur(12px); opacity: 0`),
+        rule('.gh-open-circle svg', `width: ${PAGE_LAYOUT.circleIcon}px; height: ${PAGE_LAYOUT.circleIcon}px; margin: 0; fill: currentColor`),
+        rule(`${M} .gh-open-circle`, 'display: flex; left: calc(var(--gho-circle-extra-x) * 1px); top: calc(var(--gho-circle-extra-y) * 1px); width: calc(var(--gho-circle-extra-w) * 1px)'),
+        rule(`${MT} .gh-open-circle`, late('gh-open-extras-in')),
+        rule('.gh-root.gh-bridge[data-gh-opening][data-gh-phase] .gh-open-circle', 'opacity: 1; animation: none'),
         rule(O, 'pointer-events: none'),
         // The bridge (openBridge): a frozen copy of Home in its final state; nothing inside it may animate again.
         rule('.gh-root.gh-bridge, .gh-root.gh-bridge *', 'animation: none; transition: none'),
         rule('.gh-root.gh-bridge *::before, .gh-root.gh-bridge *::after', 'animation: none; transition: none'),
         // With nothing animating, the copy holds the late fades' end values (their own values are the start ones).
-        // Stated as specifically as the rules that animate them, so the freeze wins: the late fades, and Home's way-back fade
-        // (an open soon after B; the copy also drops .gh-back, openBridge).
+        // Stated as specifically as the rules that animate them, so the freeze wins: the late fades. (Home's way-back fade
+        // never applies in the copy: :not(.gh-bridge), and the copy also drops .gh-back, openBridge.)
         rule('.gh-root.gh-bridge[data-gh-opening][data-gh-phase][data-gh-extras] .gh-open-extras', 'opacity: 1; animation: none'),
         rule('.gh-root.gh-bridge[data-gh-opening][data-gh-phase][data-gh-extras~="pills"] .gh-source', 'opacity: 0; animation: none'),
         rule(`.gh-root.gh-bridge[data-gh-opening][data-gh-phase] ${play}::after`, 'opacity: 1; animation: none'),
-        rule('.gh-root.gh-bridge.gh-back .gh-safe', 'animation: none'),
 
         // Scrims: Home already shades its art as the page does; only the feed sheet's dim goes.
         rule(`${MT} .gh-scrim-dim`, `opacity: 0; transition: opacity ${T.morph}ms ease`),
@@ -583,11 +670,15 @@ export function openingRules(): string[] {
         // The Play pill moves; its accent background becomes a layer inside it that grows to the page pill (the pill
         // stops clipping it, and keeps its focus ring on that layer).
         rule(`${M} ${play}`, 'overflow: visible; background: transparent; border-color: transparent; box-shadow: none'),
-        rule(`${M} ${play}::before`, "content: ''; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: 999px; background: var(--glance-accent); transform-origin: 0 0; pointer-events: none"),
+        // (Both layers start at the pill's outer edge, its 1px border, as openMotion's scales are of its outer size: from inside
+        // the border they ended a border's width short all round, and the page pill grew at the hand-over.)
+        rule(`${M} ${play}::before`, "content: ''; position: absolute; left: -1px; top: -1px; width: calc(100% + 2px); height: calc(100% + 2px); border-radius: 999px; background: var(--glance-accent); transform-origin: 0 0; pointer-events: none"),
         // The page focuses Play (its white ring and accent glow, as Home's focus): the page's focused pill at its exact size
         // (round ends; the stretched layer's are oval) fades in as the pill comes to rest, under the glyph and label.
-        rule(`${M} ${play}::after`, "content: ''; position: absolute; left: 0; top: var(--gho-play-dy); width: calc(100% * var(--gho-play-sx)); height: calc(100% * var(--gho-play-sy)); border-radius: 999px; background: var(--glance-accent); box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 14px 40px -8px var(--glance-accent); pointer-events: none"),
+        rule(`${M} ${play}::after`, "content: ''; position: absolute; left: -1px; top: calc(var(--gho-play-dy) - 1px); width: calc((100% + 2px) * var(--gho-play-sx)); height: calc((100% + 2px) * var(--gho-play-sy)); border-radius: 999px; background: var(--glance-accent); box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 14px 40px -8px var(--glance-accent); pointer-events: none"),
         soft(`${M} ${play}::after`, 'opacity: 0'),
+        // Opened with a mouse, the page shows its Play without the focus look (mouseMode): the pill grows without its ring and glow.
+        rule(`${HOVER} ${M} ${play}::after`, 'box-shadow: none'),
         rule([`${M} ${play} > .gh-btn-icon`, `${M} ${play} > .gh-btn-label`, `${M} ${play} > .gh-play-arrow`].join(', '), 'z-index: 1'),
         rule(`${M} ${play} > .gh-play-arrow`, 'transform-origin: 100% 50%'),
         rule(`${MT} ${play} > .gh-play-arrow`, `transform: var(--gho-play-arrow); transition: ${move}`),
@@ -628,10 +719,52 @@ export function openingRules(): string[] {
         // Its own opacity stays the start value (0, soft: an animation cannot override !important): the GPU draws that until
         // the animation runs, and the animation holds the end.
         rule(`${MT}[data-gh-extras] ${X}`, late('gh-open-extras-in')),
+        // The text twins (home/openTwins, openHome.mountTwins): each moving text drawn again in its own layer at the page's
+        // size and type (themeCss.PAGE_TYPE, in the page's d unit), placed where the page puts it, from Home's text to no
+        // transform, so the hand-over shows the page's text as the page draws it. Home's text hands over to them over the
+        // morph's first 40% (OPEN_TIMINGS.twinFade), opacity only. (Own layer: the extras layer fades in only at the end.)
+        `@keyframes gh-twin-in { 0% { opacity: 0; animation-timing-function: ease-out; } ${twinAt}%, 100% { opacity: 1; } }`,
+        `@keyframes gh-twin-out { 0% { opacity: 1; animation-timing-function: ease-in; } ${twinAt}%, 100% { opacity: 0; } }`,
+        soft('.gh-open-twins', 'display: none; position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; padding: 0; pointer-events: none'),
+        soft(`${M} .gh-open-twins`, 'display: block'),
+        // The origin point is placed by the translate property (its share of the twin's own height, plus the glide at the
+        // hand-over, --t-dx/--t-dy), so transform carries only the morph, about that same point.
+        soft('.gh-twin', `position: absolute; left: var(--t-x); top: var(--t-y); margin: 0; padding: 0; white-space: nowrap; color: #fff;
+            transform-origin: var(--t-origin, 0 0); translate: var(--t-dx, 0px) calc(var(--t-dy, 0px) - var(--t-shift, 0%)); transform: var(--t-from); opacity: 0`),
+        // A page card's twins (openTwins TwinSpec.card): in a layer at the card's place, as the page's card is one (see
+        // .gh-x-card below), placed inside it.
+        soft('.gh-twin-card', 'position: absolute; left: var(--t-card-x); top: var(--t-card-y); margin: 0; padding: 0; will-change: transform'),
+        soft('.gh-twin[data-origin="top"]', '--t-origin: 0 0; --t-shift: 0%'),
+        soft('.gh-twin[data-origin="base"]', 'transform-origin: 0 100%; --t-shift: 100%'),
+        soft('.gh-twin[data-origin="midline"]', 'transform-origin: 0 50%; --t-shift: 50%'),
+        // The Play label's twin: the page pill's box with its label centred on the line at the label's inset (openTwins 'pill').
+        soft('.gh-twin[data-origin="pill"]', 'transform-origin: 0 0; --t-shift: 0%; width: var(--t-w); height: var(--t-h); display: flex; align-items: center; padding: 0 0 0 var(--t-inset); box-sizing: border-box'),
+        soft(`${MT} .gh-twin`, `transform: var(--t-to); transition: ${move}; animation: gh-twin-in ${T.morph}ms linear both`),
+        soft('.gh-twin[data-role="title"]', `${pageType('title', dd)} max-width: ${dd(640)}; white-space: normal; text-wrap: balance; overflow-wrap: anywhere; text-shadow: 0 ${dd(4)} ${dd(30)} rgba(0,0,0,.4)`),
+        soft('.gh-twin[data-role="eyebrow"]', `${pageType('eyebrow', dd)} color: var(--glance-accent-text)`),
+        // The page's labels inherit a 1.5 line height from Steam (PAGE_TYPE leaves it out): stated here.
+        soft('.gh-twin[data-role="label"]', `${pageType('label', dd)} line-height: ${PAGE_LINES.label}; color: rgba(255,255,255,.62)`),
+        soft('.gh-twin[data-role="value"]', pageType('value', dd)),
+        soft('.gh-twin[data-role="cleanValue"]', pageType('cleanValue', dd)),
+        // Steam's fixed line height on the Play label (STEAM_PLAY_LINE): the browser places text in a 20 px line box a little
+        // higher than in a default one, so the twin's text landed 0.65 px low and stepped up at the end (Ally, docked).
+        soft('.gh-twin[data-role="playLabel"]', `${pageType('playLabel', dd)} line-height: ${STEAM_PLAY_LINE}px`),
+        soft('.gh-twin[data-accent]', 'color: var(--glance-accent-text)'),
+        ...twinOut.map(([name, sel]) => soft(`${MT}[data-gh-twins~="${name}"] ${sel}`, `animation: gh-twin-out ${T.morph}ms linear both`)),
+        // The bridge (nothing animates in it): the twins at their end, Home's twinned text hidden, stated above the live rules.
+        soft(`.gh-root.gh-bridge[data-gh-opening][data-gh-phase] .gh-twin`, `opacity: 1; transform: var(--t-to); animation: none; transition: translate ${T.settleGlide}ms ease-out !important`),
+        // The extras layer's text glides onto the page's the same way (OpenExtras data-settle, openHome.settleTwins).
+        soft(`.gh-root.gh-bridge[data-gh-opening][data-gh-phase] [data-settle]`, `translate: var(--t-dx, 0px) var(--t-dy, 0px); transition: translate ${T.settleGlide}ms ease-out !important`),
+        ...twinOut.map(([name, sel]) => soft(`.gh-root.gh-bridge[data-gh-opening][data-gh-phase][data-gh-twins~="${name}"] ${sel}`, 'opacity: 0; animation: none')),
         rule(`${X} .gh-x-desc`, `display: none; position: absolute; ${at('desc')}; margin: 0; font-size: ${dd(L.cardText.desc)}; font-weight: 400; line-height: ${L.cardText.descLine};
             color: rgba(255,255,255,.84); -webkit-line-clamp: ${L.cardText.descLines}; -webkit-box-orient: vertical; overflow: hidden`),
         rule('.gh-root[data-gh-extras~="desc"] .gh-x-desc', 'display: -webkit-box'),
-        rule(`${X} .gh-x-hltb`, `display: none; position: absolute; ${at('hltb')}; flex-direction: column; gap: ${dd(L.cards.hltbGap)}`),
+        // The page's cards are compositing layers (their backdrop blur): Chromium puts a layer's origin on a whole device px
+        // and snaps its text from there, so the same text outside one drew a device px lower (the HowLongToBeat times, Ally
+        // docked). Each part the page draws in a card sits in a layer at that card's place, as the page's does.
+        ...(['hltb', 'played', 'size'] as const).map((n) =>
+            rule(`${X} .gh-x-card[data-for="${n}"]`, `position: absolute; left: var(--gho-x-${n}-cx, 0px); top: var(--gho-x-${n}-cy, 0px); margin: 0; padding: 0; will-change: transform`)),
+        rule(`${X} .gh-x-hltb`, `display: none; position: absolute; ${inCard('hltb')}; width: var(--gho-x-hltb-w); flex-direction: column; gap: ${dd(L.cards.hltbGap)}`),
         rule('.gh-root[data-gh-extras~="hltb"] .gh-x-hltb', 'display: flex'),
         // The page's store pill (and family pill in it), right-aligned where the page draws it, as themeCss draws .gg-pill
         // and .gg-family; Home's own (moving, scaled) fades out as it fades in.
@@ -643,11 +776,11 @@ export function openingRules(): string[] {
             margin: 0; border-radius: 999px; border: 1px solid; color: #fff; line-height: 1; white-space: nowrap; ${sourcePillLook(dd)}`),
         rule(`${X} .gh-x-family-icon`, `flex: 0 0 auto; ${sourcePillIcon(dd)}`),
         // A new game's Play time column (Home shows its Added chip instead), as the page draws it, at its place.
-        rule(`${X} .gh-x-played`, `display: none; position: absolute; left: var(--gho-x-played-x); top: var(--gho-x-played-y); flex-direction: column; gap: ${dd(L.stats.rowGap)}`),
+        rule(`${X} .gh-x-played`, `display: none; position: absolute; ${inCard('played')}; flex-direction: column; gap: ${dd(L.stats.rowGap)}`),
         rule('.gh-root[data-gh-extras~="played"] .gh-x-played', 'display: flex'),
         rule(`${X} .gh-x-played .gh-x-value`, 'font-size: var(--gho-x-played-font)'),
         // A Unifideck game's size column (right after Played), as the page draws it, at its place.
-        rule(`${X} .gh-x-size`, `display: none; position: absolute; left: var(--gho-x-size-x); top: var(--gho-x-size-y); flex-direction: column; gap: ${dd(L.stats.rowGap)}`),
+        rule(`${X} .gh-x-size`, `display: none; position: absolute; ${inCard('size')}; flex-direction: column; gap: ${dd(L.stats.rowGap)}`),
         rule('.gh-root[data-gh-extras~="size"] .gh-x-size', 'display: flex'),
         rule(`${X} .gh-x-size .gh-x-value`, 'font-size: var(--gho-x-size-font)'),
         rule(`${MT}[data-gh-extras~="pills"] .gh-source`, `transition: ${move}; ${late('gh-open-pill-out')}`),

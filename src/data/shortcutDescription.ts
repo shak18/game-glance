@@ -26,9 +26,24 @@ interface SearchItem {
     name?: unknown;
 }
 
+const matchKey = (name: string) => `steammatch:${name.trim().toLowerCase()}`;
+
+/**
+ * Whether getShortcutDescription would answer from the cache for a shortcut that is not Heroic's: its Steam match is
+ * remembered (a miss counts) and, for a match, that game's description in `lang` too. The pre-load pauses only after a
+ * game that went online, so a cached Unifideck library is quick (#48). Unknown reads as not cached.
+ */
+export async function shortcutDescriptionCached(game: { name: string }, lang: string, cache: Cache = defaultCache): Promise<boolean> {
+    if (game.name.trim().length === 0) return true;
+    const match = await attempt('cache read', () => cache.get<{ id: number | null }>(matchKey(game.name)), null);
+    if (!match) return false;
+    if (match.id === null) return true;
+    return (await attempt('cache read', () => cache.get<{ text: string | null }>(`desc:${match.id}:${lang}`), null)) !== null;
+}
+
 /** The Steam app whose store name is exactly this game's name (see sameTitle), or null. Misses are remembered too. */
 export async function findSteamAppId(name: string, deps: ShortcutDescriptionDeps = defaultDeps): Promise<number | null> {
-    const key = `steammatch:${name.trim().toLowerCase()}`;
+    const key = matchKey(name);
     const cached = await attempt('cache read', () => deps.cache.get<{ id: number | null }>(key), null);
     if (cached) return cached.id;
     try {

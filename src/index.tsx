@@ -1,6 +1,6 @@
 import { stopDownloads } from './home/downloadStore';
 import { stopStatus } from './home/statusStore';
-import { definePlugin } from '@decky/api';
+import { definePlugin, routerHook } from '@decky/api';
 import { staticClasses } from '@decky/ui';
 import { FaGamepad } from 'react-icons/fa';
 import { SettingsPanel } from './components/SettingsPanel';
@@ -12,6 +12,10 @@ import { startUpdateChecks } from './data/update';
 import { patchGamePage } from './patches/gamePage';
 import { patchHomePage } from './patches/homePage';
 import { patchLibraryPage } from './patches/libraryPage';
+import { ScreensaverHost } from './screensaver/ScreensaverView';
+import { noteLoad, remountHomeAfterReload } from './home/reloadRemount';
+
+const SCREENSAVER_COMPONENT = 'GameGlanceScreensaver';
 
 export default definePlugin(() => {
     settings.load().catch((error) => console.error(`${LOG_PREFIX} failed to load settings`, error));
@@ -19,6 +23,8 @@ export default definePlugin(() => {
     const unpatch = patchGamePage();
     const unpatchHome = patchHomePage(); // never throws; applied after and independent of the game page patch
     const unpatchLibrary = patchLibraryPage();
+    const cancelRemount = remountHomeAfterReload(noteLoad()); // an update: Home on screen is redrawn by this copy
+    routerHook.addGlobalComponent(SCREENSAVER_COMPONENT, ScreensaverHost); // draws only while Steam's screensaver is on
     const stopAutoPreload = startAutoPreload();
     const stopUpdateChecks = startUpdateChecks(); // quiet: once now (a day-old answer is reused), then daily
     console.log(`${LOG_PREFIX} loaded`);
@@ -33,6 +39,8 @@ export default definePlugin(() => {
                 ['game page unpatch', unpatch],
                 ['Home unpatch', unpatchHome],
                 ['Library unpatch', unpatchLibrary],
+                ['Home reopen cancel', cancelRemount],
+                ['screensaver remove', () => routerHook.removeGlobalComponent(SCREENSAVER_COMPONENT)],
                 ['auto preload stop', stopAutoPreload],
                 ['update checks stop', stopUpdateChecks],
                 ['downloads stop', stopDownloads],

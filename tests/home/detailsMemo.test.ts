@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { DETAILS_MEMO_MAX, memoAchievements, memoCloud, memoDetails, memoSpaceRequired, noteDetails, resetDetailsMemo, withKnownAchievements } from '../../src/home/detailsMemo';
+import { DETAILS_MEMO_MAX, memoAchievements, memoCloud, memoDetails, memoPlaytime, memoSpaceRequired, noteDetails, resetDetailsMemo, withKnownAchievements } from '../../src/home/detailsMemo';
 
 describe('detailsMemo', () => {
     afterEach(resetDetailsMemo);
@@ -101,5 +101,17 @@ describe('the space a game needs (Steam: lDiskSpaceRequiredBytes)', () => {
         expect(memoSpaceRequired(2)).toBeUndefined();
         expect(memoSpaceRequired(3)).toBeUndefined();
         expect(memoSpaceRequired(4)).toBeUndefined();
+    });
+});
+
+describe('details memo: play time', () => {
+    it("keeps Steam's local play time from a game's details (a shortcut's lives only there), positive numbers only", () => {
+        resetDetailsMemo();
+        noteDetails(4203820957, { nPlaytimeForever: 21 });
+        expect(memoPlaytime(4203820957)).toBe(21);
+        noteDetails(4203820957, { nPlaytimeForever: 25 });
+        expect(memoPlaytime(4203820957)).toBe(25);
+        for (const junk of [0, -1, 'x', NaN, null]) noteDetails(5, { nPlaytimeForever: junk });
+        expect(memoPlaytime(5)).toBeUndefined();
     });
 });

@@ -69,7 +69,12 @@ export function hltbCacheKey(appId: number, overrideId: number | null): string {
 export type PrefetchOutcome = { status: HltbResult['status']; fetched: boolean };
 
 type Found = Extract<HltbResult, { status: 'found' }>;
-type Stored = HltbResult & { fetchedAt?: number }; // fetchedAt: when found times were fetched (missing in old entries)
+type Stored = HltbResult & { fetchedAt?: number }; // fetchedAt: when found times or "no match" were fetched (missing in old entries)
+
+/** The cached times a refresh keeps if it fails: only found ones ("no match" has none to keep). */
+function foundOrNull(stored: Stored | null): Found | null {
+    return stored?.status === 'found' ? (strip(stored) as Found) : null;
+}
 
 function strip(stored: Stored): HltbResult {
     const { fetchedAt: _fetchedAt, ...result } = stored;
@@ -78,7 +83,9 @@ function strip(stored: Stored): HltbResult {
 
 /**
  * Found times are kept and shown however old; after TTL.hltbRefresh they are refreshed in the background
- * (old times stay if the refresh fails). "No match" expires after TTL.hltbNotFound; "unavailable" is never cached.
+ * (old times stay if the refresh fails). "No match" is kept and shown at once too; after TTL.hltbRecheck it is checked
+ * again in the background, and a match found then is cached and shown the next time the game's page loads ("no match"
+ * stays when HowLongToBeat can't be reached). "Unavailable" is never cached.
  */
 export function createHltbLookup(deps: HltbDeps) {
     const now = deps.now ?? Date.now;
@@ -89,7 +96,8 @@ export function createHltbLookup(deps: HltbDeps) {
         const key = hltbCacheKey(game.appId, overrideId);
         const cached = await attempt('cache read', () => deps.cache.get<Stored>(key), null);
         const usable = cached && (cached.status === 'found' || cached.status === 'notFound') ? cached : null;
-        const stale = usable?.status === 'found' && now() - (usable.fetchedAt ?? 0) >= TTL.hltbRefresh;
+        const age = usable ? now() - (usable.fetchedAt ?? 0) : 0;
+        const stale = usable !== null && age >= (usable.status === 'found' ? TTL.hltbRefresh : TTL.hltbRecheck);
         return { overrideId, key, cached: usable, stale };
     }
 
@@ -122,7 +130,7 @@ export function createHltbLookup(deps: HltbDeps) {
         if (previous) return reachable ? previous : { status: 'unavailable' }; // keep the old times either way
         if (reachable) {
             const notFound: HltbResult = overrideId !== null ? { status: 'notFound', overrideId } : { status: 'notFound' };
-            await attempt('cache write', () => deps.cache.put(key, notFound, TTL.hltbNotFound), undefined);
+            await attempt('cache write', () => deps.cache.put<Stored>(key, { ...notFound, fetchedAt: now() }, TTL.hltbNotFound), undefined);
             return notFound;
         }
         return { status: 'unavailable' };
@@ -141,7 +149,7 @@ export function createHltbLookup(deps: HltbDeps) {
     async function lookup(game: HltbGame): Promise<HltbResult> {
         const { overrideId, key, cached, stale } = await read(game);
         if (cached) {
-            if (stale) refresh(game, overrideId, key, strip(cached) as Found).catch(() => undefined);
+            if (stale) refresh(game, overrideId, key, foundOrNull(cached)).catch(() => undefined);
             return strip(cached);
         }
         return refresh(game, overrideId, key, null);
@@ -151,7 +159,7 @@ export function createHltbLookup(deps: HltbDeps) {
     async function prefetch(game: HltbGame): Promise<PrefetchOutcome> {
         const { overrideId, key, cached, stale } = await read(game);
         if (cached && !stale) return { status: cached.status, fetched: false };
-        const previous = cached ? (strip(cached) as Found) : null;
+        const previous = foundOrNull(cached);
         const result = await refresh(game, overrideId, key, previous);
         return { status: result.status, fetched: true };
     }

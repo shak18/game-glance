@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capsuleBlur, cardStepFromDrag, isDragGesture, isPointerActivation, wheelStep } from '../../src/home/RecentsRow';
+import { capsuleBlur, cardStepFromDrag, greyedOut, isDragGesture, isPointerActivation, wheelStep } from '../../src/home/RecentsRow';
 
 describe('capsuleBlur', () => {
     it('only the selected card and its neighbours draw the blurred base (a narrow card\'s portrait covers it)', () => {
@@ -86,4 +86,10 @@ describe('mouse & touch gesture helpers (RecentsRow)', () => {
     });
 });
 
-
+describe('greyedOut', () => {
+    it('greys a game not installed here, never an installed one or a non-Steam shortcut', () => {
+        expect(greyedOut({ installed: false })).toBe(true);
+        expect(greyedOut({ installed: true })).toBe(false);
+        expect(greyedOut({ installed: false, shortcut: true })).toBe(false);
+    });
+});

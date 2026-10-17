@@ -29,6 +29,7 @@ export const PHRASES = {
     dayAgo: p('TimeSince_1Day', '1 day ago'),
     daysAgo: p('TimeSince_XDays', '%1$s days ago'),
     newMark: p('AppBox_NewToLibrary_Short', 'NEW'),
+    demoMark: p('Demo_Banner', 'Demo'),
     newToLibrary: p('AppBox_NewToLibrary', 'New to library'),
     updated: p('LibraryHome_RecentlyCompleted_DownloadDate', 'Updated %1$s'),
     controllerSettings: p('AppOverlay_ControllerSettings', 'Controller settings'),

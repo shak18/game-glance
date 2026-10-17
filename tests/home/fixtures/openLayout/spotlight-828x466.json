@@ -7,174 +7,174 @@
     "header": {
       "x": 0,
       "y": 0,
-      "w": 828.02,
-      "h": 466.38
+      "w": 828.13,
+      "h": 466.41
     },
     "headerImgBox": {
       "x": 0,
       "y": 0,
-      "w": 828.02,
-      "h": 466.38
+      "w": 828.13,
+      "h": 466.41
     },
     "titleblock": {
       "x": 32.2,
-      "y": 107.8,
-      "w": 368,
-      "h": 115.92
+      "y": 190.44,
+      "w": 368.05,
+      "h": 33.28
     },
     "title": {
       "x": 32.2,
-      "y": 107.8,
-      "w": 185.84,
-      "h": 99.59
+      "y": 190.44,
+      "w": 322.05,
+      "h": 16.96
     },
     "eyebrow": {
       "x": 32.2,
       "y": 215.44,
-      "w": 368,
+      "w": 368.05,
       "h": 8.28
     },
     "play": {
       "x": 32.2,
       "y": 244.43,
-      "w": 195.5,
+      "w": 195.52,
       "h": 34.5
     },
     "circle0": {
-      "x": 235.75,
+      "x": 235.77,
       "y": 244.43,
       "w": 34.5,
       "h": 34.5
     },
     "circle1": {
-      "x": 278.29,
+      "x": 278.31,
       "y": 244.43,
       "w": 34.5,
       "h": 34.5
     },
     "circle2": {
-      "x": 320.85,
+      "x": 320.9,
       "y": 244.43,
       "w": 34.5,
       "h": 34.5
     },
     "store": {
-      "x": 738.15,
-      "y": 252.48,
-      "w": 57.66,
-      "h": 20.12
+      "x": 738.45,
+      "y": 252.47,
+      "w": 57.47,
+      "h": 18.4
     },
     "card0": {
       "x": 32.2,
       "y": 299.62,
-      "w": 394.57,
-      "h": 102.9
+      "w": 310.08,
+      "h": 102.77
     },
     "card1": {
-      "x": 437.12,
+      "x": 526.09,
       "y": 299.62,
-      "w": 358.7,
-      "h": 102.9
+      "w": 269.84,
+      "h": 102.77
     },
-    "stat:col0:label": {
-      "x": 46.86,
-      "y": 311.98,
-      "w": 42.74,
-      "h": 9.48
+    "stat:played:label": {
+      "x": 46.78,
+      "y": 311.9,
+      "w": 42.71,
+      "h": 9.38
     },
-    "stat:col0:value": {
-      "x": 46.86,
-      "y": 323.76,
-      "w": 42.74,
-      "h": 20.7
+    "stat:played:value": {
+      "x": 46.78,
+      "y": 323.57,
+      "w": 42.71,
+      "h": 20.69
     },
-    "stat:col1:label": {
-      "x": 112.6,
-      "y": 311.98,
-      "w": 62.79,
-      "h": 9.48
+    "stat:achievements:label": {
+      "x": 112.49,
+      "y": 311.9,
+      "w": 62.74,
+      "h": 9.38
     },
-    "stat:col1:value": {
-      "x": 112.6,
-      "y": 323.76,
-      "w": 62.79,
-      "h": 20.7
+    "stat:achievements:value": {
+      "x": 112.49,
+      "y": 323.57,
+      "w": 62.74,
+      "h": 20.69
     },
     "stat:hltb:label": {
-      "x": 451.78,
-      "y": 327.21,
-      "w": 41.31,
-      "h": 9.48
+      "x": 540.66,
+      "y": 327.03,
+      "w": 42.21,
+      "h": 9.38
     },
     "stat:hltb:value": {
-      "x": 451.78,
-      "y": 338.99,
-      "w": 41.31,
-      "h": 20.7
+      "x": 540.66,
+      "y": 338.7,
+      "w": 42.21,
+      "h": 20.69
     },
     "stat:mainExtras:label": {
-      "x": 513.79,
-      "y": 327.21,
-      "w": 51.25,
-      "h": 9.48
+      "x": 603.58,
+      "y": 327.03,
+      "w": 50.13,
+      "h": 9.38
     },
     "stat:mainExtras:value": {
-      "x": 513.79,
-      "y": 338.99,
-      "w": 51.25,
-      "h": 20.7
+      "x": 603.58,
+      "y": 338.7,
+      "w": 50.13,
+      "h": 20.69
     },
     "stat:completionist:label": {
-      "x": 585.73,
-      "y": 327.21,
-      "w": 51.54,
-      "h": 9.48
+      "x": 674.41,
+      "y": 327.03,
+      "w": 51.89,
+      "h": 9.38
     },
     "stat:completionist:value": {
-      "x": 585.73,
-      "y": 338.99,
-      "w": 51.54,
-      "h": 20.7
+      "x": 674.41,
+      "y": 338.7,
+      "w": 51.89,
+      "h": 20.69
     },
     "hltbTitle": {
-      "x": 451.78,
-      "y": 311.98,
-      "w": 329.38,
-      "h": 9.48
+      "x": 540.66,
+      "y": 311.9,
+      "w": 240.69,
+      "h": 9.38
     },
     "desc": {
-      "x": 46.86,
-      "y": 351.35,
-      "w": 365.25,
-      "h": 38.81
+      "x": 46.78,
+      "y": 351.16,
+      "w": 280.93,
+      "h": 38.82
     },
     "caption": {
-      "x": 451.78,
-      "y": 374.62,
-      "w": 329.38,
+      "x": 540.66,
+      "y": 374.33,
+      "w": 240.69,
       "h": 12.5
     }
   },
   "texts": {
     "eyebrow": "Last Played · Today",
     "store": "Steam",
-    "stat:col0:label": "Play Time",
-    "stat:col0:value": "1.9 h",
-    "stat:col1:label": "Achievements",
-    "stat:col1:value": "0/49",
+    "stat:played:label": "Play Time",
+    "stat:played:value": "2 h",
+    "stat:achievements:label": "Achievements",
+    "stat:achievements:value": "4 / 13",
     "stat:hltb:label": "Main",
-    "stat:hltb:value": "9.1 h",
+    "stat:hltb:value": "9.2 h",
     "stat:mainExtras:label": "+ Extras",
-    "stat:mainExtras:value": "11.6 h",
+    "stat:mainExtras:value": "11.1 h",
     "stat:completionist:label": "100%",
-    "stat:completionist:value": "23.7 h",
+    "stat:completionist:value": "13.8 h",
     "hltbTitle": "HowLongToBeat",
-    "caption": "7.3 h left in main story"
+    "caption": "7.2 h left in main story"
   },
   "headerImg": {
-    "src": "assets/286690/library_hero.jpg?c=780105480",
+    "src": "assets/1262350/library_hero.jpg?c=529831560",
     "objectFit": "cover",
-    "objectPosition": "50% 50%",
+    "objectPosition": "50% 30%",
     "naturalWidth": 1920,
     "naturalHeight": 620
   }

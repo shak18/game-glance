@@ -166,3 +166,36 @@ export function recentsLayout(count: number, focused: number, geometry: RecentsG
     const ghosts = Array.from({ length: ghostCount(n) }, (_, j) => ({ left: ghostStart + j * step, opacity: ghostOpacity(j, onLibrary) }));
     return { items, scrollX: 0 - f * step, ghostStart, ghosts };
 }
+
+/** How Home's games row moves (Quick Access → Games row style): Steam's own Home, or Game Glance's Spotlight. */
+export const ROW_STYLES = ['steam', 'spotlight'] as const;
+export type RowStyle = (typeof ROW_STYLES)[number];
+
+/** A stored style, else Steam's (the default, and what an unknown value reads as). */
+export function rowStyleOf(value: unknown): RowStyle {
+    return (ROW_STYLES as readonly unknown[]).includes(value) ? (value as RowStyle) : 'steam';
+}
+
+/**
+ * The row as Steam's own Home lays it out: the first game (the last played) is always the wide card, every other one a
+ * capsule, the selected one included. The selection walks right with the row still until it passes the middle of the
+ * row's visible width (`viewport`, logical px from the row's left edge); from there the row scrolls to keep it centred,
+ * the games before it staying in view, faded. The Library card and the loop preview follow as in recentsLayout. Pure.
+ */
+export function steamRowLayout(count: number, focused: number, geometry: RecentsGeometry, viewport: number): RecentsLayout {
+    const { capsuleW, wideW, step, grow, ghostGap } = geometry;
+    const n = safeCount(count);
+    const f = clampFocus(n, focused);
+    const onLibrary = f === n;
+    const firstGrow = n > 0 ? grow : 0;
+    const leftOf = (i: number) => i * step + (i > 0 ? firstGrow : 0);
+    const widthOf = (i: number) => (i === 0 && n > 0 ? wideW : capsuleW);
+    const centre = leftOf(f) + widthOf(f) / 2;
+    const half = Number.isFinite(viewport) && viewport > 0 ? viewport / 2 : 0;
+    const scroll = Math.max(0, Math.round(centre - half));
+    const items: RecentsItem[] = [];
+    for (let i = 0; i <= n; i++) items.push({ left: leftOf(i), width: widthOf(i), dim: scroll > 0 && i < f });
+    const ghostStart = (n + 1) * step + firstGrow + ghostGap;
+    const ghosts = Array.from({ length: ghostCount(n) }, (_, j) => ({ left: ghostStart + j * step, opacity: ghostOpacity(j, onLibrary) }));
+    return { items, scrollX: scroll > 0 ? -scroll : 0, ghostStart, ghosts };
+}

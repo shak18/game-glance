@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetUnifideckPlaytime } from '../../src/data/unifideckPlaytime';
-import { pageCloudNeeded, parseCloudStatus, resetUnifideckCloud, unifideckCloudForApp, unifideckCloudState } from '../../src/data/unifideckCloud';
+import { pageCloudNeeded, parseCloudStatus, peekUnifideckCloud, resetUnifideckCloud, unifideckCloudForApp, unifideckCloudState } from '../../src/data/unifideckCloud';
 
 const base = { supported: true, in_progress: false, cloud_supported: null, save_path_resolved: true, has_local_saves: true, has_cloud_saves: true, local_snapshot: { timestamp: 1000 }, remote_snapshot: { timestamp: 1001 } };
 
@@ -42,6 +42,17 @@ describe('parseCloudStatus / unifideckCloudForApp', () => {
         expect(c?.tone).toBe('ok');
         expect(b.call).toHaveBeenCalledTimes(1);
         expect(b.call).toHaveBeenCalledWith('loader/call_plugin_method', 'Unifideck', 'get_cloud_save_status', 'gog', '1450711444');
+    });
+    it("peeks at a game's last answer at once (Home's cloud button keeps it across a switch), undefined before any", async () => {
+        expect(peekUnifideckCloud(5)).toBeUndefined();
+        const b = { call: vi.fn(async () => ({ success: true, data: base })) };
+        await unifideckCloudForApp(5, { backend: b, key, now: () => 1 });
+        expect(peekUnifideckCloud(5)?.tone).toBe('ok');
+        // Not a Unifideck game: known, and none.
+        await unifideckCloudForApp(6, { backend: b, key: async () => null });
+        expect(peekUnifideckCloud(6)).toBeNull();
+        resetUnifideckCloud();
+        expect(peekUnifideckCloud(5)).toBeUndefined();
     });
     it('is null for a non-Unifideck shortcut and on errors', async () => {
         expect(await unifideckCloudForApp(6, { backend: { call: vi.fn() }, key: async () => null })).toBeNull();

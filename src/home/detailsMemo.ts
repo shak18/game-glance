@@ -21,6 +21,7 @@ const memo = new Map<number, LibraryAssets>();
 const achievementMemo = new Map<number, { achieved: number; total: number }>();
 const cloudMemo = new Map<number, CloudDetails>();
 const spaceMemo = new Map<number, number>();
+const playtimeMemo = new Map<number, number>();
 type AchievementSink = (appId: number, counts: { achieved: number; total: number }) => void;
 let sink: AchievementSink | null = null;
 
@@ -44,6 +45,7 @@ export function noteDetails(appId: number, details: unknown) {
         noteAchievements(appId, details);
         noteCloud(appId, details);
         noteSpace(appId, details);
+        notePlaytime(appId, details);
         const assets = (details as { libraryAssets?: unknown } | null | undefined)?.libraryAssets;
         if (!assets || typeof assets !== 'object') return;
         const { strHeroImage, strHeaderImage, strLogoImage } = assets as Record<string, unknown>;
@@ -122,6 +124,20 @@ function noteSpace(appId: number, details: unknown) {
     while (spaceMemo.size > DETAILS_MEMO_MAX) spaceMemo.delete(spaceMemo.keys().next().value as number);
 }
 
+/** Steam's local play time (minutes) from the game's details, the only one a non-Steam shortcut has (#52), or undefined. */
+export function memoPlaytime(appId: number): number | undefined {
+    return playtimeMemo.get(appId);
+}
+
+/** Remembers a game's `nPlaytimeForever`; anything but a positive number is ignored. Bounded like the other memos. */
+function notePlaytime(appId: number, details: unknown) {
+    const minutes = (details as { nPlaytimeForever?: unknown } | null | undefined)?.nPlaytimeForever;
+    if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) return;
+    playtimeMemo.delete(appId);
+    playtimeMemo.set(appId, minutes);
+    while (playtimeMemo.size > DETAILS_MEMO_MAX) playtimeMemo.delete(playtimeMemo.keys().next().value as number);
+}
+
 /** The remembered assets for `appId`, or undefined. */
 export function memoDetails(appId: number): LibraryAssets | undefined {
     return memo.get(appId);
@@ -134,4 +150,5 @@ export function resetDetailsMemo() {
     achievementMemo.clear();
     cloudMemo.clear();
     spaceMemo.clear();
+    playtimeMemo.clear();
 }
