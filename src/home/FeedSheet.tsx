@@ -7,7 +7,7 @@ import { browserStores, capsuleUrls, heroUrls, landscapeUrls, storeHeaderUrl } f
 import { FeedCard } from './FeedCards';
 import { claimsPreferredFocus, FEED_GAP, FEED_ROW2_HEADER, FeedData, FeedItem, FeedTab, feedItems, feedRows, feedScroll, hasSecondRow, rowPosition, secondRowTitle } from './feedLayout';
 import { NAV_FIRST, onBack, PREFERRED_CHILD as PREFERRED, tabForButton } from './focusZones';
-import { focusElement } from './homeNav';
+import { focusElement, focusElementSettled } from './homeNav';
 import { clampTab, HomeMemory, noteHome, RESTORE_WAIT_MS, restoreStep } from './homeMemory';
 import { useCardAccents } from './useHomeData';
 import { playNavSound, shoulderSound } from './navSound';
@@ -157,7 +157,7 @@ export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames
         const step = restoreStep(items.map((i) => i.key), restore.feedKey, tabId !== 'recommended', waited);
         if (step === 'wait') {
             // Focus the selected tab meanwhile, so Home is not left without focus.
-            if (restore.zone === 'feed' && raised) focusElement(tabRefs.current[tab], `${tabId} tab`);
+            if (restore.zone === 'feed') focusElementSettled(tabRefs.current[tab], `${tabId} tab`);
             const timer = setTimeout(() => setWaited(true), RESTORE_WAIT_MS);
             return () => clearTimeout(timer);
         }
@@ -166,11 +166,17 @@ export function FeedSheet({ data, raised, viewport, space, onZone, onBackToGames
             select(place.row, place.index);
         }
         if (tab !== 0 || step !== 'tab') setEntered(true);
-        if (restore.zone === 'feed' && raised) {
-            if (step === 'tab') focusElement(tabRefs.current[tab], `${tabId} tab`);
-            else focusElement(cardRefs.current[step.card], `feed card ${step.card}`);
-        } else if (restore.zone === 'tabs' && raised) {
-            focusElement(tabRefs.current[tab], `${tabId} tab`);
+        if (restore.zone === 'feed') {
+            if (step === 'tab') {
+                focusElementSettled(tabRefs.current[tab], `${tabId} tab`);
+                onZone('tabs');
+            } else {
+                focusElementSettled(cardRefs.current[step.card], `feed card ${step.card}`);
+                onZone('feed');
+            }
+        } else if (restore.zone === 'tabs') {
+            focusElementSettled(tabRefs.current[tab], `${tabId} tab`);
+            onZone('tabs');
         }
         setRestoring(false);
         onRestored?.();

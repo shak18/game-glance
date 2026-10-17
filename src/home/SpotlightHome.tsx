@@ -17,7 +17,7 @@ import { legibleAccent } from './accent';
 import { solveRaiseDelta } from './raised';
 import { findLegendHeight, legendReserve } from './legend';
 import { FEED_SHEET, homeCss, stackShift } from './homeCss';
-import { noteHome, recentIndexFor, recentRefFor, takeRestore } from './homeMemory';
+import { markLeaving, noteHome, recentIndexFor, recentRefFor, takeRestore } from './homeMemory';
 import { eyebrowText, showEmptyMessage, usableSize } from './homeView';
 import { FamilyPill, SourcePill } from '../components/SourcePill';
 import { familyPillLabel } from '../data/family';
@@ -139,6 +139,11 @@ export function SpotlightHome() {
     // Back from a page (B): Home is just there (motion.RETURN_TIMINGS): Steam's page fades are off for a moment and its UI fades in.
     const [back, setBack] = useState(restore !== null);
     useEffect(() => {
+        return () => {
+            markLeaving();
+        };
+    }, []);
+    useEffect(() => {
         if (!back) return undefined;
         const timer = setTimeout(() => setBack(false), RETURN_TIMINGS.hold);
         return () => clearTimeout(timer);
@@ -160,7 +165,7 @@ export function SpotlightHome() {
     if (!cycle.holding) heldAccent.current = data.accent;
     const accent = heldAccent.current;
     // The zone holding gamepad focus, as reported by each zone's focus events; tabs/feed raise the sheet.
-    const [zone, setZone] = useState<Zone>('recents');
+    const [zone, setZone] = useState<Zone>(() => (restore?.zone && (!hasFeed && (restore.zone === 'tabs' || restore.zone === 'feed') ? 'recents' : restore.zone)) ?? 'recents');
     // Set once Home has had focus in this mount: until then the game cards claim Steam's preferred focus (Home opens on
     // them), afterwards the Play pill does, so Up from the cards lands on Play (the action row enters at its preferred child).
     const [focusedOnce, setFocusedOnce] = useState(false);
@@ -269,6 +274,7 @@ export function SpotlightHome() {
         try {
             if (onLibrary || !data.focused) return openLibrary();
             const appId = data.focused.appId;
+            noteHome({ zone: 'recents', recent: { kind: 'game', appId } });
             // In a fast run Home still shows another game: it shows the selected one first, then opens it from there.
             if (cycle.holding) {
                 cycle.settle();

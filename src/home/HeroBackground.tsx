@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LOG_PREFIX } from '../constants';
+import { useSettings } from '../data/settings';
 import { browserStores, capsuleUrls, heroUrls, registerArtworkCacheClearer, useArtworkVersion } from './artwork';
 import { displayInfo, loadArt } from './artShrink';
 import { HeroLayer, nextHeroLayers, settledHeroLayers } from './heroLayers';
@@ -124,12 +125,13 @@ const sameArt = (a: Art | undefined, b: Art) =>
 
 const bg = (url: string) => ({ backgroundImage: `url("${url.replace(/"/g, '%22')}")` });
 
-function Layer({ art, settled }: { art: Art; settled: boolean }) {
+function Layer({ art, settled, pulsing = true }: { art: Art; settled: boolean; pulsing?: boolean }) {
     const cls = `gh-hero-layer${settled ? ' gh-hero-settled' : ''}`;
+    const pulseClass = pulsing ? ' gh-hero-pulsing' : '';
     if (art.mode === 'full') {
         return (
             <div className={cls}>
-                <div className="gh-hero-full" style={bg(art.url)} />
+                <div className={`gh-hero-full${pulseClass}`} style={bg(art.url)} />
             </div>
         );
     }
@@ -137,7 +139,7 @@ function Layer({ art, settled }: { art: Art; settled: boolean }) {
         return (
             <div className={cls}>
                 <div className="gh-hero-blur" style={bg(art.url)} />
-                <div className="gh-hero-sharp" style={bg(art.url)} />
+                <div className={`gh-hero-sharp${pulseClass}`} style={bg(art.url)} />
             </div>
         );
     }
@@ -152,6 +154,7 @@ function Layer({ art, settled }: { art: Art; settled: boolean }) {
  * pre-loaded (local steamloopback files, at most 2 x HERO_PRELOAD_RADIUS, deduplicated), so the next switch starts at once.
  */
 export function HeroBackground({ appId, detailsVersion, neighbours = [] }: { appId: number | null; detailsVersion: number; neighbours?: number[] }) {
+    const { pulsingBackground } = useSettings();
     const artworkVersion = useArtworkVersion();
     const [layers, setLayers] = useState<Array<HeroLayer<Art>>>([]);
     const nextId = useRef(0);
@@ -206,7 +209,7 @@ export function HeroBackground({ appId, detailsVersion, neighbours = [] }: { app
     return (
         <div className="gh-hero" aria-hidden="true">
             {layers.map((layer) => (
-                <Layer key={layer.id} art={layer.art} settled={layer.settled} />
+                <Layer key={layer.id} art={layer.art} settled={layer.settled} pulsing={pulsingBackground} />
             ))}
         </div>
     );

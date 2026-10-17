@@ -7,7 +7,7 @@ describe('settings', () => {
         const kv = memoryKv();
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
         const listener = vi.fn();
         store.subscribe(listener);
         await store.setEnabled(false);
@@ -22,7 +22,7 @@ describe('settings', () => {
         await kv.set('settings', 'nonsense');
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
     });
 });
 
@@ -34,16 +34,16 @@ describe('settings: automatic pre-load', () => {
         await store.setAutoPreload(false);
         const reloaded = createSettingsStore(kv);
         await reloaded.load();
-        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(reloaded.get()).toEqual({ enabled: true, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
     });
     it('keeps the other setting when one changes, including settings saved before this option existed', async () => {
         const kv = memoryKv();
         await kv.set('settings', { enabled: false });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: true, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
         await store.setAutoPreload(false);
-        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: false, autoPreload: false, spotlightHome: false, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: false, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
     });
 });
 
@@ -112,7 +112,7 @@ describe('settings: the removed Home switches', () => {
         await kv.set('settings', { enabled: true, autoPreload: true, spotlightHome: true, wishlistDeals: true, homeFeed: false, cleanHome: true });
         const store = createSettingsStore(kv);
         await store.load();
-        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: true, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
+        expect(store.get()).toEqual({ enabled: true, autoPreload: true, spotlightHome: true, spotlightLibrary: false, libraryGridColumns: 3, libraryCollectionColumns: 5, wishlistDeals: true, cleanPage: false, zoomTransition: true, dimUninstalledGames: false, pulsingBackground: true, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: 'recent', homeRowSort: 'lastPlayed', homeWhatsNew: true, homeFriends: true, homeRecommended: true, homeCollections: true, tabMasterSync: true });
     });
 });
 
@@ -254,3 +254,17 @@ describe('statusAvatar (#9: your avatar in the status bar instead of the dot)', 
         expect(reloaded.get().statusAvatar).toBe(true);
     });
 });
+
+describe('settings: pulsingBackground', () => {
+    it('is on by default and remembers being turned off', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().pulsingBackground).toBe(true);
+        await store.setPulsingBackground(false);
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().pulsingBackground).toBe(false);
+    });
+});
+

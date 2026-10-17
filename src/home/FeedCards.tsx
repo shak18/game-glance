@@ -3,6 +3,7 @@ import { CSSProperties, useRef } from 'react';
 import { LOG_PREFIX } from '../constants';
 import type { FeedItem } from './feedLayout';
 import { openCollection, openGame, openNews, openSteamUrl, openStorePage } from './homeNav';
+import { noteHome } from './homeMemory';
 import { tr } from '../i18n/steamText';
 
 /** A and a touch can both arrive for one press; one action per press. */
@@ -65,6 +66,7 @@ export function FeedCard({ item, left, accent, preferred, onFocused, setRef }: {
         last.current = now;
         try {
             const target = item.opens;
+            noteHome({ zone: 'feed', feedKey: item.key });
             if (target?.kind === 'page') openGame(target.appId, self.current);
             else if (target?.kind === 'store') openStorePage(target.appId);
             else if (target?.kind === 'news') openNews(target.appId, target.gid);

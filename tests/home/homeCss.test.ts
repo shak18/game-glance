@@ -693,4 +693,9 @@ describe("a Unifideck game's cloud button (Unifideck's own look, as on its page)
         // Its in-sync check badge at Unifideck's proportion to the cloud (13 of the 24).
         expect(css).toMatch(/\.gh-btn-cloud\.gh-cloud-uni svg\.gh-uni-badge\s*\{[^}]*width: 13px/);
     });
+
+    it('pins hero full layer to inset 0 and center 30% to match GameView and Library framing exactly', () => {
+        expect(css).toMatch(/\.gh-hero-full\s*\{[^}]*position:\s*absolute\s*!important;[^}]*inset:\s*0\s*!important;[^}]*background-position:\s*center 30%/);
+        expect(css).toMatch(/\.gh-hero-full\s*\{[^}]*transform-origin:\s*50% 30%/);
+    });
 });

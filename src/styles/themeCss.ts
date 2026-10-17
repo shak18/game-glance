@@ -129,6 +129,8 @@ export function pageDUnit(width: number, height: number): number {
 export interface ThemeOptions {
     /** Spotlight Home's look (both toggles on, homeMode().restyleDetails): only appends rules to the 1.1.1 theme. */
     restyle?: boolean;
+    /** Gentle breathing ambient motion on background images */
+    pulsing?: boolean;
 }
 
 /**
@@ -277,7 +279,7 @@ export function buildThemeCss(classes: ThemeClasses, options: ThemeOptions = {})
                 margin: 0 !important; `),
         );
     }
-    if (options.restyle) rules.push(...restyleRules(classes, Boolean(layout)));
+    if (options?.restyle) rules.push(...restyleRules(classes, Boolean(layout), Boolean(options.pulsing)));
     return rules.filter((r) => r.length > 0).join('\n');
 }
 
@@ -439,7 +441,7 @@ export function buildLaunchCss(classes: ThemeClasses): string {
  * The eyebrow/title block is shown only with the full-screen layout, where the logo was; otherwise (a renamed Steam
  * class) it stays hidden and Steam's logo is left alone, so the page never shows two titles.
  */
-function restyleRules({ header, details, root, play, shared }: ThemeClasses, layout: boolean): string[] {
+function restyleRules({ header, details, root, play, shared }: ThemeClasses, layout: boolean, pulsing = false): string[] {
     const topCapsule = cls(header, 'TopCapsule');
     const titleImage = cls(header, 'TitleImageContainer');
     const svgTitle = cls(header, 'SVGTitle');
@@ -453,6 +455,7 @@ function restyleRules({ header, details, root, play, shared }: ThemeClasses, lay
         // Steam's thin download bar under the Play pill is never shown (the pill itself fills, buildDownloadCss), so it
         // cannot flash before the progress is known.
         rule(playButton && `${playButton} [role="progressbar"]`, ` display: none !important; `),
+        `@keyframes gh-hero-ambient { 0% { transform: scale(1.02) translate3d(0, 0, 0); } 50% { transform: scale(1.06) translate3d(1.2%, -0.8%, 0); } 100% { transform: scale(1.03) translate3d(-0.8%, 0.5%, 0); } }`,
         // The game's accent (buildAccentCss sets it on the page container) becomes the theme's accent:
         // the Play pill, the HLTB goal value and bar. Registered so it can animate, as on Home.
         `@property --glance-accent { syntax: '<color>'; inherits: true; initial-value: ${DEFAULT_ACCENT}; }`,
@@ -566,7 +569,12 @@ function restyleRules({ header, details, root, play, shared }: ThemeClasses, lay
         rules.push(
             // Steam's header crops the hero at 50% 50%, Home at 50% 30%: the same image then sits the same on both screens,
             // so the open transition's hand-over shows no jump (identical for standard heroes; taller custom art differs).
-            rule(topCapsule && `${topCapsule} img`, ` object-position: 50% 30% !important; `),
+            rule(
+                topCapsule && `${topCapsule} img`,
+                pulsing
+                    ? ' object-position: 50% 30% !important; animation: gh-hero-ambient 18s ease-in-out infinite alternate !important; will-change: transform !important; transform-origin: 50% 30% !important; '
+                    : ' object-position: 50% 30% !important; '
+            ),
             // The title (or logo) and the eyebrow under it, at the left inset, their bottom the row-to-cards gap (36) above the
             // Play row on every screen (the row sits lower on a TV, --gg-play-top's media query): title, eyebrow, row and
             // cards stay one stack, the eyebrow always the same distance above the row, and a longer title grows upward.

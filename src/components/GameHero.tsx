@@ -119,7 +119,7 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
     // Opened from Spotlight Home's open transition: Home's eyebrow words, kept for this visit (data/openIntent).
     const [openedFrom] = useState(() => openPending(game.appId));
 
-    const { homeStatusBar: statusBar, gameLogo } = useSettings();
+    const { homeStatusBar: statusBar, gameLogo, pulsingBackground } = useSettings();
     const artworkVersion = useArtworkVersion();
     const accent = useGameAccent(game.appId, restyle, artworkVersion);
     // Restyled only: the Play pill fills with Steam's download progress (hooks run either way; the CSS only when restyled).
@@ -178,7 +178,7 @@ function Hero({ overview, details, restyle, clean }: Props & { restyle: boolean;
                 </div>
             )}
             <div className="gg-hero" ref={heroRef}>
-                <style>{themeCss({ restyle })}</style>
+                <style>{themeCss({ restyle, pulsing: pulsingBackground })}</style>
                 <style>{unifideckCss({ restyle })}</style>
                 {cleanStyle && <style>{cleanStyle}</style>}
                 {launching && <style>{launchCss()}</style>}

@@ -223,6 +223,7 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         `@property --glance-accent { syntax: '<color>'; inherits: true; initial-value: ${DEFAULT_ACCENT}; }`,
         `@property --gh-card-accent { syntax: '<color>'; inherits: true; initial-value: ${DEFAULT_ACCENT}; }`,
         `@keyframes gh-fade-in { from { opacity: 0; } to { opacity: 1; } }`,
+        `@keyframes gh-hero-ambient { 0% { transform: scale(1.02) translate3d(0, 0, 0); } 50% { transform: scale(1.06) translate3d(1.2%, -0.8%, 0); } 100% { transform: scale(1.03) translate3d(-0.8%, 0.5%, 0); } }`,
         rule('.gh-root', `--gh-side: ${SIDE_INSET.handheld}px; --gh-row: ${SIDE_INSET.handheld - ROW_OFFSET}px; --gh-pill: ${PILL_INSET.handheld}px; --glance-accent: ${DEFAULT_ACCENT}; --glance-accent-text: ${DEFAULT_ACCENT}; --gh-top: 52px; --gh-bottom: ${FEED_SHEET.legendReserve}px; --gh-shift: 0px; --gh-dim: 0;
             --gh-ink: #07090c; --gh-on-accent: #0b0d10; --gh-r-capsule: 8px; --gh-r-card: 12px; --gh-r-panel: 16px; --gh-r-pill: 999px;
             transition: none;
@@ -236,11 +237,13 @@ export function homeCss(cardScale: number = CARD_SCALE_HANDHELD): string {
         // A layer whose fade a newer switch interrupted: shown at once (HeroBackground keeps at most two layers).
         rule('.gh-hero-layer.gh-hero-settled', 'animation: none; opacity: 1'),
         rule('.gh-hero-none', 'background: var(--gh-ink)'),
-        rule('.gh-hero-full', 'position: absolute; inset: 0; background-size: cover; background-position: center 30%; background-repeat: no-repeat'),
-        rule('.gh-hero-blur', 'position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(42px) saturate(1.25) brightness(.8)'),
-        rule('.gh-hero-sharp', `position: absolute; right: 0; top: 0; height: 100%; width: 62%; background-size: cover; background-position: center 30%;
-            background-repeat: no-repeat; opacity: .92;
+        rule('.gh-hero-full', 'position: absolute; inset: 0; width: 100%; height: 100%; background-size: cover; background-position: center 30%; background-repeat: no-repeat; transform-origin: 50% 30%'),
+        rule('.gh-hero-full.gh-hero-pulsing', 'animation: gh-hero-ambient 18s ease-in-out infinite alternate; will-change: transform'),
+        rule('.gh-hero-blur', 'position: absolute; inset: -40px; background-size: cover; background-position: center; filter: blur(42px) saturate(1.25) brightness(.8)'),
+        rule('.gh-hero-sharp', `position: absolute; right: 0; top: 0; bottom: 0; width: 62%; background-size: cover; background-position: center 30%;
+            background-repeat: no-repeat; opacity: .92; transform-origin: 50% 30%;
             -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 45%); mask-image: linear-gradient(90deg, transparent 0%, #000 45%)`),
+        rule('.gh-hero-sharp.gh-hero-pulsing', 'animation: gh-hero-ambient 18s ease-in-out infinite alternate; will-change: transform'),
 
         // Scrims: the game page's own shading (themeCss PAGE_SCRIMS; Michael: Cronos's page shading, on Home by default),
         // so the art looks the same on both and opening a game never changes it; a flat dim only under the feed sheet.

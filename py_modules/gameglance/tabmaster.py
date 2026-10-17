@@ -67,7 +67,7 @@ def read_tabmaster_tabs(settings_file_path: str) -> List[Dict[str, Any]]:
         return []
 
     # Check for multi-user structure: {"usersDict": {"<user_id>": {"tabs": {...}}}}
-    users_dict = data.get("usersDict")
+    users_dict = data.get("usersDict") or data.get("users_dict") or data.get("users")
     tabs_source = None
 
     if isinstance(users_dict, dict) and users_dict:
@@ -76,7 +76,7 @@ def read_tabmaster_tabs(settings_file_path: str) -> List[Dict[str, Any]]:
         for _, u_data in users_dict.items():
             if not isinstance(u_data, dict):
                 continue
-            raw_tabs = u_data.get("tabs")
+            raw_tabs = u_data.get("tabs") or u_data.get("currentTabs")
             if not raw_tabs:
                 continue
 
@@ -116,12 +116,12 @@ def read_tabmaster_tabs(settings_file_path: str) -> List[Dict[str, Any]]:
 
     # Format 2: Direct tabs dictionary or list at root {"tabs": {...}} or other keys
     if not tabs_source:
-        for k in ["tabs", "currentTabs", "userTabs"]:
+        for k in ["tabs", "currentTabs", "userTabs", "tabsDict"]:
             if data.get(k):
                 tabs_source = data[k]
                 break
     if not tabs_source and isinstance(data.get("settings"), dict):
-        tabs_source = data["settings"].get("tabs")
+        tabs_source = data["settings"].get("tabs") or data["settings"].get("currentTabs")
 
     if not tabs_source:
         return []
@@ -138,6 +138,17 @@ def read_tabmaster_tabs(settings_file_path: str) -> List[Dict[str, Any]]:
 
     result = []
     for tab_id, tab_info in raw_items:
+        raw_apps = tab_info.get("appIds") or tab_info.get("apps") or tab_info.get("games")
+        app_ids = []
+        if isinstance(raw_apps, list):
+            for item in raw_apps:
+                if isinstance(item, int) and item > 0:
+                    app_ids.append(item)
+                elif isinstance(item, dict):
+                    aid = item.get("appid") or item.get("appId")
+                    if isinstance(aid, int) and aid > 0:
+                        app_ids.append(aid)
+
         tab_item = {
             "id": tab_info.get("id") or str(tab_id),
             "title": tab_info.get("customTitle") or tab_info.get("title") or str(tab_id),
@@ -147,6 +158,10 @@ def read_tabmaster_tabs(settings_file_path: str) -> List[Dict[str, Any]]:
             "filters": tab_info.get("filters", []),
             "filtersMode": tab_info.get("filtersMode", "and"),
             "categoriesToInclude": tab_info.get("categoriesToInclude", 1),
+            "appIds": app_ids,
+            "sort": tab_info.get("sort"),
+            "sortMethod": tab_info.get("sortMethod") or tab_info.get("sort_method"),
+            "bReverseSort": tab_info.get("bReverseSort") or tab_info.get("reverseSort"),
         }
         result.append(tab_item)
 

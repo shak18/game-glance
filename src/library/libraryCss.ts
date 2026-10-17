@@ -66,6 +66,7 @@ export const LIBRARY_CSS = `
 .sgl-root.gh-bridge .sgl-inspector,
 .sgl-root.gh-bridge .sgl-grid-panel,
 .sgl-root.gh-bridge .sgl-bg-container,
+.sgl-root.gh-bridge .sgl-bg-layer,
 .sgl-root.sgl-leaving.gh-bridge,
 .sgl-root.sgl-leaving.gh-bridge * {
     animation: none !important;
@@ -262,6 +263,12 @@ export const LIBRARY_CSS = `
     z-index: 0 !important;
 }
 
+@keyframes gh-hero-ambient {
+    0% { transform: scale(1.02) translate3d(0, 0, 0); }
+    50% { transform: scale(1.06) translate3d(1.2%, -0.8%, 0); }
+    100% { transform: scale(1.03) translate3d(-0.8%, 0.5%, 0); }
+}
+
 .sgl-bg-layer {
     position: absolute !important;
     inset: 0 !important;
@@ -271,9 +278,17 @@ export const LIBRARY_CSS = `
     background-position: center 30% !important;
     background-repeat: no-repeat !important;
     filter: brightness(0.36) saturate(1.18);
-    transform: none !important;
+    transform-origin: 50% 30% !important;
     transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
     will-change: opacity;
+}
+
+.sgl-bg-layer.sgl-bg-pulsing {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    animation: gh-hero-ambient 18s ease-in-out infinite alternate !important;
+    will-change: transform, opacity !important;
 }
 
 .sgl-bg-vignette {

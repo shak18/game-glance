@@ -844,6 +844,7 @@ describe('the page arriving after the open transition', () => {
     });
     it("pins the page's hero to Home's crop (50% 30%) with the restyled layout", () => {
         expect(buildThemeCss(full, { restyle: true })).toContain('.hd_Top img { object-position: 50% 30% !important; }');
+        expect(buildThemeCss(full, { restyle: true, pulsing: true })).toContain('.hd_Top img { object-position: 50% 30% !important; animation: gh-hero-ambient 18s ease-in-out infinite alternate !important; will-change: transform !important; transform-origin: 50% 30% !important; }');
         expect(buildThemeCss(full)).not.toContain('object-position: 50% 30%');
     });
 });

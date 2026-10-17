@@ -24,6 +24,7 @@ export interface Settings {
     homeRecommended: boolean; // Spotlight Home feed: Recommended tab
     homeCollections: boolean; // Spotlight Home feed: Collections tab
     tabMasterSync: boolean; // sync tab order, visibility, and custom tabs from TabMaster when installed
+    pulsingBackground: boolean; // gentle breathing ambient motion on background images
 }
 
 const KEY = 'settings';
@@ -48,6 +49,7 @@ const DEFAULTS: Settings = {
     homeRecommended: true,
     homeCollections: true,
     tabMasterSync: true,
+    pulsingBackground: true,
 };
 
 export function createSettingsStore(kv: KvBackend) {
@@ -86,6 +88,7 @@ export function createSettingsStore(kv: KvBackend) {
                 homeRecommended: pick('homeRecommended'),
                 homeCollections: pick('homeCollections'),
                 tabMasterSync: pick('tabMasterSync'),
+                pulsingBackground: pick('pulsingBackground'),
             };
             emit();
         },
@@ -190,6 +193,11 @@ export function createSettingsStore(kv: KvBackend) {
                 resetTabMasterCache();
             } catch {}
             current = { ...current, tabMasterSync };
+            emit();
+            await kv.set(KEY, current);
+        },
+        async setPulsingBackground(pulsingBackground: boolean): Promise<void> {
+            current = { ...current, pulsingBackground };
             emit();
             await kv.set(KEY, current);
         },

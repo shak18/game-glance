@@ -349,7 +349,11 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
         return categories.find((c) => c.id === activeCategoryId) ?? categories[0];
     }, [categories, activeCategoryId]);
 
-    const isCollectionsTab = activeCategory?.id === 'collections';
+    const isCollectionsTab = Boolean(
+        activeCategory?.isCollectionsTab ||
+        activeCategory?.id === 'collections' ||
+        (activeCategory?.collections && activeCategory.collections.length > 0 && (!activeCategory.games || activeCategory.games.length === 0))
+    );
     const isInsideSubCollection = isCollectionsTab && Boolean(selectedCollectionId);
     const isCollectionsView = isCollectionsTab && !isInsideSubCollection;
 

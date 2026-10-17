@@ -23,7 +23,15 @@ export function readGameInfo(overview: unknown, details: unknown): GameInfo {
     const d = details as AnyRecord;
     const appId = Number(o?.appid ?? 0) || 0;
     const isShortcut = o?.app_type === SHORTCUT_APP_TYPE || appId >= FIRST_SHORTCUT_APP_ID;
-    const minutes = Number(o?.minutes_playtime_forever ?? 0);
+    const minutes = Number(
+        o?.minutes_playtime_forever ??
+        (o as any)?.m_iPlaytimeForever ??
+        (o as any)?.nPlaytimeForever ??
+        (d as AnyRecord)?.minutes_playtime_forever ??
+        (d as AnyRecord)?.nPlaytimeForever ??
+        (d as AnyRecord)?.m_iPlaytimeForever ??
+        0
+    );
     const a = d?.achievements as AnyRecord;
     const total = Number(a?.nTotal ?? 0);
     const achievements = !isShortcut && Number.isFinite(total) && total > 0

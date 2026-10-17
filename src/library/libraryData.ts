@@ -40,6 +40,8 @@ export interface LibraryCategory {
     count: number;
     games: LibraryGameItem[];
     collections?: LibraryCollectionItem[];
+    isCollectionsTab?: boolean;
+    isSoundtracksTab?: boolean;
 }
 
 type RawApp = {
@@ -587,7 +589,8 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
         ((app.appid < 0 || app.appid > 0x7fffffff)
             ? s.appDetailsStore?.GetAppDetails?.(app.appid < 0 ? (app.appid >>> 0) : (app.appid | 0))
             : undefined);
-    const info = readGameInfo(overview, details);
+    const mergedOverview = overview ? { ...app, ...overview } : app;
+    const info = readGameInfo(mergedOverview, details);
     const isSoundtrack =
         soundtrackAppIds?.has(app.appid) === true ||
         app.app_type === MUSIC_APP_TYPE ||
@@ -603,10 +606,12 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
         : !info.isShortcut
             ? 'Steam'
             : heroicStoreLabel(info.heroic) ?? 'Non-Steam';
-    const size = typeof app.size_on_disk === 'number' ? app.size_on_disk : Number(app.size_on_disk) || undefined;
+    const size = typeof app.size_on_disk === 'number'
+        ? app.size_on_disk
+        : Number(app.size_on_disk ?? (mergedOverview as any)?.size_on_disk) || undefined;
     const gameId = app.m_gameid ?? ((overview as Record<string, unknown> | undefined)?.m_gameid as string | undefined);
 
-    const overviewRec = overview as Record<string, unknown> | undefined;
+    const overviewRec = mergedOverview as Record<string, unknown> | undefined;
     const isInstalled = isShortcutApp(app)
         ? true
         : installedAppIds && installedAppIds.size > 0
@@ -620,6 +625,17 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
                         : false;
 
     const compat = (app.steam_deck_compat_category ?? (overviewRec?.steam_deck_compat_category as number | undefined)) ?? 0;
+    const playedMinutes = info.playedMinutes > 0
+        ? info.playedMinutes
+        : Number(
+            (mergedOverview as any)?.minutes_playtime_forever ??
+            app.minutes_playtime_forever ??
+            (app as any)?.m_iPlaytimeForever ??
+            (app as any)?.nPlaytimeForever ??
+            (details as any)?.minutes_playtime_forever ??
+            (details as any)?.nPlaytimeForever ??
+            0
+          ) || 0;
 
     return {
         appId: app.appid,
@@ -629,12 +645,12 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
         gameId,
         installed: isInstalled,
         running: isRunning,
-        playedMinutes: info.playedMinutes,
+        playedMinutes,
         achievements: isSoundtrack ? null : info.achievements,
         heroic: info.heroic,
         source,
         compat,
-        lastPlayed: app.rt_last_time_played,
+        lastPlayed: (mergedOverview as any)?.rt_last_time_played ?? app.rt_last_time_played,
         sizeOnDisk: size,
     };
 }
@@ -667,13 +683,13 @@ export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: T
             { id: 'great-on-deck', name: 'GREAT ON DECK', count: regularGames.slice(0, 3).length, games: regularGames.slice(0, 3) },
             { id: 'all', name: 'ALL STEAM GAMES', count: steamGames.length, games: steamGames },
             { id: 'favorites', name: 'FAVORITES', count: regularGames.filter((g) => g.playedMinutes > 3000).length, games: regularGames.filter((g) => g.playedMinutes > 3000) },
-            { id: 'collections', name: 'COLLECTIONS', count: mockCollections.length, games: [], collections: mockCollections },
+            { id: 'collections', name: 'COLLECTIONS', count: mockCollections.length, games: [], collections: mockCollections, isCollectionsTab: true },
             { id: 'non-steam', name: 'NON-STEAM', count: regularGames.filter((g) => g.isShortcut).length, games: regularGames.filter((g) => g.isShortcut) },
         ];
         if (soundtracks.length > 0) {
-            baseCategories.push({ id: 'soundtracks', name: 'SOUNDTRACKS', count: soundtracks.length, games: soundtracks });
+            baseCategories.push({ id: 'soundtracks', name: 'SOUNDTRACKS', count: soundtracks.length, games: soundtracks, isSoundtracksTab: true });
         }
-        return tabMasterData ? applyTabMasterCategories(baseCategories, mockCollections, tabMasterData, regularGames) : baseCategories;
+        return tabMasterData ? applyTabMasterCategories(baseCategories, mockCollections, tabMasterData, regularGames, soundtracks) : baseCategories;
     }
 
     const { installed, installedAppIds, deckCompat, all, favorites, shortcuts, soundtracks, soundtrackAppIds, userCollections, runningAppIds } = readRawApps();
@@ -743,6 +759,7 @@ export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: T
             count: collectionItems.length,
             games: [],
             collections: collectionItems,
+            isCollectionsTab: true,
         });
     }
 
@@ -750,12 +767,14 @@ export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: T
         categories.push({ id: 'non-steam', name: 'NON-STEAM', count: regularShortcuts.length, games: toItems(regularShortcuts) });
     }
 
-    if (soundtracks.length > 0) {
+    const soundtrackItems = soundtracks.length > 0 ? toItems(soundtracks, true) : [];
+    if (soundtrackItems.length > 0) {
         categories.push({
             id: 'soundtracks',
             name: 'SOUNDTRACKS',
-            count: soundtracks.length,
-            games: toItems(soundtracks, true),
+            count: soundtrackItems.length,
+            games: soundtrackItems,
+            isSoundtracksTab: true,
         });
     }
 
@@ -770,5 +789,5 @@ export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: T
         }
     }
     const allGamesPool = toItems(combinedAllApps);
-    return tabMasterData ? applyTabMasterCategories(base, collectionItems, tabMasterData, allGamesPool) : base;
+    return tabMasterData ? applyTabMasterCategories(base, collectionItems, tabMasterData, allGamesPool, soundtrackItems) : base;
 }

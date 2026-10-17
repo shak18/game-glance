@@ -305,9 +305,9 @@ export function LibraryCategoryBar({
                     : activeSubCollectionName
                         ? 'IN COLLECTION'
                         : activeItem
-                            ? activeItem.id === 'soundtracks'
+                            ? (activeItem.id === 'soundtracks' || (activeItem as LibraryCategory).isSoundtracksTab)
                                 ? `${activeItem.count} SOUNDTRACKS`
-                                : activeItem.id === 'collections'
+                                : (activeItem.id === 'collections' || (activeItem as LibraryCategory).isCollectionsTab)
                                     ? `${activeItem.count} COLLECTIONS`
                                     : `${activeItem.count} GAMES`
                             : ''}

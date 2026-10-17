@@ -84,6 +84,7 @@ export function SettingsPanel() {
         homeRecommended,
         homeCollections,
         tabMasterSync,
+        pulsingBackground,
     } = useSettings();
     // Read when the panel opens, so a collection made since shows up.
     const collections = useMemo(steamHomeCollections, []);
@@ -300,6 +301,14 @@ export function SettingsPanel() {
                 )}
             </PanelSection>
             <PanelSection title="Visuals & Effects">
+                <PanelSectionRow>
+                    <ToggleField
+                        label="Pulsing background"
+                        description="Adds subtle, breathing ambient motion to the background image across Home, Library, and Game View."
+                        checked={pulsingBackground}
+                        onChange={(value) => settings.setPulsingBackground(value)}
+                    />
+                </PanelSectionRow>
                 <PanelSectionRow>
                     <ToggleField
                         label="Unhighlight uninstalled games"

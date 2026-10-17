@@ -2,7 +2,7 @@ import { Navigation } from '@decky/ui';
 import { LOG_PREFIX } from '../constants';
 import { noteLibrary } from '../library/libraryMemory';
 import { browserStores, heroUrls } from './artwork';
-import { markLeaving } from './homeMemory';
+import { markLeaving, noteHome } from './homeMemory';
 import { playNavSound } from './navSound';
 import { takeSteamFocus } from './steamFocus';
 import { createOpenTransition, OpenTransition } from './openTransition';
@@ -294,6 +294,10 @@ function controller(): OpenTransition {
 export function openGame(appId: number, source?: HTMLElement | null) {
     // Steam's own sound for going into a game's page (every open from Home: a card, the info button, a feed card).
     playNavSound('IntoGameDetail');
+    markLeaving();
+    if (!source?.closest?.('.gh-feed')) {
+        noteHome({ recent: { kind: 'game', appId } });
+    }
     if (!settings.get().zoomTransition) {
         openPage(appId);
         return;
