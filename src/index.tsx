@@ -5,12 +5,14 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { LOG_PREFIX, PLUGIN_NAME } from './constants';
 import { settings } from './data/settings';
 import { getSteamLanguage } from './data/steam';
+import { startUpdateChecks } from './data/update';
 import { patchLibraryPage } from './patches/libraryPage';
 
 export default definePlugin(() => {
     settings.load().catch((error) => console.error(`${LOG_PREFIX} failed to load settings`, error));
     void getSteamLanguage(); // resolve early so library renders in the right locale immediately
     const unpatchLibrary = patchLibraryPage();
+    const stopUpdateChecks = startUpdateChecks();
     console.log(`${LOG_PREFIX} loaded`);
 
     return {
@@ -23,6 +25,11 @@ export default definePlugin(() => {
                 unpatchLibrary();
             } catch (error) {
                 console.error(`${LOG_PREFIX} Library unpatch failed`, error);
+            }
+            try {
+                stopUpdateChecks();
+            } catch (error) {
+                console.error(`${LOG_PREFIX} Update check cleanup failed`, error);
             }
             console.log(`${LOG_PREFIX} unloaded`);
         },
