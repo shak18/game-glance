@@ -1,5 +1,5 @@
-import gameglance
+import glancelibrary
 
 
 def test_package_imports():
-    assert gameglance.__doc__.startswith("Game Glance")
+    assert glancelibrary.__doc__.startswith("Glance Library")

@@ -5,7 +5,7 @@ import { settings } from '../data/settings';
 import { LibraryGate } from '../library/LibraryGate';
 
 const LIBRARY_ROUTES = ['/library/games', '/library/all', '/library'];
-const KEY = 'game-glance-library';
+const KEY = 'glance-library-spotlight';
 const MEMO = Symbol.for('react.memo');
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

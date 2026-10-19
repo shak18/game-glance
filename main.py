@@ -3,12 +3,12 @@ import os
 
 import decky
 
-from gameglance.heroic import HeroicLibrary, heroic_cache_dirs
-from gameglance.home_errors import FILE_NAME, append_log, start_entry
-from gameglance.kv import KvStore
-from gameglance.migrate import carry_over, old_data_path
-from gameglance.store_lookup import RegistryCache, key_for_appid, store_for_appid
-from gameglance.tabmaster import get_tabmaster_data
+from glancelibrary.heroic import HeroicLibrary, heroic_cache_dirs
+from glancelibrary.home_errors import FILE_NAME, append_log, start_entry
+from glancelibrary.kv import KvStore
+from glancelibrary.migrate import carry_over, old_data_path
+from glancelibrary.store_lookup import RegistryCache, key_for_appid, store_for_appid
+from glancelibrary.tabmaster import get_tabmaster_data
 
 DATA_PATH = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "data.json")
 if carry_over(old_data_path(decky.DECKY_PLUGIN_SETTINGS_DIR), DATA_PATH):

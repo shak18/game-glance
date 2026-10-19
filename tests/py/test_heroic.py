@@ -1,6 +1,6 @@
 import json
 
-from gameglance.heroic import HeroicLibrary, heroic_cache_dirs
+from glancelibrary.heroic import HeroicLibrary, heroic_cache_dirs
 
 
 def write(path, data):

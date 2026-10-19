@@ -2,7 +2,7 @@ import json
 import os
 import time
 
-from gameglance.store_lookup import RegistryCache, load_registry, store_for_appid
+from glancelibrary.store_lookup import RegistryCache, load_registry, store_for_appid
 
 APPID = 3123456789  # unsigned shortcut id as Steam's frontend reports it
 SIGNED = APPID - 2**32  # same id stored as signed 32-bit
@@ -64,7 +64,7 @@ def test_registry_cache_reloads_when_file_changes(tmp_path):
 
 
 def test_key_for_appid_returns_store_key_and_game_id():
-    from gameglance.store_lookup import key_for_appid
+    from glancelibrary.store_lookup import key_for_appid
 
     registry = {
         "epic:abc": {"appid": 1},
@@ -81,6 +81,6 @@ def test_key_for_appid_returns_store_key_and_game_id():
 
 
 def test_key_for_appid_keeps_colons_in_the_game_id():
-    from gameglance.store_lookup import key_for_appid
+    from glancelibrary.store_lookup import key_for_appid
 
     assert key_for_appid({"epic:a:b": {"appid": 7}}, 7) == {"store": "epic", "id": "a:b"}

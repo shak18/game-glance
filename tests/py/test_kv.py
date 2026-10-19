@@ -1,7 +1,7 @@
 import json
 import os
 
-from gameglance.kv import KvStore
+from glancelibrary.kv import KvStore
 
 
 def test_set_get_roundtrip_persists(tmp_path):

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from gameglance.store_lookup import RegistryCache
+from glancelibrary.store_lookup import RegistryCache
 
 # Runner -> Heroic's library cache file. GOG lists games under "games", Epic and Amazon under "library".
 LIBRARY_FILES = {

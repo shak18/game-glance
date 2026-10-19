@@ -1,6 +1,6 @@
 import os
 
-from gameglance.home_errors import FILE_NAME, append_log, start_entry
+from glancelibrary.home_errors import FILE_NAME, append_log, start_entry
 
 
 def test_appends_each_entry_and_creates_the_folder(tmp_path):

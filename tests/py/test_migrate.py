@@ -1,6 +1,6 @@
 import json
 
-from gameglance.migrate import carry_over, old_data_path
+from glancelibrary.migrate import carry_over, old_data_path
 
 
 def test_copies_the_old_plugin_data_when_the_new_plugin_has_none(tmp_path):

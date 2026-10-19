@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).absolute().parent.parent
 OUT_DIR = ROOT / "out"
 DIST_DIR = ROOT / "dist"
-PY_MODULES_DIR = ROOT / "py_modules" / "gameglance"
+PY_MODULES_DIR = ROOT / "py_modules" / "glancelibrary"
 
 ROOT_FILES = [
     "plugin.json",
@@ -89,14 +89,14 @@ def package():
                 zf.write(fpath, arcname)
                 print(f"  + {arcname}")
 
-        # 3. py_modules/gameglance/ files (excluding __pycache__ and .pyc)
+        # 3. py_modules/glancelibrary/ files (excluding __pycache__ and .pyc)
         if PY_MODULES_DIR.exists():
             for fpath in sorted(PY_MODULES_DIR.rglob("*")):
                 if fpath.is_file():
                     if "__pycache__" in fpath.parts or fpath.suffix in [".pyc", ".pyo"]:
                         continue
                     rel_path = fpath.relative_to(PY_MODULES_DIR).as_posix()
-                    arcname = f"glance-library/py_modules/gameglance/{rel_path}"
+                    arcname = f"glance-library/py_modules/glancelibrary/{rel_path}"
                     zf.write(fpath, arcname)
                     print(f"  + {arcname}")
 

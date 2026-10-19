@@ -445,7 +445,7 @@ export function reloadArtworkCache(): number {
         }
     }
     if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('game-glance:reload-artwork', {
+        window.dispatchEvent(new CustomEvent('glance-library:reload-artwork', {
             detail: { version: currentArtworkVersion },
         }));
     }
@@ -460,8 +460,8 @@ export function useArtworkVersion(): number {
             const v = (e as CustomEvent<{ version: number }>).detail?.version ?? Date.now();
             setVersion(v);
         };
-        window.addEventListener('game-glance:reload-artwork', handler);
-        return () => window.removeEventListener('game-glance:reload-artwork', handler);
+        window.addEventListener('glance-library:reload-artwork', handler);
+        return () => window.removeEventListener('glance-library:reload-artwork', handler);
     }, []);
     return version;
 }
