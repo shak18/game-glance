@@ -23,10 +23,18 @@ HEROIC = HeroicLibrary(heroic_cache_dirs(decky.DECKY_USER_HOME))
 
 class Plugin:
     async def kv_get(self, key: str):
-        return KV.get(key)
+        try:
+            return KV.get(key)
+        except Exception:
+            decky.logger.exception(f"[glance-library] kv_get({key}) failed")
+            return None
 
     async def kv_set(self, key: str, value) -> None:
-        KV.set(key, value)
+        try:
+            KV.set(key, value)
+        except Exception:
+            decky.logger.exception(f"[glance-library] kv_set({key}) failed")
+            raise
 
     async def kv_delete(self, key: str) -> None:
         KV.delete(key)

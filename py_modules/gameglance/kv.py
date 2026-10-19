@@ -31,6 +31,15 @@ class KvStore:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(self._data, f)
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass
+            try:
+                os.chmod(tmp, 0o664)
+            except OSError:
+                pass
             os.replace(tmp, self._path)
         except BaseException:
             try:

@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryKv } from '../../src/data/kv';
-import { createSettingsStore } from '../../src/data/settings';
+import { createSettingsStore, defaultStorage } from '../../src/data/settings';
 
 describe('settings', () => {
+    beforeEach(() => {
+        defaultStorage.clear?.();
+    });
+
     it('defaults to enabled with Spotlight Library active and persists changes', async () => {
         const kv = memoryKv();
         const store = createSettingsStore(kv);
@@ -31,7 +35,7 @@ describe('settings', () => {
     it('falls back to defaults on corrupt data', async () => {
         const kv = memoryKv();
         await kv.set('settings', 'nonsense');
-        const store = createSettingsStore(kv);
+        const store = createSettingsStore(kv, null);
         await store.load();
         expect(store.get()).toEqual({
             enabled: true,
@@ -128,5 +132,34 @@ describe('settings', () => {
         const reloaded = createSettingsStore(kv);
         await reloaded.load();
         expect(reloaded.get().zoomTransition).toBe(false);
+    });
+
+    it('retries when backend is temporarily unavailable at startup', async () => {
+        let attempts = 0;
+        const flapper = {
+            async get() {
+                attempts++;
+                if (attempts < 3) throw new Error('backend not ready');
+                return { libraryGridColumns: 5 };
+            },
+            async set() {},
+            async delete() {},
+            async deletePrefix() { return 0; },
+        };
+        const store = createSettingsStore(flapper, null);
+        await store.load(5, 5);
+        expect(attempts).toBe(3);
+        expect(store.get().libraryGridColumns).toBe(5);
+    });
+
+    it('instant local cache restores settings before backend load finishes', async () => {
+        const kv = memoryKv();
+        const store1 = createSettingsStore(kv);
+        await store1.setLibraryGridColumns(6);
+        expect(store1.get().libraryGridColumns).toBe(6);
+
+        // A new store created without loading from kv yet immediately has 6
+        const store2 = createSettingsStore(kv);
+        expect(store2.get().libraryGridColumns).toBe(6);
     });
 });

@@ -60,7 +60,7 @@ def get_version():
 
 def package():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    zip_path = OUT_DIR / "game-glance.zip"
+    zip_path = OUT_DIR / "glance-library.zip"
 
     print(f"\n==> Packaging into {zip_path}...")
 
@@ -73,7 +73,7 @@ def package():
         for fname in ROOT_FILES:
             fpath = ROOT / fname
             if fpath.exists():
-                arcname = f"game-glance/{fname}"
+                arcname = f"glance-library/{fname}"
                 zf.write(fpath, arcname)
                 print(f"  + {arcname}")
             else:
@@ -85,7 +85,7 @@ def package():
                 if fpath.suffix == ".map":
                     continue  # skip source maps to keep zip small
                 rel_path = fpath.relative_to(DIST_DIR).as_posix()
-                arcname = f"game-glance/dist/{rel_path}"
+                arcname = f"glance-library/dist/{rel_path}"
                 zf.write(fpath, arcname)
                 print(f"  + {arcname}")
 
@@ -96,7 +96,7 @@ def package():
                     if "__pycache__" in fpath.parts or fpath.suffix in [".pyc", ".pyo"]:
                         continue
                     rel_path = fpath.relative_to(PY_MODULES_DIR).as_posix()
-                    arcname = f"game-glance/py_modules/gameglance/{rel_path}"
+                    arcname = f"glance-library/py_modules/gameglance/{rel_path}"
                     zf.write(fpath, arcname)
                     print(f"  + {arcname}")
 

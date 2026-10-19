@@ -46,13 +46,16 @@ export function SettingsPanel() {
                                 step={1}
                                 notchCount={5}
                                 notchLabels={[
-                                    { notchIndex: 0, label: '3' },
-                                    { notchIndex: 1, label: '4' },
-                                    { notchIndex: 2, label: '5' },
-                                    { notchIndex: 3, label: '6' },
-                                    { notchIndex: 4, label: '7' },
+                                    { notchIndex: 0, label: '3', value: 3 },
+                                    { notchIndex: 1, label: '4', value: 4 },
+                                    { notchIndex: 2, label: '5', value: 5 },
+                                    { notchIndex: 3, label: '6', value: 6 },
+                                    { notchIndex: 4, label: '7', value: 7 },
                                 ]}
-                                onChange={(value: number) => settings.setLibraryGridColumns(value)}
+                                onChange={(value: number) => {
+                                    const cols = value < 3 ? value + 3 : value;
+                                    void settings.setLibraryGridColumns(cols);
+                                }}
                             />
                         </PanelSectionRow>
                         <PanelSectionRow>
@@ -65,14 +68,17 @@ export function SettingsPanel() {
                                 step={1}
                                 notchCount={6}
                                 notchLabels={[
-                                    { notchIndex: 0, label: '3' },
-                                    { notchIndex: 1, label: '4' },
-                                    { notchIndex: 2, label: '5' },
-                                    { notchIndex: 3, label: '6' },
-                                    { notchIndex: 4, label: '7' },
-                                    { notchIndex: 5, label: '8' },
+                                    { notchIndex: 0, label: '3', value: 3 },
+                                    { notchIndex: 1, label: '4', value: 4 },
+                                    { notchIndex: 2, label: '5', value: 5 },
+                                    { notchIndex: 3, label: '6', value: 6 },
+                                    { notchIndex: 4, label: '7', value: 7 },
+                                    { notchIndex: 5, label: '8', value: 8 },
                                 ]}
-                                onChange={(value: number) => settings.setLibraryCollectionColumns(value)}
+                                onChange={(value: number) => {
+                                    const cols = value < 3 ? value + 3 : value;
+                                    void settings.setLibraryCollectionColumns(cols);
+                                }}
                             />
                         </PanelSectionRow>
                     </PanelSection>
