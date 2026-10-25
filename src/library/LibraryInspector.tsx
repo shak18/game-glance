@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaPlay, FaInfoCircle, FaMusic, FaFolderOpen } from 'react-icons/fa';
+import { FaPlay, FaInfoCircle, FaMusic, FaFolderOpen, FaPalette } from 'react-icons/fa';
 import {
     browserStores,
     capsuleUrls as getCapsuleUrls,
@@ -15,6 +15,9 @@ import { Chip, gameChips } from './chips';
 import { formatHours, formatLastPlayed, minutesToHours, steamLanguageToLocale } from '../logic/format';
 import { peekSteamLanguage } from '../data/steam';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
+import { CONSOLE_LABELS, resolveCollectionArt, useImageUri } from './enhancedCollection';
+import { getBundledConsoleIcon } from './consoleIconData';
+import { useSettings } from '../data/settings';
 
 interface LibraryInspectorProps {
     game: LibraryGameItem | null;
@@ -27,6 +30,7 @@ interface LibraryInspectorProps {
     onPlay: () => void;
     onDetails: (sourceEl?: HTMLElement) => void;
     onOpenCollection?: () => void;
+    onCustomizeCollection?: () => void;
 }
 
 function InspectorFanCover({ game, className }: { game?: LibraryGameItem; className: string }) {
@@ -262,28 +266,63 @@ function InspectorGameCover({ game, onOpen }: { game: LibraryGameItem; onOpen?: 
     );
 }
 
-export function LibraryInspector({
-    game,
+function CollectionInspectorView({
     collection,
-    isCollectionView = false,
     accent,
-    description,
-    hltbMainHours,
-    onPlay,
-    onDetails,
     onOpenCollection,
-}: LibraryInspectorProps) {
-    // Collection overview mode with multi-poster fan showcase
-    if (isCollectionView && collection) {
-        const games = collection.games;
-        const game0 = games[0];
-        const game1 = games[1];
-        const game2 = games[2];
-        const game3 = games[3];
-        const game4 = games[4];
+    onCustomizeCollection,
+}: {
+    collection: LibraryCollectionItem;
+    accent: string;
+    onOpenCollection?: () => void;
+    onCustomizeCollection?: () => void;
+}) {
+    const currentSettings = useSettings();
+    const art = resolveCollectionArt(collection, currentSettings);
+    const inspAccent = accent;
 
-        return (
-            <aside className="sgl-inspector" style={{ '--accent': accent } as React.CSSProperties}>
+    const games = Array.isArray(collection?.games) ? collection.games : [];
+    const game0 = games[0];
+    const game1 = games[1];
+    const game2 = games[2];
+    const game3 = games[3];
+    const game4 = games[4];
+    const colName = typeof collection?.name === 'string' ? collection.name : String(collection?.name ?? '');
+    const colCount = typeof collection?.count === 'number' ? collection.count : games.length;
+
+    // Unconditional hook call
+    const customUri = useImageUri(art.customUrl);
+    // Direct synchronous bundled console icon lookup
+    const safeIconSrc = art.iconKey ? getBundledConsoleIcon(art.iconKey) : null;
+    const safeCustomSrc = customUri || (art.customUrl && (art.customUrl.startsWith('data:') || art.customUrl.startsWith('http')) ? art.customUrl : undefined);
+
+    return (
+        <aside className="sgl-inspector" style={{ '--accent': inspAccent } as React.CSSProperties}>
+            {art.mode === 'custom' && safeCustomSrc ? (
+                <div className={`sgl-inspector-col-custom-preview sgl-fit-${art.fit || 'cover'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img
+                        src={safeCustomSrc}
+                        alt={colName}
+                        className={`sgl-col-custom-img sgl-fit-${art.fit || 'cover'}`}
+                        style={{ borderRadius: 8 }}
+                        onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                        }}
+                    />
+                </div>
+            ) : art.mode === 'icon' && safeIconSrc ? (
+                <div className={`sgl-inspector-col-custom-preview sgl-fit-${art.fit || 'center'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img
+                        src={safeIconSrc}
+                        alt=""
+                        className={`sgl-col-icon-large sgl-fit-${art.fit || 'center'}`}
+                        style={{ borderRadius: 8 }}
+                        onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                        }}
+                    />
+                </div>
+            ) : (
                 <div className="sgl-inspector-col-fan">
                     {games.length >= 5 ? (
                         <>
@@ -313,60 +352,101 @@ export function LibraryInspector({
                         </>
                     ) : games.length === 1 ? (
                         <InspectorFanCover game={game0} className="sgl-insp-col-card-center" />
+                    ) : safeIconSrc ? (
+                        <div style={{ width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#161b24', borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)', padding: 8 }}>
+                            <img
+                                src={safeIconSrc}
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                alt=""
+                                onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                }}
+                            />
+                        </div>
                     ) : (
-                        <div
-                            style={{
-                                width: 48,
-                                height: 72,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: '#161b24',
-                                borderRadius: 5,
-                                border: '1px solid rgba(255,255,255,0.15)',
-                            }}
-                        >
+                        <div style={{ width: 48, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#161b24', borderRadius: 5, border: '1px solid rgba(255,255,255,0.15)' }}>
                             <FaFolderOpen size={20} color="var(--accent, #58a6ff)" />
                         </div>
                     )}
                 </div>
+            )}
 
-                <div className="sgl-title-box">
-                    <div className="sgl-title-text">{collection.name}</div>
-                </div>
-
-                <div className="sgl-meta-row">
-                    <span className="sgl-source-pill">Collection</span>
-                    <span className="sgl-status-pill">{collection.count} Games</span>
-                </div>
-
-                <div className="sgl-stats-grid">
-                    <div className="sgl-stat-card">
-                        <div className="sgl-stat-label">Total Games</div>
-                        <div className="sgl-stat-value">{collection.count}</div>
-                    </div>
-                </div>
-
-                <div className="sgl-description">
-                    Custom collection with {collection.count} {collection.count === 1 ? 'game' : 'games'}.
-                </div>
-
-                <div className="sgl-actions">
-                    <button
-                        className="sgl-btn-details"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onOpenCollection?.();
+            <div className="sgl-title-box">
+                {safeIconSrc && (
+                    <img
+                        src={safeIconSrc}
+                        className="sgl-insp-col-icon"
+                        alt=""
+                        onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
                         }}
-                        style={{ width: '100%' }}
-                    >
-                        <FaFolderOpen size={11} />
-                        <span className="sgl-btn-text">Open Collection</span>
-                        <span className="sgl-btn-badge">A</span>
-                    </button>
-                </div>
-            </aside>
+                    />
+                )}
+                <div className="sgl-title-text">{colName}</div>
+            </div>
+
+            <div className="sgl-meta-row">
+                <span className="sgl-source-pill">Collection</span>
+                {art.mode === 'custom' && (
+                    <span className="sgl-source-pill" style={{ borderColor: 'rgba(88,166,255,0.4)', color: '#58a6ff' }}>Custom Art</span>
+                )}
+                {art.iconKey && (
+                    <span className="sgl-source-pill" style={{ borderColor: 'rgba(76,255,143,0.4)', color: '#4cff8f' }}>{CONSOLE_LABELS[art.iconKey] || String(art.iconKey).toUpperCase()}</span>
+                )}
+                <span className="sgl-status-pill">{colCount} Games</span>
+            </div>
+
+            <div className="sgl-actions">
+                <button
+                    className="sgl-btn-details"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onOpenCollection?.();
+                    }}
+                >
+                    <FaFolderOpen size={11} />
+                    <span className="sgl-btn-text">Open</span>
+                    <span className="sgl-btn-badge">A</span>
+                </button>
+
+                <button
+                    className="sgl-btn-play"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCustomizeCollection?.();
+                    }}
+                >
+                    <FaPalette size={11} />
+                    <span className="sgl-btn-text">Customize Art</span>
+                    <span className="sgl-btn-badge">Y</span>
+                </button>
+            </div>
+        </aside>
+    );
+}
+
+export function LibraryInspector({
+    game,
+    collection,
+    isCollectionView = false,
+    accent,
+    description,
+    hltbMainHours,
+    onPlay,
+    onDetails,
+    onOpenCollection,
+    onCustomizeCollection,
+}: LibraryInspectorProps) {
+    if (isCollectionView && collection) {
+        return (
+            <CollectionInspectorView
+                collection={collection}
+                accent={accent}
+                onOpenCollection={onOpenCollection}
+                onCustomizeCollection={onCustomizeCollection}
+            />
         );
     }
 

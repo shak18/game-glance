@@ -3,8 +3,6 @@ import { LOG_PREFIX } from '../constants';
 import { useSettings } from '../data/settings';
 import { SpotlightLibrary } from './SpotlightLibrary';
 
-let logged = false;
-
 interface LibraryErrorBoundaryProps {
     fallback: ReactElement;
     children: ReactNode;
@@ -21,10 +19,8 @@ export class LibraryGuard extends Component<LibraryErrorBoundaryProps, LibraryEr
         return { failed: true };
     }
 
-    componentDidCatch(error: unknown) {
-        if (logged) return;
-        logged = true;
-        console.error(`${LOG_PREFIX} Spotlight Library render failed; showing Steam's Library`, error);
+    componentDidCatch(error: unknown, info: unknown) {
+        console.error(`${LOG_PREFIX} Spotlight Library render failed; showing Steam's Library:`, error, info);
     }
 
     render() {

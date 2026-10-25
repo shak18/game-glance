@@ -21,6 +21,13 @@ describe('settings', () => {
             tabMasterSync: true,
             pulsingBackground: true,
             zoomTransition: true,
+            libraryStatusBar: true,
+            statusAvatar: true,
+            collectionConsoleIcons: true,
+            collectionArtMode: 'fan',
+            collectionArtFit: 'cover',
+            collectionCustomArt: {},
+            librarySort: 'recent',
         });
         const listener = vi.fn();
         store.subscribe(listener);
@@ -47,6 +54,13 @@ describe('settings', () => {
             tabMasterSync: true,
             pulsingBackground: true,
             zoomTransition: true,
+            libraryStatusBar: true,
+            statusAvatar: true,
+            collectionConsoleIcons: true,
+            collectionArtMode: 'fan',
+            collectionArtFit: 'cover',
+            collectionCustomArt: {},
+            librarySort: 'recent',
         });
     });
 
@@ -161,5 +175,67 @@ describe('settings', () => {
         // A new store created without loading from kv yet immediately has 6
         const store2 = createSettingsStore(kv);
         expect(store2.get().libraryGridColumns).toBe(6);
+    });
+
+    it('library status bar and status avatar remember being toggled', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().libraryStatusBar).toBe(true);
+        expect(store.get().statusAvatar).toBe(true);
+        await store.setLibraryStatusBar(false);
+        await store.setStatusAvatar(false);
+        expect(store.get().libraryStatusBar).toBe(false);
+        expect(store.get().statusAvatar).toBe(false);
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().libraryStatusBar).toBe(false);
+        expect(reloaded.get().statusAvatar).toBe(false);
+    });
+
+    it('collection console icons are on by default and remember being turned off', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().collectionConsoleIcons).toBe(true);
+        await store.setCollectionConsoleIcons(false);
+        expect(store.get().collectionConsoleIcons).toBe(false);
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().collectionConsoleIcons).toBe(false);
+    });
+
+    it('custom collection art and display mode are persisted', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().collectionArtMode).toBe('fan');
+        expect(store.get().collectionArtFit).toBe('cover');
+        await store.setCollectionArtMode('custom');
+        await store.setCollectionArtFit('contain');
+        await store.setCollectionCustomArt('col1', { mode: 'custom', url: 'https://example.com/art.png', fit: 'contain' });
+        expect(store.get().collectionArtMode).toBe('custom');
+        expect(store.get().collectionArtFit).toBe('contain');
+        expect(store.get().collectionCustomArt['col1']).toEqual({ mode: 'custom', url: 'https://example.com/art.png', fit: 'contain' });
+        await store.setCollectionArtFit('center');
+        expect(store.get().collectionArtFit).toBe('center');
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().collectionArtFit).toBe('center');
+        expect(reloaded.get().collectionCustomArt['col1']).toEqual({ mode: 'custom', url: 'https://example.com/art.png', fit: 'contain' });
+        await store.removeCollectionCustomArt('col1');
+        expect(store.get().collectionCustomArt['col1']).toBeUndefined();
+    });
+
+    it('librarySort defaults to recent and persists valid sort modes', async () => {
+        const kv = memoryKv();
+        const store = createSettingsStore(kv);
+        await store.load();
+        expect(store.get().librarySort).toBe('recent');
+        await store.setLibrarySort('alpha');
+        expect(store.get().librarySort).toBe('alpha');
+        const reloaded = createSettingsStore(kv);
+        await reloaded.load();
+        expect(reloaded.get().librarySort).toBe('alpha');
     });
 });

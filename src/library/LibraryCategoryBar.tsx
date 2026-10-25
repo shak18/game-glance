@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FaGamepad } from 'react-icons/fa';
 import { LibraryCategory, LibraryCollectionItem } from './libraryData';
+import { LibrarySortMode } from '../data/settings';
+import { SORT_ICONS, SORT_LABELS } from './librarySort';
 
 export interface LibraryCategoryBarProps {
     categories: LibraryCategory[];
@@ -14,6 +16,8 @@ export interface LibraryCategoryBarProps {
     onSelectSubCollection?: (id: string) => void;
     activeSubCollectionName?: string | null;
     onBackToCollections?: () => void;
+    sortMode?: LibrarySortMode;
+    onCycleSort?: () => void;
 }
 
 export function LibraryCategoryBar({
@@ -28,6 +32,8 @@ export function LibraryCategoryBar({
     onSelectSubCollection,
     activeSubCollectionName = null,
     onBackToCollections,
+    sortMode = 'recent',
+    onCycleSort,
 }: LibraryCategoryBarProps) {
     const isShowingCollections = Boolean(
         isInsideSubCollection && collections && collections.length > 0
@@ -248,7 +254,7 @@ export function LibraryCategoryBar({
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span className="sgl-bumper-badge">L1</span>
-                        <span className="sgl-breadcrumb-title">{activeSubCollectionName.toUpperCase()}</span>
+                        <span className="sgl-breadcrumb-title">{String(activeSubCollectionName || '').toUpperCase()}</span>
                         <span className="sgl-bumper-badge">R1</span>
                     </div>
                 </div>
@@ -298,19 +304,34 @@ export function LibraryCategoryBar({
                 </div>
             )}
 
-            {/* Right: Category or Collection Count Info */}
-            <div className="sgl-header-info">
-                {isShowingCollections
-                    ? `${activeItem?.count ?? 0} GAMES`
-                    : activeSubCollectionName
-                        ? 'IN COLLECTION'
-                        : activeItem
-                            ? (activeItem.id === 'soundtracks' || (activeItem as LibraryCategory).isSoundtracksTab)
-                                ? `${activeItem.count} SOUNDTRACKS`
-                                : (activeItem.id === 'collections' || (activeItem as LibraryCategory).isCollectionsTab)
-                                    ? `${activeItem.count} COLLECTIONS`
-                                    : `${activeItem.count} GAMES`
-                            : ''}
+            {/* Right: Category/Collection Count Info & Library Sort Toggle */}
+            <div className="sgl-header-right">
+                <button
+                    type="button"
+                    className="sgl-sort-btn"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCycleSort?.();
+                    }}
+                    title={`Current sort: ${SORT_LABELS[sortMode]}. Click to cycle.`}
+                >
+                    <span className="sgl-sort-icon">{SORT_ICONS[sortMode]}</span>
+                    <span className="sgl-sort-text">{SORT_LABELS[sortMode]}</span>
+                </button>
+                <div className="sgl-header-info">
+                    {isShowingCollections
+                        ? `${activeItem?.count ?? 0} GAMES`
+                        : activeSubCollectionName
+                            ? 'IN COLLECTION'
+                            : activeItem
+                                ? (activeItem.id === 'soundtracks' || (activeItem as LibraryCategory).isSoundtracksTab)
+                                    ? `${activeItem.count} SOUNDTRACKS`
+                                    : (activeItem.id === 'collections' || (activeItem as LibraryCategory).isCollectionsTab)
+                                        ? `${activeItem.count} COLLECTIONS`
+                                        : `${activeItem.count} GAMES`
+                                : ''}
+                </div>
             </div>
         </header>
     );

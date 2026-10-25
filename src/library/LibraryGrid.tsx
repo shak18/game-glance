@@ -11,6 +11,9 @@ import {
     useArtworkVersion,
 } from './artwork';
 import { LibraryCollectionItem, LibraryGameItem } from './libraryData';
+import { resolveCollectionArt, useImageUri } from './enhancedCollection';
+import { getBundledConsoleIcon } from './consoleIconData';
+import { useSettings } from '../data/settings';
 
 interface LibraryGridProps {
     games: LibraryGameItem[];
@@ -23,6 +26,7 @@ interface LibraryGridProps {
     onSelectGame: (index: number) => void;
     onLaunchGame?: (game: LibraryGameItem, sourceEl?: HTMLElement) => void;
     onOpenCollection?: (collection: LibraryCollectionItem) => void;
+    onCustomizeCollection?: (collection: LibraryCollectionItem) => void;
     onContextMenu?: (game: LibraryGameItem, index: number, target: HTMLElement) => void;
     isGridFocused?: boolean;
 }
@@ -407,11 +411,31 @@ interface CollectionCardProps {
     onClick?: () => void;
     onSelectGame?: (index: number) => void;
     onDoubleClick: () => void;
+    onCustomizeCollection?: (collection: LibraryCollectionItem) => void;
     isDragSuppressed?: () => boolean;
 }
 
-function CollectionCard({ collection, index, isFocused, accent, onClick, onSelectGame, onDoubleClick, isDragSuppressed }: CollectionCardProps) {
+export function CollectionCard({
+    collection,
+    index = 0,
+    isFocused,
+    accent,
+    onClick,
+    onSelectGame,
+    onDoubleClick,
+    onCustomizeCollection,
+    isDragSuppressed,
+}: CollectionCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
+    const settings = useSettings();
+    const [imgFailed, setImgFailed] = React.useState(false);
+
+    const art = resolveCollectionArt(collection, settings);
+    const cardAccent = accent;
+
+    useEffect(() => {
+        setImgFailed(false);
+    }, [collection.id, art.mode, art.customUrl, art.iconKey]);
 
     useEffect(() => {
         if (isFocused && cardRef.current) {
@@ -428,23 +452,32 @@ function CollectionCard({ collection, index, isFocused, accent, onClick, onSelec
         }
     }, [isFocused]);
 
-    const games = collection.games;
+    const games = Array.isArray(collection?.games) ? collection.games : [];
     const game0 = games[0];
     const game1 = games[1];
     const game2 = games[2];
     const game3 = games[3];
     const game4 = games[4];
+    const colName = typeof collection?.name === 'string' ? collection.name : String(collection?.name ?? '');
+
+    // Unconditional hook call
+    const customUri = useImageUri(art.customUrl);
+    // Direct synchronous bundled console icon lookup
+    const safeIconSrc = art.iconKey ? getBundledConsoleIcon(art.iconKey) : null;
+    const safeCustomSrc = customUri || (art.customUrl && (art.customUrl.startsWith('data:') || art.customUrl.startsWith('http')) ? art.customUrl : undefined);
+
+    const displayMode = imgFailed ? 'fan' : art.mode;
 
     return (
         <div
             ref={cardRef}
             role="button"
-            tabIndex={0}
+            tabIndex={-1}
             data-collection-id={collection.id}
             className={`sgl-card-collection${isFocused ? ' focused' : ''}`}
             style={{
-                '--accent': accent,
-                '--accent-glow': `${accent}55`,
+                '--accent': cardAccent,
+                '--accent-glow': `${cardAccent}55`,
             } as React.CSSProperties}
             onClick={(e) => {
                 e.preventDefault();
@@ -467,46 +500,94 @@ function CollectionCard({ collection, index, isFocused, accent, onClick, onSelec
                 e.stopPropagation();
                 onDoubleClick();
             }}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onSelectGame && index !== undefined) {
+                    onSelectGame(index);
+                }
+                onCustomizeCollection?.(collection);
+            }}
         >
-            <div className="sgl-col-fan-area">
-                {games.length >= 5 ? (
-                    <>
-                        <MiniCover game={game3} className="sgl-col-card-far-left" />
-                        <MiniCover game={game1} className="sgl-col-card-left" />
-                        <MiniCover game={game4} className="sgl-col-card-far-right" />
-                        <MiniCover game={game2} className="sgl-col-card-right" />
+            {displayMode === 'custom' && safeCustomSrc ? (
+                <div className={`sgl-col-custom-art-area sgl-fit-${art.fit || 'cover'}`}>
+                    <img
+                        src={safeCustomSrc}
+                        alt={colName}
+                        className={`sgl-col-custom-img sgl-fit-${art.fit || 'cover'}`}
+                        onError={() => setImgFailed(true)}
+                    />
+                </div>
+            ) : displayMode === 'icon' && safeIconSrc ? (
+                <div className={`sgl-col-icon-art-area sgl-fit-${art.fit || 'center'}`}>
+                    <img
+                        src={safeIconSrc}
+                        alt=""
+                        className={`sgl-col-icon-large sgl-fit-${art.fit || 'center'}`}
+                        onError={() => setImgFailed(true)}
+                    />
+                </div>
+            ) : (
+                <div className="sgl-col-fan-area">
+                    {games.length >= 5 ? (
+                        <>
+                            <MiniCover game={game3} className="sgl-col-card-far-left" />
+                            <MiniCover game={game1} className="sgl-col-card-left" />
+                            <MiniCover game={game4} className="sgl-col-card-far-right" />
+                            <MiniCover game={game2} className="sgl-col-card-right" />
+                            <MiniCover game={game0} className="sgl-col-card-center" />
+                        </>
+                    ) : games.length === 4 ? (
+                        <>
+                            <MiniCover game={game3} className="sgl-col-card-far-left" />
+                            <MiniCover game={game1} className="sgl-col-card-left" />
+                            <MiniCover game={game2} className="sgl-col-card-right" />
+                            <MiniCover game={game0} className="sgl-col-card-center" />
+                        </>
+                    ) : games.length === 3 ? (
+                        <>
+                            <MiniCover game={game1} className="sgl-col-card-left" />
+                            <MiniCover game={game2} className="sgl-col-card-right" />
+                            <MiniCover game={game0} className="sgl-col-card-center" />
+                        </>
+                    ) : games.length === 2 ? (
+                        <>
+                            <MiniCover game={game1} className="sgl-col-card-left" />
+                            <MiniCover game={game0} className="sgl-col-card-center" />
+                        </>
+                    ) : games.length === 1 ? (
                         <MiniCover game={game0} className="sgl-col-card-center" />
-                    </>
-                ) : games.length === 4 ? (
-                    <>
-                        <MiniCover game={game3} className="sgl-col-card-far-left" />
-                        <MiniCover game={game1} className="sgl-col-card-left" />
-                        <MiniCover game={game2} className="sgl-col-card-right" />
-                        <MiniCover game={game0} className="sgl-col-card-center" />
-                    </>
-                ) : games.length === 3 ? (
-                    <>
-                        <MiniCover game={game1} className="sgl-col-card-left" />
-                        <MiniCover game={game2} className="sgl-col-card-right" />
-                        <MiniCover game={game0} className="sgl-col-card-center" />
-                    </>
-                ) : games.length === 2 ? (
-                    <>
-                        <MiniCover game={game1} className="sgl-col-card-left" />
-                        <MiniCover game={game0} className="sgl-col-card-center" />
-                    </>
-                ) : games.length === 1 ? (
-                    <MiniCover game={game0} className="sgl-col-card-center" />
-                ) : (
-                    <div style={{ color: 'rgba(255,255,255,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                        <FaFolder size={32} color="var(--accent, #58a6ff)" />
-                        <span style={{ fontSize: 11, fontWeight: 600 }}>Empty Collection</span>
-                    </div>
-                )}
-            </div>
+                    ) : safeIconSrc ? (
+                        <div style={{ color: 'rgba(255,255,255,0.7)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                            <img
+                                src={safeIconSrc}
+                                style={{ width: 38, height: 38, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}
+                                alt=""
+                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                            />
+                            <span style={{ fontSize: 11, fontWeight: 600 }}>Empty Collection</span>
+                        </div>
+                    ) : (
+                        <div style={{ color: 'rgba(255,255,255,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                            <FaFolder size={32} color="var(--accent, #58a6ff)" />
+                            <span style={{ fontSize: 11, fontWeight: 600 }}>Empty Collection</span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="sgl-col-footer">
-                <div className="sgl-col-footer-title">{collection.name}</div>
+                <div className="sgl-col-footer-header">
+                    {safeIconSrc && (
+                        <img
+                            src={safeIconSrc}
+                            className="sgl-col-icon-img"
+                            alt=""
+                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                        />
+                    )}
+                    <div className="sgl-col-footer-title">{collection.name}</div>
+                </div>
                 <div className="sgl-col-footer-badge">{collection.count} {collection.count === 1 ? 'GAME' : 'GAMES'}</div>
             </div>
 
@@ -526,6 +607,7 @@ export function LibraryGrid({
     onSelectGame,
     onLaunchGame,
     onOpenCollection,
+    onCustomizeCollection,
     onContextMenu,
     isGridFocused = true,
 }: LibraryGridProps) {
@@ -718,6 +800,7 @@ export function LibraryGrid({
                             accent={accent}
                             onSelectGame={onSelectGame}
                             onDoubleClick={() => onOpenCollection?.(col)}
+                            onCustomizeCollection={onCustomizeCollection}
                             isDragSuppressed={isDragSuppressed}
                         />
                     ))}

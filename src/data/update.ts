@@ -63,6 +63,61 @@ export interface Release {
 }
 
 /**
+ * Accurately extracts the Glance Library version from a GitHub release item.
+ * Supports:
+ * - Release title containing "Glance Library v1.0.0"
+ * - Tag name containing "glance-library-v1.0.0"
+ * - Assets named "glance-library-v1.0.0.zip"
+ * - Dedicated semver tags (e.g. "v1.0.0", "1.0.0")
+ * Ignores legacy monolithic Game Glance tags (e.g. 2.x, 3.x) unless explicitly identified as Glance Library.
+ */
+export function extractGlanceLibraryVersion(r: {
+    tag_name?: unknown;
+    name?: unknown;
+    body?: unknown;
+    assets?: unknown;
+}): string | null {
+    const tagName = typeof r.tag_name === 'string' ? r.tag_name.trim() : '';
+    const releaseName = typeof r.name === 'string' ? r.name.trim() : '';
+
+    // 1. Explicit "Glance Library vX.Y.Z" in release name
+    const nameMatch = releaseName.match(/glance[-_\s]?library[^0-9v]*v?(\d+(?:\.\d+)+)/i);
+    if (nameMatch) {
+        return nameMatch[1];
+    }
+
+    // 2. Explicit "glance-library-vX.Y.Z" in tag name
+    const tagMatch = tagName.match(/glance[-_\s]?library[^0-9v]*v?(\d+(?:\.\d+)+)/i);
+    if (tagMatch) {
+        return tagMatch[1];
+    }
+
+    // 3. Asset named "glance-library-vX.Y.Z.zip"
+    if (Array.isArray(r.assets)) {
+        for (const a of r.assets) {
+            const assetName = typeof a?.name === 'string' ? a.name : '';
+            const assetMatch = assetName.match(/^glance[-_]library[-_]v?(\d+(?:\.\d+)+)\.zip$/i);
+            if (assetMatch) {
+                return assetMatch[1];
+            }
+        }
+    }
+
+    // 4. Tag starting with "v1." or "1." (Glance Library standalone releases)
+    if (/^v?1\.\d+(\.\d+)?$/i.test(tagName)) {
+        return extractVersionString(tagName);
+    }
+
+    // 5. If tag is 2.x or 3.x (monolithic Game Glance releases), DO NOT use tag as Glance Library version
+    if (/^v?[23]\.\d+(\.\d+)?/i.test(tagName)) {
+        return null;
+    }
+
+    // 6. Generic version string fallback
+    return extractVersionString(tagName) || extractVersionString(releaseName);
+}
+
+/**
  * Extracts the newest installable Glance Library release from GitHub API output.
  * Handles both an array of releases (/releases) and a single release (/releases/latest).
  * Specifically requires the presence of glance-library.zip to avoid picking up unrelated fork releases.
@@ -80,7 +135,7 @@ export function pickRelease(json: unknown): Release | null {
             } | null;
             if (!r || r.draft === true || r.prerelease === true) continue;
 
-            const version = extractVersionString(r.tag_name) || extractVersionString(r.name);
+            const version = extractGlanceLibraryVersion(r);
             if (!version) continue;
 
             const assets = Array.isArray(r.assets)

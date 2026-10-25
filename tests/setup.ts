@@ -1,11 +1,29 @@
 import { vi } from 'vitest';
 
 vi.mock('@decky/api', () => ({
-    callable: () => async () => null,
+    callable: (route?: string) => {
+        if (route === 'get_storage_locations') {
+            return async () => [
+                { label: 'Pictures (~/Pictures)', path: '/home/deck/Pictures' },
+                { label: 'User Home (~)', path: '/home/deck' },
+                { label: 'SD Card (/run/media)', path: '/run/media' },
+                { label: 'Root (/)', path: '/' },
+            ];
+        }
+        if (route === 'get_image_data') {
+            return async (path: string) => (path ? `data:image/png;base64,mock_${path}` : null);
+        }
+        if (route === 'find_collection_art') {
+            return async () => ({ found: false });
+        }
+        return async () => null;
+    },
     fetchNoCors: vi.fn(),
     routerHook: { addPatch: vi.fn(), removePatch: vi.fn() },
     definePlugin: (fn: () => unknown) => fn,
     toaster: { toast: vi.fn() },
+    openFilePicker: vi.fn().mockResolvedValue({ path: '', realpath: '' }),
+    FileSelectionType: { FILE: 0, FOLDER: 1 },
 }));
 
 // @decky/ui reads Steam's webpack chunks from `window` on import; Home components import it, and the

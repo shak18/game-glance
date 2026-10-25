@@ -22,6 +22,7 @@ ROOT = Path(__file__).absolute().parent.parent
 OUT_DIR = ROOT / "out"
 DIST_DIR = ROOT / "dist"
 PY_MODULES_DIR = ROOT / "py_modules" / "glancelibrary"
+ICONS_DIR = ROOT / "assets" / "icons"
 
 ROOT_FILES = [
     "plugin.json",
@@ -44,6 +45,17 @@ def build():
     if result.returncode != 0:
         print(f"Build failed with exit code {result.returncode}", file=sys.stderr)
         sys.exit(result.returncode)
+
+
+def verify_python():
+    print("==> Verifying Python backend files syntax...")
+    import py_compile
+    main_py = ROOT / "main.py"
+    py_compile.compile(str(main_py), doraise=True)
+    if PY_MODULES_DIR.exists():
+        for pyf in PY_MODULES_DIR.rglob("*.py"):
+            py_compile.compile(str(pyf), doraise=True)
+    print("    Python syntax OK.")
 
 
 def get_version():
@@ -100,6 +112,15 @@ def package():
                     zf.write(fpath, arcname)
                     print(f"  + {arcname}")
 
+        # 4. Icon assets into glance-library/icons/ (served by Decky Loader at /plugins/glance-library/icons/)
+        if ICONS_DIR.exists():
+            for fpath in sorted(ICONS_DIR.rglob("*")):
+                if fpath.is_file():
+                    rel_path = fpath.relative_to(ICONS_DIR).as_posix()
+                    arcname = f"glance-library/icons/{rel_path}"
+                    zf.write(fpath, arcname)
+                    print(f"  + {arcname}")
+
     file_size_kb = zip_path.stat().st_size / 1024
     print(f"\nSuccessfully created {zip_path.name} ({file_size_kb:.1f} KB) in {OUT_DIR}")
 
@@ -109,6 +130,7 @@ def main():
     parser.add_argument("--skip-build", action="store_true", help="Skip rollup build step")
     args = parser.parse_args()
 
+    verify_python()
     if not args.skip_build:
         build()
     package()

@@ -117,6 +117,29 @@ describe('pickRelease', () => {
         const picked = pickRelease(createRelease({ assets: [asset] }));
         expect(picked?.sha256).toBe('');
     });
+
+    it('correctly extracts Glance Library v1.0.0 from mixed release with tag 3.4.1', () => {
+        const mixedRelease = {
+            tag_name: '3.4.1',
+            name: 'Glance Library v1.0.0 & Game Glance Modded v3.4.0',
+            draft: false,
+            prerelease: false,
+            assets: [
+                {
+                    name: 'game-glance-modded-v3.4.1.zip',
+                    browser_download_url: 'https://github.com/shak18/game-glance/releases/download/3.4.1/game-glance-modded-v3.4.1.zip',
+                },
+                {
+                    name: 'glance-library.zip',
+                    browser_download_url: 'https://github.com/shak18/game-glance/releases/download/3.4.1/glance-library.zip',
+                },
+            ],
+        };
+        const picked = pickRelease(mixedRelease);
+        expect(picked).not.toBeNull();
+        expect(picked?.version).toBe('1.0.0');
+        expect(picked?.url).toBe('https://github.com/shak18/game-glance/releases/download/3.4.1/glance-library.zip');
+    });
 });
 
 describe('checkForUpdate', () => {

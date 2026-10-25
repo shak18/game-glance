@@ -13,6 +13,25 @@ export interface Settings {
     tabMasterSync: boolean; // sync tab order, visibility, and custom tabs from TabMaster when installed
     pulsingBackground: boolean; // gentle breathing ambient motion on background images
     zoomTransition: boolean; // animates the banner expanding into full screen when opening a game
+    libraryStatusBar: boolean; // sleek status bar with clock, battery, connection & profile avatar
+    statusAvatar: boolean; // display your avatar in the status bar instead of the dot
+    collectionConsoleIcons: boolean; // auto-match console icons for collection cards
+    collectionArtMode: CollectionArtMode; // global default mode for collection cards ('fan' | 'custom' | 'icon')
+    collectionArtFit: CollectionArtFit; // fit for custom collection artwork and console icons ('cover' | 'contain' | 'fill' | 'center')
+    collectionCustomArt: Record<string, CollectionCustomArtEntry>; // per-collection customizations
+    librarySort: LibrarySortMode; // sort order for games and collections in library
+}
+
+export type LibrarySortMode = 'recent' | 'alpha' | 'playtime' | 'size';
+export type CollectionArtFit = 'cover' | 'contain' | 'fill' | 'center';
+export type CollectionArtMode = 'fan' | 'custom' | 'icon';
+
+export interface CollectionCustomArtEntry {
+    mode?: CollectionArtMode;
+    url?: string;
+    fit?: CollectionArtFit;
+    hasCustomFit?: boolean;
+    icon?: string;
 }
 
 export const SETTINGS_KEY = 'settings';
@@ -28,6 +47,13 @@ export const DEFAULTS: Settings = {
     tabMasterSync: true,
     pulsingBackground: true,
     zoomTransition: true,
+    libraryStatusBar: true,
+    statusAvatar: true,
+    collectionConsoleIcons: true,
+    collectionArtMode: 'fan',
+    collectionArtFit: 'cover',
+    collectionCustomArt: {},
+    librarySort: 'recent',
 };
 
 export function parseSettings(raw: Partial<Settings> | null | undefined): Settings {
@@ -49,6 +75,25 @@ export function parseSettings(raw: Partial<Settings> | null | undefined): Settin
         tabMasterSync: pick('tabMasterSync'),
         pulsingBackground: pick('pulsingBackground'),
         zoomTransition: pick('zoomTransition'),
+        libraryStatusBar: pick('libraryStatusBar'),
+        statusAvatar: pick('statusAvatar'),
+        collectionConsoleIcons: pick('collectionConsoleIcons'),
+        collectionArtMode:
+            raw?.collectionArtMode === 'custom' || raw?.collectionArtMode === 'icon' || raw?.collectionArtMode === 'fan'
+                ? raw.collectionArtMode
+                : DEFAULTS.collectionArtMode,
+        collectionArtFit:
+            raw?.collectionArtFit === 'contain' || raw?.collectionArtFit === 'fill' || raw?.collectionArtFit === 'cover' || raw?.collectionArtFit === 'center'
+                ? raw.collectionArtFit
+                : DEFAULTS.collectionArtFit,
+        collectionCustomArt:
+            typeof raw?.collectionCustomArt === 'object' && raw?.collectionCustomArt !== null && !Array.isArray(raw?.collectionCustomArt)
+                ? (raw.collectionCustomArt as Record<string, CollectionCustomArtEntry>)
+                : DEFAULTS.collectionCustomArt,
+        librarySort:
+            raw?.librarySort === 'alpha' || raw?.librarySort === 'playtime' || raw?.librarySort === 'size' || raw?.librarySort === 'recent'
+                ? raw.librarySort
+                : DEFAULTS.librarySort,
     };
 }
 
@@ -125,7 +170,10 @@ export function createSettingsStore(kv: KvBackend, storage: StorageLike | null |
         }
         emit();
         try {
-            await kv.set(SETTINGS_KEY, current);
+            await Promise.race([
+                kv.set(SETTINGS_KEY, current),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('kv.set timeout')), 1000)),
+            ]);
         } catch (error) {
             console.warn(`${LOG_PREFIX} Failed to persist settings to backend`, error);
         }
@@ -209,6 +257,40 @@ export function createSettingsStore(kv: KvBackend, storage: StorageLike | null |
         async setZoomTransition(zoomTransition: boolean): Promise<void> {
             await persist({ ...current, zoomTransition });
         },
+        async setLibraryStatusBar(libraryStatusBar: boolean): Promise<void> {
+            await persist({ ...current, libraryStatusBar });
+        },
+        async setStatusAvatar(statusAvatar: boolean): Promise<void> {
+            await persist({ ...current, statusAvatar });
+        },
+        async setCollectionConsoleIcons(collectionConsoleIcons: boolean): Promise<void> {
+            await persist({ ...current, collectionConsoleIcons });
+        },
+        async setCollectionArtMode(collectionArtMode: CollectionArtMode): Promise<void> {
+            await persist({ ...current, collectionArtMode });
+        },
+        async setCollectionArtFit(collectionArtFit: CollectionArtFit): Promise<void> {
+            await persist({ ...current, collectionArtFit });
+        },
+        async setCollectionCustomArt(idOrName: string | string[], entry: CollectionCustomArtEntry): Promise<void> {
+            const keys = Array.isArray(idOrName) ? idOrName : [idOrName];
+            const nextMap = { ...current.collectionCustomArt };
+            for (const k of keys) {
+                if (k) nextMap[k] = entry;
+            }
+            await persist({ ...current, collectionCustomArt: nextMap });
+        },
+        async removeCollectionCustomArt(idOrName: string | string[]): Promise<void> {
+            const keys = Array.isArray(idOrName) ? idOrName : [idOrName];
+            const nextMap = { ...current.collectionCustomArt };
+            for (const k of keys) {
+                if (k) delete nextMap[k];
+            }
+            await persist({ ...current, collectionCustomArt: nextMap });
+        },
+        async setLibrarySort(librarySort: LibrarySortMode): Promise<void> {
+            await persist({ ...current, librarySort });
+        },
         subscribe(listener: () => void): () => void {
             listeners.add(listener);
             return () => listeners.delete(listener);
@@ -219,5 +301,5 @@ export function createSettingsStore(kv: KvBackend, storage: StorageLike | null |
 export const settings = createSettingsStore(backendKv);
 
 export function useSettings(): Settings {
-    return useSyncExternalStore(settings.subscribe, settings.get);
+    return useSyncExternalStore(settings.subscribe, settings.get, settings.get);
 }

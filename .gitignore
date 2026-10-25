@@ -60,3 +60,4 @@ cli/decky
 .pytest_cache/
 
 out/
+scratch/

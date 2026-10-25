@@ -1,8 +1,10 @@
-import { ButtonItem, PanelSection, PanelSectionRow, SliderField, ToggleField } from '@decky/ui';
+import { ButtonItem, DropdownItem, PanelSection, PanelSectionRow, SliderField, ToggleField } from '@decky/ui';
 import { toaster } from '@decky/api';
 import { PLUGIN_NAME } from '../constants';
-import { settings, useSettings } from '../data/settings';
+import { CollectionArtFit, CollectionArtMode, LibrarySortMode, settings, useSettings } from '../data/settings';
 import { installUpdate, UpdateState, useUpdate } from '../data/update';
+import { reloadArtworkCache } from '../library/artwork';
+import { cache } from '../data/cache';
 
 function updateLine(state: UpdateState): string {
     const version = state.current ? `Version ${state.current}` : PLUGIN_NAME;
@@ -58,11 +60,14 @@ export function SettingsPanel() {
         spotlightLibrary,
         libraryGridColumns,
         libraryCollectionColumns,
-        gameLogo,
         dimUninstalledGames,
         tabMasterSync,
-        pulsingBackground,
-        zoomTransition,
+        libraryStatusBar,
+        statusAvatar,
+        collectionConsoleIcons,
+        collectionArtMode,
+        collectionArtFit,
+        librarySort,
     } = useSettings();
 
     const isLibraryActive = enabled && spotlightLibrary;
@@ -133,6 +138,23 @@ export function SettingsPanel() {
                         </PanelSectionRow>
                     </PanelSection>
 
+                    <PanelSection title="Library Browsing & Sorting">
+                        <PanelSectionRow>
+                            <DropdownItem
+                                label="Default sorting order"
+                                description="How games and collections are ordered in the library."
+                                rgOptions={[
+                                    { data: 'recent', label: 'Last Played (Recent)' },
+                                    { data: 'alpha', label: 'Alphabetical (A–Z)' },
+                                    { data: 'playtime', label: 'Hours Played' },
+                                    { data: 'size', label: 'Size on Disk' },
+                                ]}
+                                selectedOption={librarySort}
+                                onChange={(val: { data: unknown }) => settings.setLibrarySort(val.data as LibrarySortMode)}
+                            />
+                        </PanelSectionRow>
+                    </PanelSection>
+
                     <PanelSection title="TabMaster Integration">
                         <PanelSectionRow>
                             <ToggleField
@@ -144,15 +166,66 @@ export function SettingsPanel() {
                         </PanelSectionRow>
                     </PanelSection>
 
-                    <PanelSection title="Visuals & Effects">
+                    <PanelSection title="Collections Display & Artwork">
                         <PanelSectionRow>
                             <ToggleField
-                                label="Game logos"
-                                description="Displays the game's logo art in the inspector preview above the description instead of plain text."
-                                checked={gameLogo}
-                                onChange={(value) => settings.setGameLogo(value)}
+                                label="Console icons"
+                                description="Automatically detects and displays console badges (PS1/2/3/4, GameCube, Switch, N64, GBA, Xbox, Genesis, etc.) on collection cards."
+                                checked={collectionConsoleIcons}
+                                onChange={(value) => settings.setCollectionConsoleIcons(value)}
                             />
                         </PanelSectionRow>
+                        <PanelSectionRow>
+                            <DropdownItem
+                                label="Default collection display"
+                                description="Choose between the dynamic 5-game fan, custom image, or console icon."
+                                rgOptions={[
+                                    { data: 'fan', label: '5-Game Fan (Default)' },
+                                    { data: 'custom', label: 'Custom Image' },
+                                    { data: 'icon', label: 'Console Icon' },
+                                ]}
+                                selectedOption={collectionArtMode}
+                                onChange={(val: { data: unknown }) => settings.setCollectionArtMode(val.data as CollectionArtMode)}
+                            />
+                        </PanelSectionRow>
+                        <PanelSectionRow>
+                            <DropdownItem
+                                label="Default image sizing (fit)"
+                                description="How custom artwork and console icons scale inside collection cards (Cover, Contain, Fill, Centered)."
+                                rgOptions={[
+                                    { data: 'cover', label: 'Cover (Fill & Crop)' },
+                                    { data: 'contain', label: 'Contain (Fit whole image)' },
+                                    { data: 'fill', label: 'Stretch to fill' },
+                                    { data: 'center', label: 'Centered (Default icon badge)' },
+                                ]}
+                                selectedOption={collectionArtFit}
+                                onChange={(val: { data: unknown }) => settings.setCollectionArtFit(val.data as CollectionArtFit)}
+                            />
+                        </PanelSectionRow>
+                    </PanelSection>
+
+                    <PanelSection title="Status Bar">
+                        <PanelSectionRow>
+                            <ToggleField
+                                label="Status bar"
+                                description="Recycles the sleek glass status bar with clock, battery level, and connection status at the top right of the library."
+                                checked={libraryStatusBar}
+                                onChange={(value) => settings.setLibraryStatusBar(value)}
+                            />
+                        </PanelSectionRow>
+                        {libraryStatusBar && (
+                            <PanelSectionRow>
+                                <ToggleField
+                                    label="Profile picture"
+                                    description="Displays your Steam avatar ringed in your online status colour in the status bar instead of the dot."
+                                    checked={statusAvatar}
+                                    onChange={(value) => settings.setStatusAvatar(value)}
+                                />
+                            </PanelSectionRow>
+                        )}
+                    </PanelSection>
+
+                    <PanelSection title="Visuals & Effects">
                         <PanelSectionRow>
                             <ToggleField
                                 label="Unhighlight uninstalled games"
@@ -161,21 +234,33 @@ export function SettingsPanel() {
                                 onChange={(value) => settings.setDimUninstalledGames(value)}
                             />
                         </PanelSectionRow>
+                    </PanelSection>
+
+                    <PanelSection title="Artwork & Cache">
                         <PanelSectionRow>
-                            <ToggleField
-                                label="Pulsing background"
-                                description="Adds subtle, breathing ambient motion to hero artwork in the background."
-                                checked={pulsingBackground}
-                                onChange={(value) => settings.setPulsingBackground(value)}
-                            />
+                            <ButtonItem
+                                layout="below"
+                                description="Forces Steam covers and collection artwork to re-fetch and refresh in the library."
+                                onClick={() => {
+                                    reloadArtworkCache();
+                                    toaster.toast({ title: PLUGIN_NAME, body: 'Artwork reloaded.' });
+                                }}
+                            >
+                                Reload Steam artwork
+                            </ButtonItem>
                         </PanelSectionRow>
                         <PanelSectionRow>
-                            <ToggleField
-                                label="Zoom transition"
-                                description="Animates banner expanding into full screen when opening a game."
-                                checked={zoomTransition}
-                                onChange={(value) => settings.setZoomTransition(value)}
-                            />
+                            <ButtonItem
+                                layout="below"
+                                description="Clears all cached HowLongToBeat times, descriptions, accent colors, and reloads artwork."
+                                onClick={async () => {
+                                    await cache.clear();
+                                    reloadArtworkCache();
+                                    toaster.toast({ title: PLUGIN_NAME, body: 'Cached data cleared.' });
+                                }}
+                            >
+                                Clear cache
+                            </ButtonItem>
                         </PanelSectionRow>
                     </PanelSection>
                 </>

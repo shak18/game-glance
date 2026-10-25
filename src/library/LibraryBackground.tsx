@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useSettings } from '../data/settings';
 
 interface LibraryBackgroundProps {
     candidates?: string[];
@@ -8,7 +7,6 @@ interface LibraryBackgroundProps {
 }
 
 export function LibraryBackground({ candidates, heroUrl, fallbackUrl }: LibraryBackgroundProps) {
-    const { pulsingBackground } = useSettings();
     const list = React.useMemo(() => {
         const arr: string[] = [];
         if (Array.isArray(candidates) && candidates.length > 0) {
@@ -68,7 +66,7 @@ export function LibraryBackground({ candidates, heroUrl, fallbackUrl }: LibraryB
         <div className="sgl-bg-container" aria-hidden="true">
             {layers.previous && (
                 <div
-                    className={`sgl-bg-layer ${pulsingBackground ? 'sgl-bg-pulsing' : ''}`}
+                    className="sgl-bg-layer"
                     style={{
                         backgroundImage: `url("${layers.previous.replace(/"/g, '%22')}")`,
                         opacity: 0,
@@ -77,7 +75,7 @@ export function LibraryBackground({ candidates, heroUrl, fallbackUrl }: LibraryB
             )}
             {layers.current && (
                 <div
-                    className={`sgl-bg-layer ${pulsingBackground ? 'sgl-bg-pulsing' : ''}`}
+                    className="sgl-bg-layer"
                     style={{
                         backgroundImage: `url("${layers.current.replace(/"/g, '%22')}")`,
                         opacity: 1,

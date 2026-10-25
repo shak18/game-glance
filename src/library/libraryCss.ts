@@ -5,6 +5,13 @@
  */
 export const d = (px: number) => `calc(${px} * var(--sgl-d))`;
 
+/**
+ * Inspector panel font scaling experiment (+20%).
+ * To revert to default scale, change this constant to 1.0.
+ */
+export const INSPECTOR_FONT_SCALE = 1.2;
+export const di = (px: number) => `calc(${px} * var(--sgl-insp-scale, ${INSPECTOR_FONT_SCALE}) * var(--sgl-d))`;
+
 export const LIBRARY_CSS = `
 :root {
     --sgl-d: calc(100vw / 1440);
@@ -283,13 +290,6 @@ export const LIBRARY_CSS = `
     will-change: opacity;
 }
 
-.sgl-bg-layer.sgl-bg-pulsing {
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    animation: gh-hero-ambient 18s ease-in-out infinite alternate !important;
-    will-change: transform, opacity !important;
-}
 
 .sgl-bg-vignette {
     position: absolute !important;
@@ -312,6 +312,10 @@ export const LIBRARY_CSS = `
     backdrop-filter: blur(20px) !important;
     z-index: 20 !important;
     flex-shrink: 0 !important;
+}
+
+.sgl-root.sgl-has-status-bar .sgl-header {
+    padding-right: ${d(220)} !important;
 }
 
 .sgl-brand {
@@ -544,6 +548,50 @@ export const LIBRARY_CSS = `
 }
 
 
+.sgl-header-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: ${d(12)} !important;
+    flex-shrink: 0 !important;
+}
+
+.sgl-sort-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: ${d(5)} !important;
+    padding: ${d(4)} ${d(9)} !important;
+    border-radius: ${d(14)} !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-size: ${d(11)} !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    user-select: none !important;
+    outline: none !important;
+}
+
+.sgl-sort-btn:hover,
+.sgl-sort-btn:focus,
+.sgl-sort-btn.focused {
+    background: rgba(255, 255, 255, 0.14) !important;
+    border-color: var(--accent, #58a6ff) !important;
+    color: #fff !important;
+    box-shadow: 0 0 10px var(--accent-glow, rgba(88, 166, 255, 0.35)) !important;
+}
+
+.sgl-sort-icon {
+    font-size: ${d(11.5)} !important;
+    line-height: 1 !important;
+}
+
+.sgl-sort-text {
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    font-size: ${d(10.5)} !important;
+}
+
 .sgl-header-info {
     font-size: ${d(11.5)} !important;
     line-height: 1 !important;
@@ -563,6 +611,7 @@ export const LIBRARY_CSS = `
 
 /* Left Panel: Inspector */
 .sgl-inspector {
+    --sgl-insp-scale: ${INSPECTOR_FONT_SCALE};
     width: ${d(275)} !important;
     min-width: ${d(250)} !important;
     max-width: ${d(285)} !important;
@@ -675,7 +724,7 @@ export const LIBRARY_CSS = `
 }
 
 .sgl-poster-fallback-title {
-    font-size: ${d(13)} !important;
+    font-size: ${di(13)} !important;
     font-weight: 800 !important;
     line-height: 1.35 !important;
     text-align: center !important;
@@ -693,7 +742,7 @@ export const LIBRARY_CSS = `
 }
 
 .sgl-title-text {
-    font-size: ${d(15)} !important;
+    font-size: ${di(15)} !important;
     font-weight: 700 !important;
     line-height: 1.2 !important;
     color: #ffffff !important;
@@ -714,7 +763,7 @@ export const LIBRARY_CSS = `
 }
 
 .sgl-source-pill {
-    font-size: ${d(9)} !important;
+    font-size: ${di(9)} !important;
     line-height: 1 !important;
     font-weight: 700 !important;
     padding: 2px 6px !important;
@@ -725,7 +774,7 @@ export const LIBRARY_CSS = `
 }
 
 .sgl-status-pill {
-    font-size: ${d(9)} !important;
+    font-size: ${di(9)} !important;
     line-height: 1 !important;
     font-weight: 700 !important;
     padding: 2px 6px !important;
@@ -754,7 +803,7 @@ export const LIBRARY_CSS = `
 }
 
 .sgl-stat-label {
-    font-size: ${d(8)} !important;
+    font-size: ${di(8)} !important;
     line-height: 1.15 !important;
     font-weight: 600 !important;
     color: rgba(255, 255, 255, 0.5) !important;
@@ -763,7 +812,7 @@ export const LIBRARY_CSS = `
 }
 
 .sgl-stat-value {
-    font-size: ${d(11)} !important;
+    font-size: ${di(11)} !important;
     line-height: 1.15 !important;
     font-weight: 700 !important;
     color: #ffffff !important;
@@ -785,15 +834,15 @@ export const LIBRARY_CSS = `
 
 /* Description */
 .sgl-description {
-    font-size: ${d(10)} !important;
-    line-height: 1.3 !important;
+    font-size: ${di(10)} !important;
+    line-height: 1.35 !important;
     color: rgba(255, 255, 255, 0.7) !important;
     display: -webkit-box !important;
-    -webkit-line-clamp: 2 !important;
+    -webkit-line-clamp: 6 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    max-height: 2.6em !important;
+    max-height: 8.5em !important;
     flex-shrink: 0 !important;
 }
 
@@ -810,7 +859,7 @@ export const LIBRARY_CSS = `
     flex: 1 !important;
     padding: 4px 10px !important;
     border-radius: 999px !important;
-    font-size: ${d(11)} !important;
+    font-size: ${di(11)} !important;
     line-height: 1 !important;
     height: ${d(34)} !important;
     min-height: ${d(34)} !important;
@@ -836,7 +885,7 @@ export const LIBRARY_CSS = `
     align-items: center !important;
     justify-content: center !important;
     vertical-align: middle !important;
-    font-size: ${d(11)} !important;
+    font-size: ${di(11)} !important;
     line-height: 1 !important;
     height: auto !important;
     min-height: 0 !important;
@@ -856,7 +905,7 @@ export const LIBRARY_CSS = `
     flex: 1 !important;
     padding: 4px 10px !important;
     border-radius: 999px !important;
-    font-size: ${d(11)} !important;
+    font-size: ${di(11)} !important;
     line-height: 1 !important;
     height: ${d(34)} !important;
     min-height: ${d(34)} !important;
@@ -895,7 +944,7 @@ export const LIBRARY_CSS = `
     max-height: ${d(16)} !important;
     border-radius: 50% !important;
     aspect-ratio: 1 / 1 !important;
-    font-size: ${d(8.5)} !important;
+    font-size: ${di(8.5)} !important;
     line-height: 1 !important;
     font-weight: 800 !important;
     padding: 0 !important;
@@ -1292,6 +1341,246 @@ export const LIBRARY_CSS = `
     width: 100% !important;
 }
 
+.sgl-col-footer-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+.sgl-col-icon-img {
+    width: ${d(13)} !important;
+    height: ${d(13)} !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+    display: block !important;
+}
+
+.sgl-insp-col-icon {
+    width: ${d(28)} !important;
+    height: ${d(28)} !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+    margin-bottom: 6px !important;
+    display: block !important;
+}
+
+.sgl-col-custom-art-area {
+    flex: 1 1 0 !important;
+    position: relative !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+}
+
+.sgl-col-custom-img {
+    display: block !important;
+    transition: transform 0.3s ease !important;
+}
+
+.sgl-col-custom-img.sgl-fit-cover {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+}
+
+.sgl-col-custom-img.sgl-fit-contain {
+    width: 90% !important;
+    height: 90% !important;
+    max-width: 90% !important;
+    max-height: 90% !important;
+    object-fit: contain !important;
+}
+
+.sgl-col-custom-img.sgl-fit-fill {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: fill !important;
+}
+
+.sgl-col-custom-img.sgl-fit-center {
+    width: 70% !important;
+    height: 70% !important;
+    max-width: 70% !important;
+    max-height: 70% !important;
+    object-fit: contain !important;
+}
+
+.sgl-col-custom-art-area.sgl-fit-center {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.sgl-card-collection.focused .sgl-col-custom-img {
+    transform: scale(1.04) !important;
+}
+
+.sgl-col-icon-art-area {
+    flex: 1 1 0 !important;
+    position: relative !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+}
+
+.sgl-col-icon-art-area.sgl-fit-center {
+    padding: 8px !important;
+}
+
+.sgl-col-icon-art-area.sgl-fit-contain {
+    padding: 4px !important;
+}
+
+.sgl-col-icon-art-area.sgl-fit-cover,
+.sgl-col-icon-art-area.sgl-fit-fill {
+    padding: 0 !important;
+}
+
+.sgl-col-icon-large {
+    display: block !important;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) !important;
+    transition: transform 0.25s ease !important;
+}
+
+.sgl-col-icon-large.sgl-fit-center {
+    width: 58% !important;
+    height: 48% !important;
+    max-width: 58% !important;
+    max-height: 48% !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) !important;
+}
+
+.sgl-col-icon-large.sgl-fit-contain {
+    width: 90% !important;
+    height: 85% !important;
+    max-width: 90% !important;
+    max-height: 85% !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7)) !important;
+}
+
+.sgl-col-icon-large.sgl-fit-cover {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: cover !important;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7)) !important;
+}
+
+.sgl-col-icon-large.sgl-fit-fill {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: fill !important;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) !important;
+}
+
+.sgl-card-collection.focused .sgl-col-icon-large {
+    transform: scale(1.08) !important;
+}
+
+.sgl-inspector-col-custom-preview {
+    width: 100% !important;
+    height: ${d(125)} !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    margin-bottom: 10px !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.sgl-col-edit-box {
+    margin-top: 8px !important;
+    padding: 8px !important;
+    border-radius: 8px !important;
+    background: rgba(18, 24, 34, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    box-sizing: border-box !important;
+}
+
+.sgl-edit-label {
+    font-size: ${d(9.5)} !important;
+    font-weight: 600 !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+    letter-spacing: 0.2px !important;
+}
+
+.sgl-edit-btn-group {
+    display: flex !important;
+    gap: 4px !important;
+}
+
+.sgl-edit-pill-btn {
+    flex: 1 !important;
+    padding: 3px 6px !important;
+    font-size: ${d(9)} !important;
+    font-weight: 600 !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.sgl-edit-pill-btn.active {
+    background: var(--accent, #58a6ff) !important;
+    color: #ffffff !important;
+    border-color: var(--accent, #58a6ff) !important;
+}
+
+.sgl-edit-input {
+    width: 100% !important;
+    padding: 4px 6px !important;
+    font-size: ${d(9)} !important;
+    border-radius: 4px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+}
+
+.sgl-edit-input:focus {
+    border-color: var(--accent, #58a6ff) !important;
+}
+
+.sgl-edit-select {
+    width: 100% !important;
+    padding: 4px 6px !important;
+    font-size: ${d(9)} !important;
+    border-radius: 4px !important;
+    background: #141a24 !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+}
+
 .sgl-col-footer-title {
     font-size: ${d(10)} !important;
     font-weight: 700 !important;
@@ -1548,10 +1837,10 @@ export const LIBRARY_CSS = `
     }
 
     .sgl-description {
-        font-size: ${d(10)} !important;
-        line-height: 1.3 !important;
-        -webkit-line-clamp: 2 !important;
-        max-height: 2.6em !important;
+        font-size: ${di(10)} !important;
+        line-height: 1.35 !important;
+        -webkit-line-clamp: 6 !important;
+        max-height: 8.5em !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         flex-shrink: 0 !important;
@@ -1832,10 +2121,10 @@ export const LIBRARY_CSS = `
     margin-top: 2px !important;
 }
 .sgl-root.sgl-compact .sgl-description {
-    font-size: ${d(10)} !important;
-    line-height: 1.3 !important;
-    -webkit-line-clamp: 2 !important;
-    max-height: 2.6em !important;
+    font-size: ${di(10)} !important;
+    line-height: 1.35 !important;
+    -webkit-line-clamp: 6 !important;
+    max-height: 8.5em !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     flex-shrink: 0 !important;
@@ -2228,7 +2517,7 @@ html body .sgl-root .sgl-title-text,
 body.LargeText .sgl-root .sgl-title-text,
 .LargeText .sgl-root .sgl-title-text,
 .sgl-root .sgl-title-text {
-    font-size: ${d(15)} !important;
+    font-size: ${di(15)} !important;
     line-height: 1.2 !important;
     max-height: 2.4em !important;
     display: -webkit-box !important;
@@ -2253,7 +2542,7 @@ body.LargeText .sgl-root .sgl-status-pill,
     display: inline-flex !important;
     align-items: center !important;
     height: ${d(18)} !important;
-    font-size: ${d(8.5)} !important;
+    font-size: ${di(8.5)} !important;
     line-height: 1 !important;
     padding: 0 ${d(6)} !important;
     border-radius: ${d(999)} !important;
@@ -2279,7 +2568,7 @@ html body .sgl-root .sgl-stat-label,
 body.LargeText .sgl-root .sgl-stat-label,
 .LargeText .sgl-root .sgl-stat-label,
 .sgl-root .sgl-stat-label {
-    font-size: ${d(8)} !important;
+    font-size: ${di(8)} !important;
     line-height: 1.15 !important;
     letter-spacing: 0.5px !important;
     font-weight: 600 !important;
@@ -2294,7 +2583,7 @@ html body .sgl-root .sgl-stat-value,
 body.LargeText .sgl-root .sgl-stat-value,
 .LargeText .sgl-root .sgl-stat-value,
 .sgl-root .sgl-stat-value {
-    font-size: ${d(11)} !important;
+    font-size: ${di(11)} !important;
     line-height: 1.15 !important;
     font-weight: 700 !important;
     margin: 0 !important;
@@ -2307,11 +2596,11 @@ html body .sgl-root .sgl-description,
 body.LargeText .sgl-root .sgl-description,
 .LargeText .sgl-root .sgl-description,
 .sgl-root .sgl-description {
-    font-size: ${d(10)} !important;
-    line-height: 1.3 !important;
-    max-height: 2.6em !important;
+    font-size: ${di(10)} !important;
+    line-height: 1.35 !important;
+    max-height: 8.5em !important;
     display: -webkit-box !important;
-    -webkit-line-clamp: 2 !important;
+    -webkit-line-clamp: 6 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -2361,7 +2650,7 @@ body.LargeText .sgl-root .sgl-btn-text,
 .sgl-root .sgl-btn-text,
 .sgl-btn-details .sgl-btn-text,
 .sgl-btn-play .sgl-btn-text {
-    font-size: ${d(11)} !important;
+    font-size: ${di(11)} !important;
     line-height: 1 !important;
     height: auto !important;
     min-height: 0 !important;
@@ -2395,7 +2684,7 @@ body.LargeText .sgl-root .sgl-btn-badge,
     max-height: ${d(16)} !important;
     border-radius: 50% !important;
     aspect-ratio: 1 / 1 !important;
-    font-size: ${d(8.5)} !important;
+    font-size: ${di(8.5)} !important;
     line-height: 1 !important;
     font-weight: 800 !important;
     padding: 0 !important;
@@ -2514,5 +2803,515 @@ body.LargeText .sgl-root .sgl-insp-col-card,
     width: ${d(48)} !important;
     height: ${d(72)} !important;
     border-radius: 5px !important;
+}
+
+/* Collection Art Customization Modal */
+.sgl-modal-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.75) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: ${d(20)} !important;
+    animation: sglModalFadeIn 0.18s ease-out both !important;
+}
+
+@keyframes sglModalFadeIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.sgl-modal-window {
+    background: #0d1117 !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: ${d(14)} !important;
+    width: ${d(780)} !important;
+    max-width: 92vw !important;
+    max-height: 86vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+    overflow: hidden !important;
+    color: #f0f6fc !important;
+}
+
+.sgl-modal-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: ${d(14)} ${d(18)} !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.sgl-modal-title-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: ${d(8)} !important;
+}
+
+.sgl-modal-title {
+    margin: 0 !important;
+    font-size: ${d(15)} !important;
+    font-weight: 700 !important;
+    color: #f0f6fc !important;
+}
+
+.sgl-modal-subtitle {
+    font-size: ${d(13)} !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.sgl-modal-close-btn {
+    background: none !important;
+    border: none !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+    cursor: pointer !important;
+    padding: ${d(4)} !important;
+    border-radius: ${d(4)} !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.sgl-modal-close-btn:hover {
+    color: #fff !important;
+}
+
+.sgl-modal-body {
+    display: flex !important;
+    gap: ${d(20)} !important;
+    padding: ${d(18)} !important;
+    overflow-y: auto !important;
+    flex: 1 !important;
+}
+
+.sgl-modal-preview-pane {
+    flex: 0 0 ${d(240)} !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: ${d(8)} !important;
+}
+
+.sgl-modal-preview-label {
+    font-size: ${d(11)} !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.sgl-modal-card-preview {
+    width: ${d(170)} !important;
+    height: ${d(170)} !important;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: ${d(10)} !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+    margin: 0 !important;
+}
+
+.sgl-modal-controls-pane {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: ${d(12)} !important;
+    min-width: 0 !important;
+}
+
+.sgl-modal-section {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: ${d(6)} !important;
+}
+
+.sgl-modal-section-title {
+    font-size: ${d(12)} !important;
+    font-weight: 600 !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.sgl-modal-btn-row {
+    display: flex !important;
+    gap: ${d(6)} !important;
+    flex-wrap: wrap !important;
+}
+
+.sgl-modal-mode-pill {
+    padding: ${d(6)} ${d(12)} !important;
+    border-radius: ${d(8)} !important;
+    font-size: ${d(11.5)} !important;
+    font-weight: 600 !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.sgl-modal-mode-pill.active {
+    background: var(--accent, #58a6ff) !important;
+    border-color: var(--accent, #58a6ff) !important;
+    color: #fff !important;
+}
+
+.sgl-modal-mode-pill:focus,
+.sgl-modal-mode-pill.focused,
+.sgl-modal-mode-pill.gpfocus,
+.sgl-modal-mode-pill.gp-focus {
+    outline: 2px solid #fff !important;
+    outline-offset: 1px !important;
+}
+
+.sgl-modal-browse-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: ${d(8)} !important;
+    padding: ${d(8)} ${d(14)} !important;
+    border-radius: ${d(8)} !important;
+    background: rgba(88, 166, 255, 0.12) !important;
+    border: 1px solid rgba(88, 166, 255, 0.3) !important;
+    color: #58a6ff !important;
+    font-weight: 600 !important;
+    font-size: ${d(12)} !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.sgl-modal-browse-btn:focus,
+.sgl-modal-browse-btn.focused,
+.sgl-modal-browse-btn.gpfocus,
+.sgl-modal-browse-btn.gp-focus {
+    background: rgba(88, 166, 255, 0.28) !important;
+    border-color: #58a6ff !important;
+    outline: 2px solid #58a6ff !important;
+}
+
+.sgl-modal-stepper {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: rgba(22, 27, 34, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: ${d(8)} !important;
+    padding: ${d(6)} ${d(10)} !important;
+    transition: all 0.15s ease !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.sgl-modal-stepper.focused {
+    border-color: var(--accent, #58a6ff) !important;
+    outline: 2px solid var(--accent, #58a6ff) !important;
+    outline-offset: 1px !important;
+    box-shadow: 0 0 12px var(--accent-glow, rgba(88, 166, 255, 0.4)) !important;
+    background: rgba(30, 38, 50, 0.98) !important;
+}
+
+.sgl-modal-stepper-btn {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    border-radius: ${d(4)} !important;
+    width: ${d(26)} !important;
+    height: ${d(26)} !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: ${d(12)} !important;
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+.sgl-modal-stepper-btn:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #fff !important;
+}
+
+.sgl-modal-stepper-content {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: ${d(2)} !important;
+    flex: 1 !important;
+    padding: 0 ${d(8)} !important;
+}
+
+.sgl-modal-stepper-title {
+    font-size: ${d(12.5)} !important;
+    font-weight: 700 !important;
+    color: #f0f6fc !important;
+}
+
+.sgl-modal-stepper-sub {
+    font-size: ${d(10.5)} !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+    text-align: center !important;
+}
+
+.sgl-modal-info-card {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: ${d(8)} !important;
+    padding: ${d(12)} ${d(14)} !important;
+    font-size: ${d(11.5)} !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    line-height: 1.4 !important;
+}
+
+.sgl-modal-select-hint {
+    font-size: ${d(10.5)} !important;
+    color: rgba(255, 255, 255, 0.45) !important;
+    margin-top: ${d(2)} !important;
+}
+
+.sgl-modal-url-input-container {
+    width: 100% !important;
+}
+
+.sgl-modal-url-input {
+    width: 100% !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: ${d(6)} !important;
+    padding: ${d(6)} ${d(10)} !important;
+    color: #f0f6fc !important;
+    font-size: ${d(11)} !important;
+    font-family: inherit !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+    transition: all 0.15s ease !important;
+}
+
+.sgl-modal-url-input:focus {
+    border-color: #58a6ff !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.25) !important;
+}
+
+.sgl-modal-filepath-text {
+    font-size: ${d(11)} !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-family: monospace !important;
+    padding: ${d(4)} ${d(8)} !important;
+    background: rgba(0, 0, 0, 0.35) !important;
+    border-radius: ${d(6)} !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.sgl-modal-filepath-prefix {
+    color: #58a6ff !important;
+    font-weight: 600 !important;
+}
+
+.sgl-modal-filepath-hint {
+    font-size: ${d(10.5)} !important;
+    color: rgba(255, 255, 255, 0.4) !important;
+    line-height: 1.3 !important;
+}
+
+.sgl-modal-console-auto-btn {
+    padding: ${d(6)} ${d(10)} !important;
+    border-radius: ${d(6)} !important;
+    font-size: ${d(11)} !important;
+    font-weight: 600 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    width: fit-content !important;
+}
+
+.sgl-modal-console-auto-btn.active {
+    border-color: #3fb950 !important;
+    color: #3fb950 !important;
+    background: rgba(63, 185, 80, 0.15) !important;
+}
+
+.sgl-modal-console-auto-btn:focus,
+.sgl-modal-console-auto-btn.focused,
+.sgl-modal-console-auto-btn.gpfocus,
+.sgl-modal-console-auto-btn.gp-focus {
+    outline: 2px solid #fff !important;
+}
+
+.sgl-modal-console-header-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: ${d(8)} !important;
+    flex-wrap: wrap !important;
+}
+
+.sgl-modal-console-selected-badge {
+    font-size: ${d(11)} !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: ${d(6)} !important;
+    padding: ${d(4)} ${d(8)} !important;
+}
+
+.sgl-modal-console-selected-badge strong {
+    color: var(--accent, #58a6ff) !important;
+}
+
+.sgl-modal-console-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: ${d(5)} !important;
+    max-height: ${d(170)} !important;
+    overflow-y: auto !important;
+    padding: ${d(3)} !important;
+    border-radius: ${d(8)} !important;
+    background: rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    scroll-behavior: smooth !important;
+}
+
+.sgl-modal-console-grid::-webkit-scrollbar {
+    width: ${d(6)} !important;
+}
+
+.sgl-modal-console-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-radius: ${d(4)} !important;
+}
+
+.sgl-modal-console-grid::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25) !important;
+    border-radius: ${d(4)} !important;
+}
+
+.sgl-modal-console-grid::-webkit-scrollbar-thumb:hover {
+    background: var(--accent, #58a6ff) !important;
+}
+
+.sgl-modal-console-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: ${d(6)} !important;
+    padding: ${d(5)} ${d(6)} !important;
+    border-radius: ${d(6)} !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    cursor: pointer !important;
+    transition: all 0.12s ease !important;
+    min-width: 0 !important;
+}
+
+.sgl-modal-console-item.active {
+    background: rgba(88, 166, 255, 0.18) !important;
+    border-color: var(--accent, #58a6ff) !important;
+    color: #fff !important;
+}
+
+.sgl-modal-console-item:focus,
+.sgl-modal-console-item.focused,
+.sgl-modal-console-item.gpfocus,
+.sgl-modal-console-item.gp-focus {
+    outline: 2px solid var(--accent, #58a6ff) !important;
+    outline-offset: 1px !important;
+    border-color: var(--accent, #58a6ff) !important;
+    box-shadow: 0 0 10px var(--accent-glow, rgba(88, 166, 255, 0.4)) !important;
+    background: rgba(88, 166, 255, 0.22) !important;
+}
+
+.sgl-modal-console-thumb {
+    width: ${d(18)} !important;
+    height: ${d(18)} !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+}
+
+.sgl-modal-console-thumb-fallback {
+    width: ${d(18)} !important;
+    height: ${d(18)} !important;
+    border-radius: ${d(4)} !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    flex-shrink: 0 !important;
+}
+
+.sgl-modal-console-name {
+    font-size: ${d(10.5)} !important;
+    font-weight: 500 !important;
+    color: inherit !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.sgl-modal-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: ${d(8)} !important;
+    padding: ${d(12)} ${d(18)} !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(0, 0, 0, 0.25) !important;
+}
+
+.sgl-modal-action-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: ${d(8)} !important;
+    padding: ${d(7)} ${d(14)} !important;
+    border-radius: ${d(8)} !important;
+    font-size: ${d(11.5)} !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    border: 1px solid transparent !important;
+    transition: all 0.15s ease !important;
+}
+
+.sgl-modal-action-btn:focus,
+.sgl-modal-action-btn.focused,
+.sgl-modal-action-btn.gpfocus,
+.sgl-modal-action-btn.gp-focus {
+    outline: 2px solid #fff !important;
+    outline-offset: 1px !important;
+}
+
+.sgl-modal-btn-save {
+    background: #238636 !important;
+    color: #fff !important;
+    border-color: #2ea043 !important;
+}
+.sgl-modal-btn-save:hover,
+.sgl-modal-btn-save:focus {
+    background: #2ea043 !important;
+}
+
+.sgl-modal-btn-reset {
+    background: rgba(248, 81, 73, 0.15) !important;
+    color: #f85149 !important;
+    border-color: rgba(248, 81, 73, 0.3) !important;
+}
+.sgl-modal-btn-reset:hover,
+.sgl-modal-btn-reset:focus {
+    background: rgba(248, 81, 73, 0.28) !important;
+}
+
+.sgl-modal-btn-cancel {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.sgl-modal-btn-cancel:hover,
+.sgl-modal-btn-cancel:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: #fff !important;
 }
 `;

@@ -12,13 +12,16 @@ import { browserStores, guessedHeroUrls, heroUrls as getHeroUrls, useArtworkVers
 import { playNavSound } from './navSound';
 import { LibraryBackground } from './LibraryBackground';
 import { LibraryCategoryBar } from './LibraryCategoryBar';
-import { mountOpenBridge, OPEN_TIMINGS, RETURN_TIMINGS, steamEnterOffCss, type OpenBridge } from './libraryTransition';
-import { markOpen, onOpenReady } from '../data/openIntent';
+import { mountOpenBridge, RETURN_TIMINGS, steamEnterOffCss } from './libraryTransition';
 import { libraryCanvas, usableSize } from './libraryScale';
 import { cardArtMemo, LibraryGrid } from './LibraryGrid';
 import { LibraryInspector } from './LibraryInspector';
+import { CollectionArtModal } from './CollectionArtModal';
+import { preloadPresetIcons } from './enhancedCollection';
 import { LIBRARY_CSS } from './libraryCss';
+import { LibraryStatusBar } from './LibraryStatusBar';
 import { buildCategories, LibraryCategory, LibraryCollectionItem, LibraryGameItem } from './libraryData';
+import { getNextSortMode, sortCollections, sortGames } from './librarySort';
 import { markLeavingLibrary, noteLibrary, resetLibraryMemory, takeLibraryRestore } from './libraryMemory';
 import {
     extractTabsFromNativeTree,
@@ -166,87 +169,13 @@ const SGL_BRIDGE_DROP = [
     '.sgl-grid-viewport',
 ];
 
-export function openLibraryGameDetails(game: LibraryGameItem, sourceEl?: HTMLElement | null) {
-    if (activeLibraryBridge) return;
+export function openLibraryGameDetails(game: LibraryGameItem, _sourceEl?: HTMLElement | null) {
     playNavSound('IntoGameDetail');
     markLeavingLibrary();
-
-    if (!settings.get().zoomTransition) {
-        try {
-            Navigation.Navigate(`/library/app/${game.appId}`);
-        } catch {
-            // ignore
-        }
-        return;
-    }
-
-    let bridge: OpenBridge | null = null;
-    let stopReady: (() => void) | null = null;
-    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
-    let navTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const cleanup = () => {
-        if (safetyTimer) {
-            clearTimeout(safetyTimer);
-            safetyTimer = null;
-        }
-        if (navTimer) {
-            clearTimeout(navTimer);
-            navTimer = null;
-        }
-        if (stopReady) {
-            stopReady();
-            stopReady = null;
-        }
-        if (bridge) {
-            bridge.remove();
-            bridge = null;
-        }
-        activeLibraryBridge = null;
-    };
-
     try {
-        const hasDoc = typeof document !== 'undefined';
-        const root = (sourceEl?.closest?.('.sgl-root') ?? (hasDoc ? document.querySelector('.sgl-root') : null)) as HTMLElement | null;
-        if (root) {
-            root.classList.add('sgl-leaving');
-            root.setAttribute('data-sgl-leaving', 'true');
-        }
-
-        markOpen(game.appId, {
-            look: 'spotlight',
-            mode: 'all',
-        });
-
-        stopReady = onOpenReady((readyAppId) => {
-            if (readyAppId === game.appId && bridge) {
-                bridge.fadeOut(OPEN_TIMINGS.bridgeFade);
-                setTimeout(cleanup, OPEN_TIMINGS.bridgeFade + 50);
-            }
-        });
-
-        safetyTimer = setTimeout(cleanup, OPEN_TIMINGS.readyCap + 400);
-        activeLibraryBridge = { cancel: cleanup };
-
-        navTimer = setTimeout(() => {
-            navTimer = null;
-            try {
-                if (root) {
-                    bridge = mountOpenBridge(root, steamEnterOffCss(), [], SGL_BRIDGE_DROP);
-                }
-            } catch {}
-            try {
-                Navigation.Navigate(`/library/app/${game.appId}`);
-            } catch {
-                cleanup();
-            }
-        }, 200);
-    } catch (error) {
-        console.warn(`${LOG_PREFIX} SpotlightLibrary: open transition failed`, error);
-        cleanup();
-        try {
-            Navigation.Navigate(`/library/app/${game.appId}`);
-        } catch {}
+        Navigation.Navigate(`/library/app/${game.appId}`);
+    } catch {
+        // ignore
     }
 }
 
@@ -351,24 +280,34 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
     const columns = isCollectionsView ? collectionColumns : gameColumns;
 
     const activeSubCollection: LibraryCollectionItem | null = useMemo(() => {
-        if (!isInsideSubCollection) return null;
-        return activeCategory?.collections?.find((c) => c.id === selectedCollectionId) ?? null;
+        if (!isInsideSubCollection || !selectedCollectionId) return null;
+        return activeCategory?.collections?.find((c) => String(c.id) === String(selectedCollectionId) || c.name === selectedCollectionId) ?? null;
     }, [isInsideSubCollection, activeCategory, selectedCollectionId]);
+
+    const sortMode = currentSettings.librarySort ?? 'recent';
+
+    const handleCycleSort = useCallback(() => {
+        const nextSort = getNextSortMode(sortMode);
+        void settings.setLibrarySort(nextSort);
+        playNavSound('ChangeTabs');
+        setSelectedGameIdx(0);
+    }, [sortMode]);
 
     // Items list for current view: games in standard categories or sub-collection; collections in collections overview
     const currentGames: LibraryGameItem[] = useMemo(() => {
-        if (isCollectionsTab) {
-            return activeSubCollection?.games ?? [];
-        }
-        return activeCategory?.games ?? [];
-    }, [isCollectionsTab, activeSubCollection, activeCategory]);
+        const rawGames = isCollectionsTab
+            ? (activeSubCollection?.games ?? [])
+            : (activeCategory?.games ?? []);
+        return sortGames(rawGames, sortMode);
+    }, [isCollectionsTab, activeSubCollection, activeCategory, sortMode]);
 
     const currentCollections: LibraryCollectionItem[] = useMemo(() => {
         if (isCollectionsTab && !isInsideSubCollection) {
-            return activeCategory?.collections ?? [];
+            const rawCols = activeCategory?.collections ?? [];
+            return sortCollections(rawCols, sortMode);
         }
         return [];
-    }, [isCollectionsTab, isInsideSubCollection, activeCategory]);
+    }, [isCollectionsTab, isInsideSubCollection, activeCategory, sortMode]);
 
     const totalItemsCount = isCollectionsTab && !isInsideSubCollection ? currentCollections.length : currentGames.length;
 
@@ -391,6 +330,65 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
 
     const selectedGame: LibraryGameItem | null = currentGames[selectedGameIdx] ?? null;
     const selectedCollectionItem: LibraryCollectionItem | null = currentCollections[selectedGameIdx] ?? null;
+    const [customizingCollection, setCustomizingCollection] = useState<LibraryCollectionItem | null>(null);
+    const customizingColRef = useRef<LibraryCollectionItem | null>(null);
+    useEffect(() => {
+        customizingColRef.current = customizingCollection;
+    }, [customizingCollection]);
+
+    const prevCustomizingColIdRef = useRef<string | number | null>(null);
+    const modalGamepadHandlerRef = useRef<((evt: GamepadEvent) => void) | null>(null);
+    const modalKeyDownHandlerRef = useRef<((evt: KeyboardEvent) => void) | null>(null);
+    const lastNavTimeRef = useRef<number>(0);
+
+    const handleCloseModal = useCallback(() => {
+        const targetColId = customizingColRef.current?.id ?? customizingCollection?.id;
+        setCustomizingCollection(null);
+        if (targetColId) {
+            const foundIdx = currentCollections.findIndex(
+                (c) => String(c.id) === String(targetColId) || c.name === targetColId
+            );
+            if (foundIdx >= 0) {
+                setSelectedGameIdx(foundIdx);
+            }
+            setFocusZone('grid');
+        }
+    }, [currentCollections, customizingCollection]);
+
+    // When modal closes, restore focus specifically to the collection card that was customized
+    useEffect(() => {
+        if (customizingCollection) {
+            prevCustomizingColIdRef.current = customizingCollection.id;
+            return undefined;
+        }
+        if (prevCustomizingColIdRef.current !== null) {
+            const targetColId = prevCustomizingColIdRef.current;
+            prevCustomizingColIdRef.current = null;
+            setFocusZone('grid');
+
+            const restoreFocus = () => {
+                const targetCard = (
+                    document.querySelector(`.sgl-card-collection[data-collection-id="${targetColId}"]`) ??
+                    document.querySelector('.sgl-card-collection.focused')
+                ) as HTMLElement | null;
+                targetCard?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+                targetCard?.focus?.();
+            };
+
+            requestAnimationFrame(restoreFocus);
+            const t1 = setTimeout(restoreFocus, 30);
+            const t2 = setTimeout(restoreFocus, 100);
+            return () => {
+                clearTimeout(t1);
+                clearTimeout(t2);
+            };
+        }
+        return undefined;
+    }, [customizingCollection]);
+
+    useEffect(() => {
+        preloadPresetIcons().catch(() => {});
+    }, []);
 
     // Reset game index when category changes
     const selectCategory = useCallback((id: string) => {
@@ -480,8 +478,10 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
 
     // Open a collection to view its games
     const handleOpenCollection = useCallback((col: LibraryCollectionItem | null = selectedCollectionItem) => {
-        if (!col) return;
-        setSelectedCollectionId(col.id);
+        if (!col || typeof col !== 'object') return;
+        const colId = col.id !== undefined ? String(col.id) : (col.name ? String(col.name) : '');
+        if (!colId) return;
+        setSelectedCollectionId(colId);
         setSelectedGameIdx(0);
         const gridPanel = document.querySelector('.sgl-grid-panel');
         if (gridPanel) {
@@ -493,7 +493,7 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
     // Back to collections list
     const handleBackToCollections = useCallback(() => {
         if (!isInsideSubCollection) return;
-        const prevIdx = activeCategory?.collections?.findIndex((c) => c.id === selectedCollectionId) ?? 0;
+        const prevIdx = activeCategory?.collections?.findIndex((c) => String(c.id) === String(selectedCollectionId) || c.name === selectedCollectionId) ?? 0;
         setSelectedCollectionId(null);
         setSelectedGameIdx(Math.max(0, prevIdx));
         playNavSound();
@@ -519,7 +519,8 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
     // Resolve hero candidate URLs for ambient background (includes custom, local, and Steam CDN fallbacks)
     const heroCandidates = useMemo(() => {
         if (isCollectionsTab && !isInsideSubCollection && selectedCollectionItem) {
-            const firstGame = selectedCollectionItem.games[0];
+            const games = Array.isArray(selectedCollectionItem.games) ? selectedCollectionItem.games : [];
+            const firstGame = games[0];
             if (!firstGame) return [];
             if (firstGame.heroUrl) return [firstGame.heroUrl];
             const heroes = getHeroUrls(firstGame.appId, browserStores);
@@ -661,6 +662,9 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
     // Activation on the Focusable root container. Guard against synthetic/bubbled mouse pointer clicks
     // so mouse clicks on background or items never trigger an accidental launch of the selected game.
     const handleRootActivate = useCallback((e?: unknown) => {
+        if (customizingColRef.current || customizingCollection) {
+            return;
+        }
         if (e && typeof e === 'object') {
             const evt = e as { type?: string; clientX?: number; clientY?: number; pointerType?: string };
             if (evt.type === 'click' || evt.pointerType === 'mouse' || evt.pointerType === 'touch') {
@@ -671,10 +675,14 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
             }
         }
         onActivate();
-    }, [onActivate]);
+    }, [onActivate, customizingCollection]);
 
     const onCancel = useCallback(() => {
         if (isLeaving || isExitingHomeRef.current) return;
+        if (customizingColRef.current || customizingCollection) {
+            handleCloseModal();
+            return;
+        }
         cancelLibraryOpen();
         if (isInsideSubCollection) {
             handleBackToCollections();
@@ -687,12 +695,20 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
         }
         // At root tabs level: nowhere else to go back inside Library -> take user to Home
         navigateHome();
-    }, [focusZone, handleBackToCollections, isInsideSubCollection, navigateHome, isLeaving]);
+    }, [focusZone, handleBackToCollections, isInsideSubCollection, navigateHome, isLeaving, customizingCollection, handleCloseModal]);
 
     // Gamepad controller event handler for Decky's Focusable tree
     const onGamepadButtonDown = useCallback((evt: GamepadEvent) => {
         try {
             if (isLeaving || isExitingHomeRef.current) {
+                evt.preventDefault?.();
+                evt.stopPropagation?.();
+                return;
+            }
+            if (customizingColRef.current || customizingCollection) {
+                if (modalGamepadHandlerRef.current) {
+                    modalGamepadHandlerRef.current(evt);
+                }
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
                 return;
@@ -723,6 +739,14 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
 
             // START / Options / View Menu: Open Steam Game Options Menu (START = 14, SELECT = 13)
             if (btn === GamepadButton.START || btn === 14 || btn === GamepadButton.SELECT || btn === 13) {
+                if (isCollectionsTab && !isInsideSubCollection) {
+                    if (selectedCollectionItem) {
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        setCustomizingCollection(selectedCollectionItem);
+                        return;
+                    }
+                }
                 if (selectedGame) {
                     evt.preventDefault?.();
                     evt.stopPropagation?.();
@@ -740,13 +764,30 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
                 }
             }
 
-            // Y Button: Play / Launch (OPTIONS = 4)
+            // Y Button: Play / Launch for games; Customize Art for collections (OPTIONS = 4)
             if (btn === GamepadButton.OPTIONS || btn === 4) {
-                if (isCollectionsTab && !isInsideSubCollection) return;
+                if (isCollectionsTab && !isInsideSubCollection) {
+                    if (selectedCollectionItem) {
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        setCustomizingCollection(selectedCollectionItem);
+                    }
+                    return;
+                }
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
                 handlePlayGame();
                 return;
+            }
+
+            // X Button: Customize Art for collections (SECONDARY = 3)
+            if (btn === GamepadButton.SECONDARY || btn === 3) {
+                if (isCollectionsTab && !isInsideSubCollection && selectedCollectionItem) {
+                    evt.preventDefault?.();
+                    evt.stopPropagation?.();
+                    setCustomizingCollection(selectedCollectionItem);
+                    return;
+                }
             }
 
             // A Button: Details / Open Collection (OK = 1 in GamepadButton, or 0 in ControllerInputGamepadButton / raw Gamepad API)
@@ -769,12 +810,12 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
             if (btn === GamepadButton.DIR_LEFT || btn === 11) {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
+                lastNavTimeRef.current = Date.now();
                 if (focusZone === 'tabs') {
                     cycleCategory(-1);
                 } else if (totalItemsCount > 0) {
-                    const baseIdx = getReconciledSelectedIndex(selectedGameIdx, totalItemsCount);
-                    if (baseIdx > 0) {
-                        handleSelectGame(baseIdx - 1);
+                    if (selectedGameIdx > 0) {
+                        handleSelectGame(selectedGameIdx - 1);
                     }
                 }
                 return;
@@ -783,12 +824,12 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
             if (btn === GamepadButton.DIR_RIGHT || btn === 12) {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
+                lastNavTimeRef.current = Date.now();
                 if (focusZone === 'tabs') {
                     cycleCategory(1);
                 } else if (totalItemsCount > 0) {
-                    const baseIdx = getReconciledSelectedIndex(selectedGameIdx, totalItemsCount);
-                    if (baseIdx < totalItemsCount - 1) {
-                        handleSelectGame(baseIdx + 1);
+                    if (selectedGameIdx < totalItemsCount - 1) {
+                        handleSelectGame(selectedGameIdx + 1);
                     }
                 }
                 return;
@@ -798,9 +839,9 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
                 if (focusZone === 'grid') {
                     evt.preventDefault?.();
                     evt.stopPropagation?.();
-                    const baseIdx = getReconciledSelectedIndex(selectedGameIdx, totalItemsCount);
-                    if (baseIdx >= columns) {
-                        handleSelectGame(baseIdx - columns);
+                    lastNavTimeRef.current = Date.now();
+                    if (selectedGameIdx >= columns) {
+                        handleSelectGame(selectedGameIdx - columns);
                     } else {
                         setFocusZone('tabs');
                         playNavSound();
@@ -815,15 +856,15 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
             if (btn === GamepadButton.DIR_DOWN || btn === 10) {
                 evt.preventDefault?.();
                 evt.stopPropagation?.();
+                lastNavTimeRef.current = Date.now();
                 if (focusZone === 'tabs') {
                     setFocusZone('grid');
                     playNavSound();
                 } else if (totalItemsCount > 0) {
-                    const baseIdx = getReconciledSelectedIndex(selectedGameIdx, totalItemsCount);
-                    if (baseIdx + columns < totalItemsCount) {
-                        handleSelectGame(baseIdx + columns);
+                    if (selectedGameIdx + columns < totalItemsCount) {
+                        handleSelectGame(selectedGameIdx + columns);
                     } else {
-                        const curRow = Math.floor(baseIdx / columns);
+                        const curRow = Math.floor(selectedGameIdx / columns);
                         const lastRow = Math.floor((totalItemsCount - 1) / columns);
                         if (curRow < lastRow) {
                             handleSelectGame(totalItemsCount - 1);
@@ -835,7 +876,7 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
         } catch (error) {
             console.warn(`${LOG_PREFIX} SpotlightLibrary: Gamepad button error`, error);
         }
-    }, [columns, cycleCategory, focusZone, totalItemsCount, handleBackToCollections, handlePlayGame, handleSelectGame, isCollectionsTab, isInsideSubCollection, onActivate, selectedGameIdx]);
+    }, [columns, cycleCategory, focusZone, totalItemsCount, handleBackToCollections, handlePlayGame, handleSelectGame, isCollectionsTab, isInsideSubCollection, onActivate, selectedGameIdx, customizingCollection, handleCloseModal]);
 
     // Ensure initial focus lands in SpotlightLibrary if nothing else is focused on mount
     useEffect(() => {
@@ -853,6 +894,14 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (isLeaving || isExitingHomeRef.current) return;
+            if (customizingColRef.current || customizingCollection) {
+                if (modalKeyDownHandlerRef.current) {
+                    modalKeyDownHandlerRef.current(e);
+                }
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
                 // When focused on Steam's top search bar, allow ArrowDown or Escape to return focus
                 // down into the Spotlight Library category tabs!
@@ -912,31 +961,36 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
             // In Grid
             if (totalItemsCount === 0) return;
 
-            const baseIdx = getReconciledSelectedIndex(selectedGameIdx, totalItemsCount);
+            // If recently handled by gamepad button down event, ignore duplicate synthetic key event
+            const isArrow = e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown';
+            if (isArrow && Date.now() - lastNavTimeRef.current < 120) {
+                e.preventDefault();
+                return;
+            }
 
             if (e.key === 'ArrowLeft') {
-                if (baseIdx > 0) {
-                    handleSelectGame(baseIdx - 1);
+                if (selectedGameIdx > 0) {
+                    handleSelectGame(selectedGameIdx - 1);
                 }
                 e.preventDefault();
             } else if (e.key === 'ArrowRight') {
-                if (baseIdx < totalItemsCount - 1) {
-                    handleSelectGame(baseIdx + 1);
+                if (selectedGameIdx < totalItemsCount - 1) {
+                    handleSelectGame(selectedGameIdx + 1);
                 }
                 e.preventDefault();
             } else if (e.key === 'ArrowUp') {
-                if (baseIdx >= columns) {
-                    handleSelectGame(baseIdx - columns);
+                if (selectedGameIdx >= columns) {
+                    handleSelectGame(selectedGameIdx - columns);
                 } else {
                     setFocusZone('tabs');
                     playNavSound();
                 }
                 e.preventDefault();
             } else if (e.key === 'ArrowDown') {
-                if (baseIdx + columns < totalItemsCount) {
-                    handleSelectGame(baseIdx + columns);
+                if (selectedGameIdx + columns < totalItemsCount) {
+                    handleSelectGame(selectedGameIdx + columns);
                 } else {
-                    const currentRow = Math.floor(baseIdx / columns);
+                    const currentRow = Math.floor(selectedGameIdx / columns);
                     const lastRow = Math.floor((totalItemsCount - 1) / columns);
                     if (currentRow < lastRow) {
                         handleSelectGame(totalItemsCount - 1);
@@ -946,12 +1000,23 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
             } else if (e.key === 'Enter' || e.key === ' ') {
                 onActivate();
                 e.preventDefault();
-            } else if (e.key === 'y' || e.key === 'Y') {
-                if (!isCollectionsTab || isInsideSubCollection) {
+            } else if (e.key === 'y' || e.key === 'Y' || e.key === 'x' || e.key === 'X' || e.key === 'c' || e.key === 'C') {
+                if (isCollectionsTab && !isInsideSubCollection) {
+                    if (selectedCollectionItem) {
+                        setCustomizingCollection(selectedCollectionItem);
+                    }
+                } else if (e.key === 'y' || e.key === 'Y') {
                     handlePlayGame();
                 }
                 e.preventDefault();
             } else if (e.key === 'm' || e.key === 'M' || e.key === 'ContextMenu') {
+                if (isCollectionsTab && !isInsideSubCollection) {
+                    if (selectedCollectionItem) {
+                        setCustomizingCollection(selectedCollectionItem);
+                        e.preventDefault();
+                    }
+                    return;
+                }
                 if (selectedGame) {
                     const cardEl = (
                         document.querySelector(`.sgl-card[data-app-id="${selectedGame.appId}"]`) ??
@@ -963,6 +1028,9 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
                     openGameActions(selectedGame.appId, cardEl);
                     e.preventDefault();
                 }
+            } else if (e.key === 's' || e.key === 'S') {
+                handleCycleSort();
+                e.preventDefault();
             } else if (e.key === 'Escape') {
                 onCancel();
                 e.preventDefault();
@@ -971,7 +1039,7 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [focusZone, selectedGameIdx, totalItemsCount, columns, cycleCategory, handleSelectGame, onActivate, handlePlayGame, onCancel, isCollectionsTab, isInsideSubCollection, selectedGame, isLeaving]);
+    }, [focusZone, selectedGameIdx, totalItemsCount, columns, cycleCategory, handleSelectGame, onActivate, handlePlayGame, onCancel, isCollectionsTab, isInsideSubCollection, selectedGame, isLeaving, customizingCollection, selectedCollectionItem, handleCycleSort]);
 
     const activeCategoryIdx = categories.findIndex((c) => c.id === activeCategoryId);
     const activeCollectionIdx = isInsideSubCollection
@@ -982,9 +1050,9 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
     return (
         <Focusable
             ref={rootRef as unknown as React.Ref<HTMLDivElement>}
-            className={`sgl-root${compact ? ' sgl-compact' : ''}${back ? ' sgl-back' : ''}${isLeaving ? ' sgl-leaving' : ''}`}
+            className={`sgl-root${compact ? ' sgl-compact' : ''}${back ? ' sgl-back' : ''}${isLeaving ? ' sgl-leaving' : ''}${currentSettings.libraryStatusBar ? ' sgl-has-status-bar' : ''}`}
             data-sgl-leaving={isLeaving ? 'true' : undefined}
-            preferredFocus={true}
+            preferredFocus={!customizingCollection}
             noFocusRing
             tabIndex={0}
             style={{
@@ -1010,6 +1078,9 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
             <style>{LIBRARY_CSS}</style>
             {enterOff && <style>{enterOff}</style>}
 
+            {/* Status Bar */}
+            <LibraryStatusBar hidden={isLeaving} />
+
             {/* Ambient Blurred Background */}
             <LibraryBackground candidates={heroCandidates} />
 
@@ -1023,13 +1094,15 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
                         ? (activeCollectionIdx >= 0 ? activeCollectionIdx : 0)
                         : (activeCategoryIdx >= 0 ? activeCategoryIdx : 0)
                 }
-                isHeaderFocused={focusZone === 'tabs'}
+                isHeaderFocused={focusZone === 'tabs' && !customizingCollection}
                 isInsideSubCollection={isInsideSubCollection}
                 collections={activeCategory?.collections ?? []}
                 activeSubCollectionId={selectedCollectionId}
                 onSelectSubCollection={selectSubCollection}
                 activeSubCollectionName={activeSubCollection?.name}
                 onBackToCollections={handleBackToCollections}
+                sortMode={sortMode}
+                onCycleSort={handleCycleSort}
             />
 
             {/* Main Split Layout: Left Inspector + Right Grid */}
@@ -1045,6 +1118,7 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
                     onPlay={() => handlePlayGame()}
                     onDetails={(sourceEl) => handleDetails(selectedGame, sourceEl)}
                     onOpenCollection={handleOpenCollection}
+                    onCustomizeCollection={() => setCustomizingCollection(selectedCollectionItem)}
                 />
 
                 <LibraryGrid
@@ -1056,13 +1130,31 @@ export function SpotlightLibrary({ mockGames, compact, fallbackTree }: Spotlight
                     accent={gameAccent}
                     dimUninstalled={Boolean(currentSettings.dimUninstalledGames)}
                     columns={columns}
-                    isGridFocused={focusZone === 'grid'}
+                    isGridFocused={focusZone === 'grid' && !customizingCollection}
                     onSelectGame={handleSelectGame}
                     onLaunchGame={handleDetails}
                     onOpenCollection={handleOpenCollection}
+                    onCustomizeCollection={(col) => setCustomizingCollection(col)}
                     onContextMenu={handleContextMenu}
                 />
             </div>
+
+            {/* Collection Artwork Customization Modal */}
+            {customizingCollection && (
+                <CollectionArtModal
+                    collection={customizingCollection}
+                    accent={gameAccent || DEFAULT_ACCENT}
+                    isOpen={Boolean(customizingCollection)}
+                    onClose={handleCloseModal}
+                    onSaveSuccess={handleCloseModal}
+                    registerGamepadHandler={(fn) => {
+                        modalGamepadHandlerRef.current = fn;
+                    }}
+                    registerKeyDownHandler={(fn) => {
+                        modalKeyDownHandlerRef.current = fn;
+                    }}
+                />
+            )}
         </Focusable>
     );
 }
