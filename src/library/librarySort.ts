@@ -23,6 +23,17 @@ export function getNextSortMode(current: LibrarySortMode): LibrarySortMode {
     return SORT_MODES[(idx + 1) % SORT_MODES.length];
 }
 
+/**
+ * Returns the effective string to sort a game by.
+ * Honors Steam's native "Custom Sort Title" (`sortAs` / `sort_as`) if set by the user,
+ * falling back to the standard display name (`name`).
+ */
+export function getGameSortName(game: LibraryGameItem): string {
+    const sort = typeof game.sortAs === 'string' ? game.sortAs.trim() : '';
+    if (sort.length > 0) return sort;
+    return (game.name || '').trim();
+}
+
 export function sortGames(games: LibraryGameItem[], mode: LibrarySortMode): LibraryGameItem[] {
     if (!games || games.length <= 1) return games ?? [];
     const list = [...games];
@@ -30,8 +41,8 @@ export function sortGames(games: LibraryGameItem[], mode: LibrarySortMode): Libr
     switch (mode) {
         case 'alpha':
             return list.sort((a, b) => {
-                const nameA = (a.name || '').trim();
-                const nameB = (b.name || '').trim();
+                const nameA = getGameSortName(a);
+                const nameB = getGameSortName(b);
                 return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
             });
 
@@ -40,7 +51,7 @@ export function sortGames(games: LibraryGameItem[], mode: LibrarySortMode): Libr
                 const playA = typeof a.playedMinutes === 'number' ? a.playedMinutes : 0;
                 const playB = typeof b.playedMinutes === 'number' ? b.playedMinutes : 0;
                 if (playB !== playA) return playB - playA; // descending: highest playtime first
-                return (a.name || '').localeCompare(b.name || '');
+                return getGameSortName(a).localeCompare(getGameSortName(b), undefined, { sensitivity: 'base', numeric: true });
             });
 
         case 'size':
@@ -48,7 +59,7 @@ export function sortGames(games: LibraryGameItem[], mode: LibrarySortMode): Libr
                 const sizeA = typeof a.sizeOnDisk === 'number' ? a.sizeOnDisk : 0;
                 const sizeB = typeof b.sizeOnDisk === 'number' ? b.sizeOnDisk : 0;
                 if (sizeB !== sizeA) return sizeB - sizeA; // descending: largest first
-                return (a.name || '').localeCompare(b.name || '');
+                return getGameSortName(a).localeCompare(getGameSortName(b), undefined, { sensitivity: 'base', numeric: true });
             });
 
         case 'recent':
@@ -57,7 +68,7 @@ export function sortGames(games: LibraryGameItem[], mode: LibrarySortMode): Libr
                 const timeA = typeof a.lastPlayed === 'number' ? a.lastPlayed : 0;
                 const timeB = typeof b.lastPlayed === 'number' ? b.lastPlayed : 0;
                 if (timeB !== timeA) return timeB - timeA; // descending: most recent first
-                return (a.name || '').localeCompare(b.name || '');
+                return getGameSortName(a).localeCompare(getGameSortName(b), undefined, { sensitivity: 'base', numeric: true });
             });
     }
 }
@@ -79,7 +90,7 @@ export function sortCollections(collections: LibraryCollectionItem[], mode: Libr
                 const totalA = a.games?.reduce((sum, g) => sum + (g.playedMinutes || 0), 0) ?? 0;
                 const totalB = b.games?.reduce((sum, g) => sum + (g.playedMinutes || 0), 0) ?? 0;
                 if (totalB !== totalA) return totalB - totalA;
-                return (a.name || '').localeCompare(b.name || '');
+                return (a.name || '').trim().localeCompare((b.name || '').trim(), undefined, { sensitivity: 'base', numeric: true });
             });
 
         case 'size':
@@ -87,7 +98,7 @@ export function sortCollections(collections: LibraryCollectionItem[], mode: Libr
                 const countA = typeof a.count === 'number' ? a.count : (a.games?.length ?? 0);
                 const countB = typeof b.count === 'number' ? b.count : (b.games?.length ?? 0);
                 if (countB !== countA) return countB - countA;
-                return (a.name || '').localeCompare(b.name || '');
+                return (a.name || '').trim().localeCompare((b.name || '').trim(), undefined, { sensitivity: 'base', numeric: true });
             });
 
         case 'recent':
@@ -96,7 +107,7 @@ export function sortCollections(collections: LibraryCollectionItem[], mode: Libr
                 const maxA = a.games?.reduce((max, g) => Math.max(max, g.lastPlayed || 0), 0) ?? 0;
                 const maxB = b.games?.reduce((max, g) => Math.max(max, g.lastPlayed || 0), 0) ?? 0;
                 if (maxB !== maxA) return maxB - maxA;
-                return (a.name || '').localeCompare(b.name || '');
+                return (a.name || '').trim().localeCompare((b.name || '').trim(), undefined, { sensitivity: 'base', numeric: true });
             });
     }
 }

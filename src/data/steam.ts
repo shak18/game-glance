@@ -7,6 +7,7 @@ import { Cache, cache as defaultCache, TTL } from './cache';
 export interface GameInfo {
     appId: number;
     name: string;
+    sortAs?: string;
     isShortcut: boolean;
     playedMinutes: number;
     achievements: { achieved: number; total: number } | null;
@@ -42,7 +43,20 @@ export function readGameInfo(overview: unknown, details: unknown): GameInfo {
     const achievements = !isShortcut && Number.isFinite(total) && total > 0
         ? { achieved: Number(a?.nAchieved ?? 0) || 0, total }
         : null;
-    return {
+
+    const rawSortAs =
+        (typeof o?.sort_as === 'string' && o.sort_as) ||
+        (typeof (o as any)?.sortAs === 'string' && (o as any).sortAs) ||
+        (typeof (o as any)?.m_strSortAs === 'string' && (o as any).m_strSortAs) ||
+        (typeof (o as any)?.strSortAs === 'string' && (o as any).strSortAs) ||
+        (typeof (d as any)?.sort_as === 'string' && (d as any).sort_as) ||
+        (typeof (d as any)?.sortAs === 'string' && (d as any).sortAs) ||
+        (typeof (d as any)?.m_strSortAs === 'string' && (d as any).m_strSortAs) ||
+        (typeof (d as any)?.strSortAs === 'string' && (d as any).strSortAs) ||
+        undefined;
+    const sortAs = rawSortAs ? rawSortAs.trim() : undefined;
+
+    const info: GameInfo = {
         appId,
         name: typeof o?.display_name === 'string' ? o.display_name : '',
         isShortcut,
@@ -53,6 +67,10 @@ export function readGameInfo(overview: unknown, details: unknown): GameInfo {
         achievements,
         heroic: isShortcut ? parseHeroicLaunch(d?.strShortcutLaunchOptions as string | undefined) : null,
     };
+    if (sortAs && sortAs.length > 0) {
+        info.sortAs = sortAs;
+    }
+    return info;
 }
 
 export function parseStoreDescription(json: unknown, appId: number): string | null {

@@ -41,6 +41,25 @@ describe('readGameInfo', () => {
         const info = readGameInfo({ appid: 5, app_type: 1 }, { strShortcutLaunchOptions: 'heroic://launch/gog/1' });
         expect(info.heroic).toBeNull();
     });
+    it('reads sort_as from overview or details for custom sorting', () => {
+        const info = readGameInfo(
+            { appid: 638970, display_name: 'Yakuza 0', sort_as: 'Like A Dragon 0' },
+            undefined,
+        );
+        expect(info.sortAs).toBe('Like A Dragon 0');
+
+        const infoCamel = readGameInfo(
+            { appid: 638970, display_name: 'Yakuza 0', sortAs: 'Like A Dragon 0' },
+            undefined,
+        );
+        expect(infoCamel.sortAs).toBe('Like A Dragon 0');
+
+        const infoDetails = readGameInfo(
+            { appid: 638970, display_name: 'Yakuza 0' },
+            { m_strSortAs: 'Like A Dragon 0' },
+        );
+        expect(infoDetails.sortAs).toBe('Like A Dragon 0');
+    });
     it('tolerates missing data', () => {
         expect(readGameInfo(undefined, undefined)).toEqual({ appId: 0, name: '', isShortcut: false, playedMinutes: 0, achievements: null, heroic: null });
         expect(readGameInfo({ appid: 1, minutes_playtime_forever: 'x' }, { achievements: { nAchieved: 0, nTotal: 0 } }).achievements).toBeNull();

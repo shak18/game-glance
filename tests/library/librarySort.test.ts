@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getNextSortMode, sortCollections, sortGames, SORT_LABELS, SORT_MODES } from '../../src/library/librarySort';
+import { getGameSortName, getNextSortMode, sortCollections, sortGames, SORT_LABELS, SORT_MODES } from '../../src/library/librarySort';
 import { LibraryCollectionItem, LibraryGameItem } from '../../src/library/libraryData';
 
 function makeGame(overrides: Partial<LibraryGameItem>): LibraryGameItem {
@@ -49,6 +49,22 @@ describe('librarySort', () => {
             const sorted = sortGames(games, 'alpha');
             expect(sorted.map((g) => g.name)).toEqual(['Mario', 'Metroid', 'Zelda'].sort());
             expect(sorted.map((g) => g.name)).toEqual(['Mario', 'Metroid', 'Zelda']);
+        });
+
+        it('honors Steam custom sort title (sortAs) when sorting alphabetically', () => {
+            const yakuza0 = makeGame({ appId: 10, name: 'Yakuza 0', sortAs: 'Like A Dragon 0' });
+            const yakuzaKiwami = makeGame({ appId: 11, name: 'Yakuza Kiwami', sortAs: 'Like A Dragon 1' });
+            const hollowKnight = makeGame({ appId: 12, name: 'Hollow Knight' });
+            const persona5 = makeGame({ appId: 13, name: 'Persona 5 Royal' });
+
+            const sorted = sortGames([persona5, yakuzaKiwami, hollowKnight, yakuza0], 'alpha');
+            // 'Hollow Knight' (H) -> 'Like A Dragon 0' (L) -> 'Like A Dragon 1' (L) -> 'Persona 5 Royal' (P)
+            expect(sorted.map((g) => g.name)).toEqual([
+                'Hollow Knight',
+                'Yakuza 0',
+                'Yakuza Kiwami',
+                'Persona 5 Royal',
+            ]);
         });
 
         it('sorts by playtime (playedMinutes descending)', () => {

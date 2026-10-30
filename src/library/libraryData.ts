@@ -6,6 +6,7 @@ import { applyTabMasterCategories, TabMasterSettingsResult } from './tabmaster';
 export interface LibraryGameItem {
     appId: number;
     name: string;
+    sortAs?: string;
     isShortcut: boolean;
     isSoundtrack?: boolean;
     gameId?: string; // 64-bit shortcut ID
@@ -47,6 +48,9 @@ export interface LibraryCategory {
 type RawApp = {
     appid: number;
     display_name?: string;
+    sort_as?: string;
+    sortAs?: string;
+    m_strSortAs?: string;
     app_type?: number;
     installed?: boolean;
     m_gameid?: string;
@@ -637,9 +641,22 @@ export function rawAppToItem(app: RawApp, isRunning: boolean, soundtrackAppIds?:
             0
           ) || 0;
 
+    const rawSortAs =
+        info.sortAs ||
+        (typeof (mergedOverview as any)?.sort_as === 'string' && (mergedOverview as any).sort_as) ||
+        (typeof (mergedOverview as any)?.sortAs === 'string' && (mergedOverview as any).sortAs) ||
+        (typeof (mergedOverview as any)?.m_strSortAs === 'string' && (mergedOverview as any).m_strSortAs) ||
+        (typeof (mergedOverview as any)?.strSortAs === 'string' && (mergedOverview as any).strSortAs) ||
+        (typeof app.sort_as === 'string' && app.sort_as) ||
+        (typeof (app as any)?.sortAs === 'string' && (app as any).sortAs) ||
+        (typeof (app as any)?.m_strSortAs === 'string' && (app as any).m_strSortAs) ||
+        undefined;
+    const sortAs = rawSortAs ? rawSortAs.trim() : undefined;
+
     return {
         appId: app.appid,
         name: info.name || app.display_name || `App ${app.appid}`,
+        sortAs: sortAs && sortAs.length > 0 ? sortAs : undefined,
         isShortcut: info.isShortcut,
         isSoundtrack,
         gameId,
@@ -706,7 +723,11 @@ export function buildCategories(mockGames?: LibraryGameItem[], tabMasterData?: T
                 list.push(item);
             }
         }
-        return list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        return list.sort((a, b) => {
+            const nameA = (a.sortAs || a.name || '').trim();
+            const nameB = (b.sortAs || b.name || '').trim();
+            return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+        });
     };
 
     const isOst = (app: RawApp) =>
