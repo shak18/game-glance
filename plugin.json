@@ -2,7 +2,7 @@
   "name": "Glance Library",
   "author": "GameGlance Community",
   "flags": [],
-  "version": "1.1.1",
+  "version": "1.1.2",
   "api_version": 1,
   "publish": {
     "tags": ["library", "theme", "tabmaster"],

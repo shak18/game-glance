@@ -5,11 +5,14 @@ import { cache, Cache, DAY_MS } from './cache';
 
 /**
  * Built-in updater for Glance Library:
- * Checks GitHub releases on shak18/game-glance, looks for releases with glance-library assets,
+ * Checks GitHub releases on shak18/glance-library (with fallback to shak18/game-glance),
+ * looks for releases with glance-library assets,
  * and hands updates to Decky's native installer ('utilities/install_plugin').
  */
-export const GITHUB_REPO = 'shak18/game-glance';
+export const GITHUB_REPO = 'shak18/glance-library';
+export const LEGACY_GITHUB_REPO = 'shak18/game-glance';
 export const RELEASES_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=10`;
+export const LEGACY_RELEASES_URL = `https://api.github.com/repos/${LEGACY_GITHUB_REPO}/releases?per_page=10`;
 
 /** The release asset Decky installs. */
 export const ASSET_NAME = 'glance-library.zip';
@@ -209,12 +212,27 @@ export function latestReleases(fetchLatest: () => Promise<unknown>, store: Cache
 }
 
 async function fetchLatestRelease(): Promise<unknown> {
-    const res = await fetchNoCors(RELEASES_URL, {
+    try {
+        const res = await fetchNoCors(RELEASES_URL, {
+            method: 'GET',
+            headers: { Accept: 'application/vnd.github+json' },
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                return data;
+            }
+        }
+    } catch {
+        // Fall back to legacy repository
+    }
+
+    const legacyRes = await fetchNoCors(LEGACY_RELEASES_URL, {
         method: 'GET',
         headers: { Accept: 'application/vnd.github+json' },
     });
-    if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
-    return res.json();
+    if (!legacyRes.ok) throw new Error(`GitHub answered ${legacyRes.status}`);
+    return legacyRes.json();
 }
 
 const releases = latestReleases(fetchLatestRelease, cache);

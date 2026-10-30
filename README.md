@@ -2,7 +2,7 @@
 
 A [Decky Loader](https://decky.xyz) plugin for Steam's Game Mode. It enhances Steam's Library with **Spotlight Library**: a modern, cinematic two-panel library view with full-bleed hero artwork, dynamic accent glow, integrated inspector details, and TabMaster category synchronization.
 
-Glance Library works as a **standalone plugin** or side-by-side with [Game Glance](https://github.com/shak18/game-glance) without route or patch conflicts.
+Glance Library works as a **standalone plugin** or side-by-side with [Game Glance](https://github.com/michpalm/game-glance) without route or patch conflicts.
 
 ---
 
